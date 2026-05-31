@@ -22,11 +22,12 @@ describe("plugin payload files", () => {
     expect(hooks.hooks.PostToolUse[0].matcher).toBe("Write|Edit");
   });
 
-  it("marketplace.json lists the plugin via a github source (self-contained; no npm needed to install)", () => {
+  it("marketplace.json installs the plugin from an HTTPS git url (no SSH, no npm needed)", () => {
     const market = JSON.parse(read(".claude-plugin", "marketplace.json"));
     expect(market.name).toBe("corpocode");
-    expect(market.plugins[0].source.source).toBe("github");
-    expect(market.plugins[0].source.repo).toBe("SomarkLenka/corpocode");
+    expect(market.plugins[0].source.source).toBe("url");
+    // HTTPS so the clone never falls back to git@github.com SSH (which needs a key).
+    expect(market.plugins[0].source.url).toBe("https://github.com/SomarkLenka/corpocode.git");
   });
 
   it("agent and skills ship with the expected frontmatter names", () => {
