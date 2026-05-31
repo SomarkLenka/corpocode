@@ -78,9 +78,9 @@ export function computeStats(lines: string[], opts: { days?: number; now?: numbe
   };
 }
 
-function readLogLines(env?: NodeJS.ProcessEnv): string[] {
+function readLogLines(): string[] {
   try {
-    return readFileSync(logFile(env), "utf8").split("\n");
+    return readFileSync(logFile(), "utf8").split("\n"); // project-local log in the cwd
   } catch {
     return [];
   }
@@ -109,7 +109,7 @@ function formatUsd(n: number): string {
 
 export function runStatsCommand(argv: string[], env?: NodeJS.ProcessEnv): void {
   const flags = parseFlags(argv);
-  const report = computeStats(readLogLines(env), { days: flags.days });
+  const report = computeStats(readLogLines(), { days: flags.days });
 
   if (flags.json) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

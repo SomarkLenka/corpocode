@@ -33,12 +33,19 @@ export function secretsFile(env?: NodeJS.ProcessEnv): string {
   return join(corpocodeHome(env), "secrets");
 }
 
-export function logsDir(env?: NodeJS.ProcessEnv): string {
-  return join(corpocodeHome(env), "logs");
+/**
+ * Logs are PROJECT-LOCAL: a `.corpocode/` folder in the host's working directory (the project root),
+ * not the global state dir. This makes logs trivial to find per-project and avoids depending on a
+ * home-dir path that behaves differently across OSes (notably Windows). Everything else — config,
+ * secrets, memory, the graph cache — still lives under `corpocodeHome`. Defaults to `process.cwd()`;
+ * the hook dispatcher passes the envelope's cwd so a hook logs into the repo it is running against.
+ */
+export function logsDir(cwd: string = process.cwd()): string {
+  return join(cwd, ".corpocode", "logs");
 }
 
-export function logFile(env?: NodeJS.ProcessEnv): string {
-  return join(logsDir(env), "corpocode.ndjson");
+export function logFile(cwd: string = process.cwd()): string {
+  return join(logsDir(cwd), "corpocode.ndjson");
 }
 
 export function memoryDir(env?: NodeJS.ProcessEnv): string {

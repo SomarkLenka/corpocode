@@ -28,9 +28,9 @@ function setTelemetryEnabled(enabled: boolean, env?: NodeJS.ProcessEnv): void {
   writeFileSync(configFile(env), `${JSON.stringify(raw, null, 2)}\n`);
 }
 
-function readLogLines(env?: NodeJS.ProcessEnv): string[] {
+function readLogLines(): string[] {
   try {
-    return readFileSync(logFile(env), "utf8").split("\n");
+    return readFileSync(logFile(), "utf8").split("\n"); // project-local log in the cwd
   } catch {
     return [];
   }
@@ -59,7 +59,7 @@ export function runTelemetryCommand(argv: string[], env: NodeJS.ProcessEnv = pro
 
   if (sub === "preview") {
     const config = loadConfig({ env });
-    const payload = buildTelemetryPayload(readLogLines(env), config);
+    const payload = buildTelemetryPayload(readLogLines(), config);
     process.stdout.write("This is the EXACT payload that would be sent (only whitelisted aggregate fields):\n");
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
     return;

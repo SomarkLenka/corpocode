@@ -149,9 +149,9 @@ function buildProposals(
   return proposals;
 }
 
-function readLogLines(env?: NodeJS.ProcessEnv): string[] {
+function readLogLines(): string[] {
   try {
-    return readFileSync(logFile(env), "utf8").split("\n");
+    return readFileSync(logFile(), "utf8").split("\n"); // project-local log in the cwd
   } catch {
     return [];
   }
@@ -183,7 +183,7 @@ export function runReviewCommand(argv: string[], env?: NodeJS.ProcessEnv): void 
     config = undefined; // review still works without config; it just can't flag idle tenets
   }
 
-  const report = computeReview(readLogLines(env), { days: flags.days, ...(config ? { config } : {}) });
+  const report = computeReview(readLogLines(), { days: flags.days, ...(config ? { config } : {}) });
 
   if (flags.json) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

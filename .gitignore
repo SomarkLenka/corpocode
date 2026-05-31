@@ -4,6 +4,7 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 graphify-out/
+.corpocode/
 *.log
 .env
 .env.*

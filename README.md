@@ -71,9 +71,10 @@ on Haiku and a future compactor on a free local Ollama model.
 
 ## Debug
 
-- **Logs.** Every hook appends one structured JSON line to `~/.corpocode/logs/corpocode.ndjson`.
-  Inspect with `corpocode stats` or read the file directly. Logging never throws into a hook and can
-  be disabled via `config.logging.enabled`.
+- **Logs.** Every hook appends one structured JSON line to a project-local `.corpocode/logs/corpocode.ndjson`
+  in the directory the host runs in (gitignored). Inspect with `corpocode stats` (run from the same
+  directory) or read the file directly. Logging never throws into a hook and can be disabled via
+  `config.logging.enabled`.
 - **Trace a failing hook.** Set `CORPOCODE_DEBUG=1`; on any fail-open path the dispatcher writes the
   error (with stack) to stderr. stderr on a 0-exit hook is shown by the host but does not break the
   turn.

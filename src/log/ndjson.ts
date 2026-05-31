@@ -69,10 +69,10 @@ export function nullLogger(): Logger {
 /** Build the process logger from config + paths. The dispatcher creates one and passes it down. */
 export function loggerFromConfig(
   config: Pick<CorpoConfig, "logging">,
-  opts: { env?: NodeJS.ProcessEnv; now?: () => Date } = {},
+  opts: { cwd?: string; now?: () => Date } = {},
 ): Logger {
   return createLogger({
-    file: logFile(opts.env),
+    file: logFile(opts.cwd), // project-local: <cwd>/.corpocode/logs/corpocode.ndjson
     enabled: config.logging.enabled,
     now: opts.now,
   });
