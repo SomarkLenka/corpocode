@@ -23910,6 +23910,9 @@ function resolveApiKey(opts, secrets, env = process.env) {
   if (!envKey) return void 0;
   return env[envKey] ?? secrets[envKey];
 }
+function conventionalEnvKey(kind3) {
+  return ENV_KEY_BY_KIND[kind3];
+}
 
 // src/providers/types.ts
 var ProviderError = class extends Error {
@@ -29386,6 +29389,7 @@ var COMMANDS = [
   { name: "install", usage: "install [--platform <name>] [--all] [--dry-run] [--skip-backends] [--repair]", summary: "Register hooks into a coding-agent platform" },
   { name: "provision", usage: "provision [--repair]", summary: "Install/start backends (graphify, OpenViking)" },
   { name: "uninstall", usage: "uninstall [--purge]", summary: "Remove shims and config (optionally Python tools)" },
+  { name: "init", usage: "init [--force]", summary: "Scaffold config + a secrets file with key placeholders (no npm needed)" },
   { name: "hook", usage: "hook <name> [--platform <id>]", summary: "Dispatch a hook (invoked by installed shims)" },
   { name: "doctor", usage: "doctor", summary: "Run health checks and print repair hints" },
   { name: "stats", usage: "stats [--json] [--days N]", summary: "Report cost, savings, latency, and error rates" },
@@ -29427,8 +29431,66 @@ ${commands}
 `);
 }
 
+// src/commands/init.ts
+var import_node_fs37 = require("node:fs");
+function placeholderFor(key) {
+  return `REPLACE_WITH_YOUR_${key}`;
+}
+function defaultKeyNames() {
+  const names = /* @__PURE__ */ new Set();
+  for (const p2 of Object.values(defaultConfig().providers)) {
+    const k2 = conventionalEnvKey(p2.kind);
+    if (k2) names.add(k2);
+  }
+  return [...names];
+}
+function renderSecretsTemplate(keys) {
+  return [
+    "# CorpoCode secrets. Replace each placeholder with your real key \u2014 or set the matching",
+    "# environment variable instead (an env var takes precedence over this file).",
+    ...keys.map((k2) => `${k2}=${placeholderFor(k2)}`),
+    ""
+  ].join("\n");
+}
+function runInitCommand(argv, env = process.env) {
+  const force = argv.includes("--force");
+  ensureDir(corpocodeHome(env));
+  const cfgPath = configFile(env);
+  if ((0, import_node_fs37.existsSync)(cfgPath) && !force) {
+    process.stdout.write(`\xB7 config already exists, leaving it: ${cfgPath}
+`);
+  } else {
+    (0, import_node_fs37.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
+`);
+    process.stdout.write(`wrote default config: ${cfgPath}
+`);
+  }
+  const keys = defaultKeyNames();
+  const secPath = secretsFile(env);
+  if ((0, import_node_fs37.existsSync)(secPath) && !force) {
+    process.stdout.write(`\xB7 secrets already exists, not touching it: ${secPath}
+`);
+  } else {
+    (0, import_node_fs37.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
+    try {
+      (0, import_node_fs37.chmodSync)(secPath, 384);
+    } catch {
+    }
+    process.stdout.write(`wrote secrets with placeholder(s): ${secPath}
+`);
+  }
+  const plural = keys.length === 1 ? "" : "s";
+  process.stdout.write(
+    `
+Next: open ${secPath} and replace the placeholder${plural} with your real key${plural}:
+` + keys.map((k2) => `  ${k2}=<your real key>`).join("\n") + `
+(or set ${keys.length === 1 ? "it" : "them"} as environment variable${plural} instead). Then run \`corpocode doctor\` to verify.
+`
+  );
+}
+
 // src/cli.ts
-var VERSION3 = "0.1.2";
+var VERSION3 = "0.1.3";
 function renderHelp() {
   const width = Math.max(...COMMANDS.map((c2) => c2.usage.length));
   const lines = COMMANDS.map((c2) => `  ${c2.usage.padEnd(width)}  ${c2.summary}`);
@@ -29474,6 +29536,9 @@ async function runCli(argv) {
       return;
     case "uninstall":
       await runUninstallCommand(rest);
+      return;
+    case "init":
+      runInitCommand(rest);
       return;
     case "doctor":
       await runDoctorCommand(rest);

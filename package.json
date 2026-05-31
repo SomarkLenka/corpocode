@@ -1,14 +1,25 @@
 {
   "name": "corpocode",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Cheap-model caretakers that read context, recommend, verify, and remember — offloading the main model.",
   "license": "MIT",
-  "author": { "name": "somark" },
+  "author": {
+    "name": "somark"
+  },
   "type": "commonjs",
-  "bin": { "corpocode": "./bin/corpocode.js" },
-  "engines": { "node": ">=20" },
-  "repository": { "type": "git", "url": "git+https://github.com/SomarkLenka/corpocode.git" },
-  "publishConfig": { "access": "public" },
+  "bin": {
+    "corpocode": "./bin/corpocode.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SomarkLenka/corpocode.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "bin",
     ".claude-plugin",

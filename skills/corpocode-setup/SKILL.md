@@ -18,7 +18,28 @@ CorpoCode runs as hooks, so you confirm it by seeing it work, not by running a b
 2. Every hook also appends a line to a project-local log: **`.corpocode/logs/corpocode.ndjson`** in the
    directory you launched the host from. `cat` the last few lines to see `router`, `verifier`, etc.
 
-If you see those, CorpoCode is set up. Nothing else is required.
+If you see those, CorpoCode is set up. The one input it needs is an **API key for the cheap model**,
+which it reads from your environment — set `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` / `GEMINI_API_KEY` /
+`OPENROUTER_API_KEY`) and you're done. (Or use the `anthropic-cli` provider, which uses your existing
+`claude` login and needs no key, or `ollama` for fully local.)
+
+## Configure config + key without npm (self-contained)
+
+The plugin ships the `corpocode` binary, so you can run any command without a global install. From the
+directory you launched the host in:
+
+```shell
+node "${CLAUDE_PLUGIN_ROOT}/bin/corpocode.js" init      # scaffold ~/.corpocode/config.json + a secrets template
+node "${CLAUDE_PLUGIN_ROOT}/bin/corpocode.js" doctor     # health-check
+```
+
+`init` writes a default config and a `~/.corpocode/secrets` file with a **placeholder** key. Open that
+file and replace `REPLACE_WITH_YOUR_ANTHROPIC_API_KEY` with your real key (or set the env var instead —
+an env var takes precedence over the file). `init` never overwrites an existing secrets file unless you
+pass `--force`, so a real key is always safe.
+
+If `${CLAUDE_PLUGIN_ROOT}` isn't set in your shell, the bundled binary lives under Claude Code's plugin
+cache at `~/.claude/plugins/cache/<marketplace>/corpocode/bin/corpocode.js`.
 
 ## Health check / provisioning — only for some setups
 

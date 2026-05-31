@@ -8,6 +8,7 @@ import { runSkillifyCommand } from "./commands/skillify";
 import { runReviewCommand } from "./commands/review";
 import { runTelemetryCommand } from "./commands/telemetry";
 import { runDocsCommand } from "./commands/docs";
+import { runInitCommand } from "./commands/init";
 import { COMMANDS } from "./cli-commands";
 
 const VERSION = (typeof __CORPOCODE_VERSION__ === "string" && __CORPOCODE_VERSION__) || "0.0.0";
@@ -56,6 +57,9 @@ export async function runCli(argv: string[]): Promise<void> {
       return;
     case "uninstall":
       await runUninstallCommand(rest);
+      return;
+    case "init":
+      runInitCommand(rest);
       return;
     case "doctor":
       await runDoctorCommand(rest);
