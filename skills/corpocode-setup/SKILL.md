@@ -1,32 +1,39 @@
 ---
-name: setup
-description: Provision and health-check CorpoCode's backends (graphify, OpenViking) after installing the plugin, then run diagnostics. Use once after installing CorpoCode, or when doctor reports a backend is unavailable.
+name: corpocode-setup
+description: Verify CorpoCode is active after installing, and (only if you opted into the Python backends or the npm CLI) provision and health-check. With the default native backends there is nothing to provision. Use once after installing, or when something seems off.
 ---
 
 # CorpoCode Setup
 
-Installing the CorpoCode plugin registers its hooks but leaves provisioning to you, on purpose:
-installation is inert; provisioning (which installs a Python toolchain and starts daemons) is a
-deliberate act. Run this once after installing.
+With the **default native backends**, there is **nothing to provision** — no Python toolchain, no
+daemon. Installing the plugin already registered CorpoCode's hooks, so it is active immediately. This
+skill is mostly a verification pass.
 
-Steps:
+## Verify it's working (no commands needed)
 
-1. Provision the backends (idempotent — safe to re-run):
+CorpoCode runs as hooks, so you confirm it by seeing it work, not by running a binary:
 
-   ```
-   corpocode provision
-   ```
+1. At the start of a turn you should see an injected `<middle-management recommendation>` block
+   (moment type, graph-scored files). That is the `UserPromptSubmit` hook firing.
+2. Every hook also appends a line to a project-local log: **`.corpocode/logs/corpocode.ndjson`** in the
+   directory you launched the host from. `cat` the last few lines to see `router`, `verifier`, etc.
 
-   This installs graphify, registers its git hook so the graph stays fresh, builds the initial
-   graph, generates OpenViking's config from your CorpoCode provider config, and starts the daemon.
+If you see those, CorpoCode is set up. Nothing else is required.
 
-2. Verify everything is wired and reachable:
+## Health check / provisioning — only for some setups
 
-   ```
-   corpocode doctor
-   ```
+The `corpocode` CLI is **only on your PATH if you installed the npm package** (`npm install -g
+corpocode`). A plugin-only install runs the bundled binary from the plugin directory and does **not**
+put `corpocode` on PATH — so do **not** run a bare `corpocode …` command after a plugin install; it
+will be "command not found".
 
-   Every red check prints the exact `corpocode install --repair` (or `provision`) remedy.
+- **Installed the npm CLI?** Run `corpocode doctor` for a full health check. Under native backends it
+  reports the in-process graph and store; there are no Python/daemon checks to satisfy.
+- **Deliberately selected the Python backends** (`backends.knowledgeGraph: "graphify"` or
+  `backends.contextStore: "openviking"` in `~/.corpocode/config.json`)? Those are not provisioned
+  automatically. Run `corpocode provision` (npm CLI required) to install graphify, build the initial
+  graph, generate OpenViking's config, and start the daemon. Then `corpocode doctor` to verify.
 
-Until provisioning runs, CorpoCode is useful but degraded: graph-backed file scoring falls back to
-a string-overlap heuristic, in keeping with the fail-open principle that governs the whole system.
+Until a Python graph is built (if you chose one), graph-backed file scoring falls back to a
+string-overlap heuristic — fail-open by design. The native graph needs none of this: it builds
+in-process on first use.

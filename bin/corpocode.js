@@ -23806,14 +23806,16 @@ function emptyResponse() {
 }
 function buildResponse(r2) {
   const hookSpecificOutput = {};
-  if (r2.hookEventName) hookSpecificOutput.hookEventName = r2.hookEventName;
   if (r2.additionalContext !== void 0) hookSpecificOutput.additionalContext = r2.additionalContext;
   if (r2.permissionDecision) {
     hookSpecificOutput.permissionDecision = r2.permissionDecision;
     if (r2.permissionDecisionReason) hookSpecificOutput.permissionDecisionReason = r2.permissionDecisionReason;
   }
   const out = {};
-  if (Object.keys(hookSpecificOutput).length > 0) out.hookSpecificOutput = hookSpecificOutput;
+  if (Object.keys(hookSpecificOutput).length > 0) {
+    hookSpecificOutput.hookEventName = r2.hookEventName ?? "";
+    out.hookSpecificOutput = hookSpecificOutput;
+  }
   if (r2.decision) out.decision = r2.decision;
   if (r2.reason) out.reason = r2.reason;
   if (r2.continue !== void 0) out.continue = r2.continue;
@@ -27908,10 +27910,11 @@ function withTimeout2(p2, ms) {
     );
   });
 }
-async function runTyped(schema, parsed, handler, ctx, serialize) {
+async function runTyped(hookEventName, schema, parsed, handler, ctx, serialize) {
   if (!handler) return emptyResponse();
   const envelope = schema.parse(parsed);
-  return serialize(await handler(envelope, ctx));
+  const response = await handler(envelope, ctx);
+  return serialize({ ...response, hookEventName: response.hookEventName ?? hookEventName });
 }
 async function dispatchHook(hookName, rawStdin, deps = {}) {
   const logger = deps.logger ?? nullLogger();
@@ -27929,15 +27932,15 @@ async function dispatchHook(hookName, rawStdin, deps = {}) {
     const route = () => {
       switch (hookName) {
         case "UserPromptSubmit":
-          return runTyped(userPromptSubmitSchema, parsed, handlers.UserPromptSubmit, ctx, serialize);
+          return runTyped(hookName, userPromptSubmitSchema, parsed, handlers.UserPromptSubmit, ctx, serialize);
         case "PreToolUse":
-          return runTyped(preToolUseSchema, parsed, handlers.PreToolUse, ctx, serialize);
+          return runTyped(hookName, preToolUseSchema, parsed, handlers.PreToolUse, ctx, serialize);
         case "PostToolUse":
-          return runTyped(postToolUseSchema, parsed, handlers.PostToolUse, ctx, serialize);
+          return runTyped(hookName, postToolUseSchema, parsed, handlers.PostToolUse, ctx, serialize);
         case "Stop":
-          return runTyped(stopSchema, parsed, handlers.Stop, ctx, serialize);
+          return runTyped(hookName, stopSchema, parsed, handlers.Stop, ctx, serialize);
         case "SubagentStart":
-          return runTyped(subagentStartSchema, parsed, handlers.SubagentStart, ctx, serialize);
+          return runTyped(hookName, subagentStartSchema, parsed, handlers.SubagentStart, ctx, serialize);
         default: {
           const unreachable = hookName;
           return Promise.resolve(emptyResponse());
@@ -29425,7 +29428,7 @@ ${commands}
 }
 
 // src/cli.ts
-var VERSION3 = "0.1.1";
+var VERSION3 = "0.1.2";
 function renderHelp() {
   const width = Math.max(...COMMANDS.map((c2) => c2.usage.length));
   const lines = COMMANDS.map((c2) => `  ${c2.usage.padEnd(width)}  ${c2.summary}`);

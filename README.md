@@ -25,7 +25,7 @@ twice (`corpocode doctor` warns if it detects both).
 ```shell
 /plugin marketplace add https://github.com/SomarkLenka/corpocode   # add the marketplace
 /plugin install corpocode@corpocode                                # install the plugin
-/corpocode:setup                                                   # health-check (native backends need no provisioning)
+/corpocode:corpocode-setup                                         # verify it's active (native backends need no provisioning)
 ```
 
 Use the HTTPS URL above — the `owner/repo` shorthand can resolve to SSH and fail with a publickey

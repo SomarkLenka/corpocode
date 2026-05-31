@@ -55,6 +55,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 // Typed structurally as just `{ parse }` so a Zod schema whose input type differs from its output
 // type (e.g. fields with `.default()`) still slots in cleanly and infers T from the parsed output.
 async function runTyped<T>(
+  hookEventName: string,
   schema: { parse: (data: unknown) => T },
   parsed: unknown,
   handler: Handler<T> | undefined,
@@ -63,7 +64,10 @@ async function runTyped<T>(
 ): Promise<string> {
   if (!handler) return emptyResponse();
   const envelope = schema.parse(parsed);
-  return serialize(await handler(envelope, ctx));
+  const response = await handler(envelope, ctx);
+  // Stamp the hook name so hookSpecificOutput always carries the hookEventName Claude Code requires —
+  // no handler can forget it. Handlers may override (the router already sets UserPromptSubmit).
+  return serialize({ ...response, hookEventName: response.hookEventName ?? hookEventName });
 }
 
 /**
@@ -98,15 +102,15 @@ export async function dispatchHook(hookName: string, rawStdin: string, deps: Dis
     const route = (): Promise<string> => {
       switch (hookName) {
         case "UserPromptSubmit":
-          return runTyped(userPromptSubmitSchema, parsed, handlers.UserPromptSubmit, ctx, serialize);
+          return runTyped(hookName, userPromptSubmitSchema, parsed, handlers.UserPromptSubmit, ctx, serialize);
         case "PreToolUse":
-          return runTyped(preToolUseSchema, parsed, handlers.PreToolUse, ctx, serialize);
+          return runTyped(hookName, preToolUseSchema, parsed, handlers.PreToolUse, ctx, serialize);
         case "PostToolUse":
-          return runTyped(postToolUseSchema, parsed, handlers.PostToolUse, ctx, serialize);
+          return runTyped(hookName, postToolUseSchema, parsed, handlers.PostToolUse, ctx, serialize);
         case "Stop":
-          return runTyped(stopSchema, parsed, handlers.Stop, ctx, serialize);
+          return runTyped(hookName, stopSchema, parsed, handlers.Stop, ctx, serialize);
         case "SubagentStart":
-          return runTyped(subagentStartSchema, parsed, handlers.SubagentStart, ctx, serialize);
+          return runTyped(hookName, subagentStartSchema, parsed, handlers.SubagentStart, ctx, serialize);
         default: {
           const unreachable: never = hookName;
           void unreachable;

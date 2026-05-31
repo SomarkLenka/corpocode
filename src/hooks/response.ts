@@ -44,7 +44,6 @@ export function emptyResponse(): string {
 
 export function buildResponse(r: HookResponse): string {
   const hookSpecificOutput: Record<string, unknown> = {};
-  if (r.hookEventName) hookSpecificOutput.hookEventName = r.hookEventName;
   if (r.additionalContext !== undefined) hookSpecificOutput.additionalContext = r.additionalContext;
   if (r.permissionDecision) {
     hookSpecificOutput.permissionDecision = r.permissionDecision;
@@ -52,7 +51,13 @@ export function buildResponse(r: HookResponse): string {
   }
 
   const out: Record<string, unknown> = {};
-  if (Object.keys(hookSpecificOutput).length > 0) out.hookSpecificOutput = hookSpecificOutput;
+  if (Object.keys(hookSpecificOutput).length > 0) {
+    // Claude Code REQUIRES hookEventName whenever hookSpecificOutput is present, so it is stamped here
+    // (the dispatcher guarantees r.hookEventName is set to the current hook). Without it Claude Code
+    // rejects the output with "hookSpecificOutput is missing required field hookEventName".
+    hookSpecificOutput.hookEventName = r.hookEventName ?? "";
+    out.hookSpecificOutput = hookSpecificOutput;
+  }
   if (r.decision) out.decision = r.decision;
   if (r.reason) out.reason = r.reason;
   if (r.continue !== undefined) out.continue = r.continue;

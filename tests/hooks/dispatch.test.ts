@@ -22,6 +22,22 @@ describe("dispatchHook (fail-open safety)", () => {
     expect(JSON.parse(out).hookSpecificOutput.additionalContext).toBe("hi");
   });
 
+  it("stamps hookEventName whenever hookSpecificOutput is present (a handler can't omit it)", async () => {
+    // A PreToolUse handler that returns a permission decision but FORGETS hookEventName — Claude Code
+    // rejects output whose hookSpecificOutput lacks hookEventName, so the dispatcher must add it.
+    const handler = vi.fn(async () => ({ permissionDecision: "deny" as const, permissionDecisionReason: "nope" }));
+    const preTool = JSON.stringify({ session_id: "s", transcript_path: "/t", cwd: "/repo", tool_name: "Bash", tool_input: { command: "rm -rf /" } });
+    const out = JSON.parse(await dispatchHook("PreToolUse", preTool, deps({ PreToolUse: handler })));
+    expect(out.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+    expect(out.hookSpecificOutput.permissionDecision).toBe("deny");
+  });
+
+  it("keeps the empty response as {} (no hookSpecificOutput stamped onto nothing)", async () => {
+    const handler = vi.fn(async () => ({})); // a no-op fail-open response
+    const preTool = JSON.stringify({ session_id: "s", transcript_path: "/t", cwd: "/repo", tool_name: "Read", tool_input: {} });
+    expect(await dispatchHook("PreToolUse", preTool, deps({ PreToolUse: handler }))).toBe("{}");
+  });
+
   it("returns empty {} for an unknown hook name", async () => {
     expect(await dispatchHook("Nope", validPrompt, deps({}))).toBe("{}");
   });

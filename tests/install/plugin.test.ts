@@ -33,6 +33,7 @@ describe("plugin payload files", () => {
   it("agent and skills ship with the expected frontmatter names", () => {
     expect(read("agents", "haiku-helper.md")).toContain("name: haiku-helper");
     expect(read("skills", "corpocode-router", "SKILL.md")).toContain("name: corpocode-router");
-    expect(read("skills", "corpocode-setup", "SKILL.md")).toContain("name: setup");
+    // Frontmatter name matches the dir so it registers as /corpocode:corpocode-setup (not /corpocode:setup).
+    expect(read("skills", "corpocode-setup", "SKILL.md")).toContain("name: corpocode-setup");
   });
 });
