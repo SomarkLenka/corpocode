@@ -55,14 +55,15 @@ export function buildContext(config: CorpoConfig, opts: BuildContextOptions = {}
   const repoRoot = opts.repoRoot ?? cwd();
   const project = projectKey(repoRoot);
   const platform = opts.platform ?? "claude-code";
-  const logger = opts.logger ?? loggerFromConfig(config, { cwd: repoRoot }); // logs into <repoRoot>/.corpocode
+  const logger = opts.logger ?? loggerFromConfig(config, { cwd: repoRoot, env }); // logs into <repoRoot>/.corpocode
   const registry = buildRegistry(config, { env });
   // Memoize stage-1 file-scoring across hooks (keyed on the graph's version) — the latency that sits
   // directly in front of the model's first token is the one most worth caching.
   const graph = withScoreFilesCache(buildKnowledgeGraph(config, { repoRoot }), { repoRoot, env });
   const context = buildContextStore(config);
-  const memory = buildMemoryStore(config, { project, env });
-  const sessionReader = createSessionReader({ provider: registry.forComponent("router"), env });
+  // Memory and the session cache are project-local too (under <repoRoot>/.corpocode), so repoRoot flows in.
+  const memory = buildMemoryStore(config, { project, env, repoRoot });
+  const sessionReader = createSessionReader({ provider: registry.forComponent("router"), env, cwd: repoRoot });
   const plugins = opts.plugins ?? discoverContributions();
   return { config, env, repoRoot, project, platform, logger, registry, graph, context, memory, sessionReader, plugins };
 }

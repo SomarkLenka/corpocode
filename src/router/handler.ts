@@ -123,6 +123,7 @@ export async function handleUserPromptSubmit(
       recalledIds: priorDecisions.map((m) => m.id),
       ts: Date.now(),
     },
+    ctx.repoRoot,
     ctx.env,
   );
 

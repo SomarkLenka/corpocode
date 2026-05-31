@@ -16,18 +16,23 @@ export interface CachedDecision {
   ts: number;
 }
 
-export function writeLastDecision(sessionId: string, decision: CachedDecision, env?: NodeJS.ProcessEnv): void {
+export function writeLastDecision(
+  sessionId: string,
+  decision: CachedDecision,
+  cwd?: string,
+  env?: NodeJS.ProcessEnv,
+): void {
   try {
-    ensureDir(sessionsDir(env));
-    writeFileSync(sessionDecisionFile(sessionId, env), JSON.stringify(decision));
+    ensureDir(sessionsDir(cwd, env));
+    writeFileSync(sessionDecisionFile(sessionId, cwd, env), JSON.stringify(decision));
   } catch {
     // best-effort: a cache write must never break the turn
   }
 }
 
-export function readLastDecision(sessionId: string, env?: NodeJS.ProcessEnv): CachedDecision | null {
+export function readLastDecision(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): CachedDecision | null {
   try {
-    const parsed = JSON.parse(readFileSync(sessionDecisionFile(sessionId, env), "utf8")) as CachedDecision;
+    const parsed = JSON.parse(readFileSync(sessionDecisionFile(sessionId, cwd, env), "utf8")) as CachedDecision;
     if (parsed && typeof parsed.type === "string") return parsed;
   } catch {
     // missing/corrupt → unknown

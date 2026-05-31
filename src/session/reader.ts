@@ -30,6 +30,7 @@ const SYSTEM_PROMPT =
 
 export interface SessionReaderOptions {
   provider: Provider;
+  cwd?: string; // project root; the per-session cache lives under <cwd>/.corpocode/sessions
   env?: NodeJS.ProcessEnv;
   now?: () => number;
 }
@@ -122,10 +123,11 @@ function looksLikePath(s: string): boolean {
 
 export function createSessionReader(opts: SessionReaderOptions): SessionReader {
   const env = opts.env;
+  const cwd = opts.cwd;
 
   const loadCache = (sessionId: string): CachedSession => {
     try {
-      const parsed = JSON.parse(readFileSync(sessionStateFile(sessionId, env), "utf8")) as CachedSession;
+      const parsed = JSON.parse(readFileSync(sessionStateFile(sessionId, cwd, env), "utf8")) as CachedSession;
       if (parsed && parsed.state && typeof parsed.offset === "number") return parsed;
     } catch {
       // missing/corrupt → fresh
@@ -135,8 +137,8 @@ export function createSessionReader(opts: SessionReaderOptions): SessionReader {
 
   const saveCache = (sessionId: string, cache: CachedSession): void => {
     try {
-      ensureDir(sessionsDir(env));
-      writeFileSync(sessionStateFile(sessionId, env), JSON.stringify(cache));
+      ensureDir(sessionsDir(cwd, env));
+      writeFileSync(sessionStateFile(sessionId, cwd, env), JSON.stringify(cache));
     } catch {
       // Persisting the cache is best-effort; a write failure must not break the hook.
     }

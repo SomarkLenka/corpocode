@@ -48,6 +48,7 @@ export type MemoryMiner = (transcript: Transcript) => Promise<MinedMemory[]>;
 
 export interface NativeMemoryOptions {
   project: string;
+  cwd?: string; // project root; memory is stored project-local under <cwd>/.corpocode/memory
   env?: NodeJS.ProcessEnv;
   embedder?: Embedder;
   now?: () => number;
@@ -119,6 +120,7 @@ function readJson<T>(path: string, fallback: T): T {
 
 export function createNativeMemoryStore(opts: NativeMemoryOptions): MemoryStore {
   const env = opts.env;
+  const cwd = opts.cwd;
   const embedder = opts.embedder ?? localEmbedder();
   const now = opts.now ?? (() => Date.now());
   const genId = opts.genId ?? (() => randomUUID());
@@ -126,8 +128,9 @@ export function createNativeMemoryStore(opts: NativeMemoryOptions): MemoryStore 
   const miner = opts.miner ?? defaultMiner;
   const conflictThreshold = opts.conflictThreshold ?? DEFAULT_CONFLICT_THRESHOLD;
 
-  const recordsPath = (project: string): string => memoryFile(project, env);
-  const embeddingsPath = (project: string): string => memoryEmbeddingsFile(project, env);
+  // Storage is project-local (keyed by cwd), so the per-project filename is no longer needed.
+  const recordsPath = (_project: string): string => memoryFile(cwd, env);
+  const embeddingsPath = (_project: string): string => memoryEmbeddingsFile(cwd, env);
 
   const loadRecords = (project: string): Memory[] => {
     const value = readJson<Memory[]>(recordsPath(project), []);
@@ -137,7 +140,7 @@ export function createNativeMemoryStore(opts: NativeMemoryOptions): MemoryStore 
     readJson<Embeddings>(embeddingsPath(project), {});
 
   const save = (project: string, records: Memory[], embeddings: Embeddings): void => {
-    ensureDir(memoryDir(env));
+    ensureDir(memoryDir(cwd, env));
     writeFileSync(recordsPath(project), JSON.stringify(records, null, 2));
     writeFileSync(embeddingsPath(project), JSON.stringify(embeddings));
   };
@@ -273,7 +276,7 @@ export function createNativeMemoryStore(opts: NativeMemoryOptions): MemoryStore 
 
     async ping(): Promise<boolean> {
       try {
-        ensureDir(memoryDir(env));
+        ensureDir(memoryDir(cwd, env));
         return true;
       } catch {
         return false;

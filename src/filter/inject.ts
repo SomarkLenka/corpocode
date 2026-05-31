@@ -88,7 +88,7 @@ export async function injectFileRead(envelope: PreToolUseEnvelope, ctx: HookCont
   const file = targetFile(envelope.tool_input);
   if (!file) return {}; // Glob/Grep without a concrete file → nothing to slice
   const scope = { project: ctx.project, workspaceCascade: false };
-  const decision = readLastDecision(envelope.session_id, ctx.env);
+  const decision = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env);
   const effort = decision?.effort as Effort | undefined;
 
   // Warnings first — always attempt; these are the cheapest and most valuable.

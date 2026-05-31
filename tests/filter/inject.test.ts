@@ -118,6 +118,7 @@ describe("context injector", () => {
     writeLastDecision(
       SESSION,
       { type: "exploration", complexity: "medium", breakpoint: false, dispatch_retrieval: false, effort: "medium", recalledIds: [], ts: 1 },
+      undefined, // cwd: CORPOCODE_HOME in env overrides it (test isolation)
       env,
     );
     const ctx = makeCtx({ env, relevance: JSON.stringify({ relevant: true, confidence: 0.95, focus: "computeTotal()" }) });

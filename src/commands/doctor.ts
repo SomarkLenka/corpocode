@@ -91,9 +91,9 @@ function defaultChannels(env?: NodeJS.ProcessEnv): ChannelState {
   return { npm: hasCorpocodeHooks(settings), plugin: pluginInstalled(home) };
 }
 
-function defaultMemoryWritable(env?: NodeJS.ProcessEnv): boolean {
+function defaultMemoryWritable(cwd?: string, env?: NodeJS.ProcessEnv): boolean {
   try {
-    const dir = memoryDir(env);
+    const dir = memoryDir(cwd, env);
     ensureDir(dir);
     const probe = join(dir, ".doctor-probe");
     writeFileSync(probe, "ok");
@@ -233,12 +233,13 @@ export async function runDoctor(deps: DoctorDeps = {}): Promise<DoctorCheck[]> {
     );
   }
 
-  // 8. Memory dir writable.
-  const memOk = (deps.memoryWritable ?? (() => defaultMemoryWritable(env)))();
+  // 8. Memory dir writable (project-local under the repo's .corpocode).
+  const repoRoot = deps.repoRoot ?? process.cwd();
+  const memOk = (deps.memoryWritable ?? (() => defaultMemoryWritable(repoRoot, env)))();
   checks.push(
     memOk
       ? { name: "memory dir", status: "ok", detail: "writable" }
-      : { name: "memory dir", status: "fail", detail: `not writable: ${memoryDir(env)}`, repair: REPAIR_INSTALL },
+      : { name: "memory dir", status: "fail", detail: `not writable: ${memoryDir(repoRoot, env)}`, repair: REPAIR_INSTALL },
   );
 
   // 9. Plugins — transparency: list every discovered plugin and what it contributes, so the user can

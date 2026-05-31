@@ -34,34 +34,44 @@ export function secretsFile(env?: NodeJS.ProcessEnv): string {
 }
 
 /**
- * Logs are PROJECT-LOCAL: a `.corpocode/` folder in the host's working directory (the project root),
- * not the global state dir. This makes logs trivial to find per-project and avoids depending on a
- * home-dir path that behaves differently across OSes (notably Windows). Everything else — config,
- * secrets, memory, the graph cache — still lives under `corpocodeHome`. Defaults to `process.cwd()`;
- * the hook dispatcher passes the envelope's cwd so a hook logs into the repo it is running against.
+ * Base directory for PROJECT-LOCAL state — logs, memory, and the session cache. It lives in a
+ * `.corpocode/` folder in the host's working directory (the project root), so this state is easy to
+ * find per-project and doesn't depend on a home-dir path that varies by OS (notably Windows). Config
+ * and secrets still live under `corpocodeHome` — secrets must never land in a repo.
+ *
+ * `CORPOCODE_HOME` overrides the base entirely, pinning ALL state to one directory: tests rely on this
+ * for isolation, and a user can set it to keep the old global behavior. `cwd` defaults to
+ * `process.cwd()`; the hook dispatcher passes the envelope's cwd so a hook reads/writes the repo it is
+ * running against even if its process cwd differs.
  */
-export function logsDir(cwd: string = process.cwd()): string {
-  return join(cwd, ".corpocode", "logs");
+export function projectStateDir(cwd: string = process.cwd(), env: NodeJS.ProcessEnv = process.env): string {
+  const override = env.CORPOCODE_HOME;
+  if (override && override.trim()) return override;
+  return join(cwd, ".corpocode");
 }
 
-export function logFile(cwd: string = process.cwd()): string {
-  return join(logsDir(cwd), "corpocode.ndjson");
+export function logsDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(projectStateDir(cwd, env), "logs");
 }
 
-export function memoryDir(env?: NodeJS.ProcessEnv): string {
-  return join(corpocodeHome(env), "memory");
+export function logFile(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(logsDir(cwd, env), "corpocode.ndjson");
 }
 
-export function memoryFile(project: string, env?: NodeJS.ProcessEnv): string {
-  return join(memoryDir(env), `${project}.json`);
+export function memoryDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(projectStateDir(cwd, env), "memory");
 }
 
-export function memoryEmbeddingsFile(project: string, env?: NodeJS.ProcessEnv): string {
-  return join(memoryDir(env), `${project}.embeddings.json`);
+export function memoryFile(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(memoryDir(cwd, env), "memory.json");
 }
 
-export function sessionsDir(env?: NodeJS.ProcessEnv): string {
-  return join(corpocodeHome(env), "sessions");
+export function memoryEmbeddingsFile(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(memoryDir(cwd, env), "memory.embeddings.json");
+}
+
+export function sessionsDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(projectStateDir(cwd, env), "sessions");
 }
 
 export function cacheDir(env?: NodeJS.ProcessEnv): string {
@@ -79,8 +89,8 @@ export function cacheFile(namespace: string, env?: NodeJS.ProcessEnv): string {
  * to disk so each separate `corpocode hook` process reads only the new transcript slice — keeping
  * per-hook cost flat as the transcript grows.
  */
-export function sessionStateFile(sessionId: string, env?: NodeJS.ProcessEnv): string {
-  return join(sessionsDir(env), `${safeSessionId(sessionId)}.json`);
+export function sessionStateFile(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(sessionsDir(cwd, env), `${safeSessionId(sessionId)}.json`);
 }
 
 /**
@@ -88,8 +98,8 @@ export function sessionStateFile(sessionId: string, env?: NodeJS.ProcessEnv): st
  * recalled). The context injector reads the moment type to decide whether to slice; the compactor
  * reads the recalled ids to close the outcome loop. Written by the router each turn.
  */
-export function sessionDecisionFile(sessionId: string, env?: NodeJS.ProcessEnv): string {
-  return join(sessionsDir(env), `${safeSessionId(sessionId)}.decision.json`);
+export function sessionDecisionFile(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(sessionsDir(cwd, env), `${safeSessionId(sessionId)}.decision.json`);
 }
 
 function safeSessionId(sessionId: string): string {

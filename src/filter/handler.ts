@@ -35,7 +35,7 @@ export async function handlePreToolUse(
   let classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
   // Only the uncertain middle consults the LLM; deny/allow are already confident and free.
   if (classification.decision === "ask") {
-    const effort = readLastDecision(envelope.session_id, ctx.env)?.effort as Effort | undefined;
+    const effort = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env)?.effort as Effort | undefined;
     classification = await softClassify(command, ctx.registry.forComponent("filter"), effort);
   }
 

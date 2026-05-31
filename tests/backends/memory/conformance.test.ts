@@ -19,11 +19,12 @@ describe("native MemoryStore", () => {
 
   /** Seed the store file directly — used to set fields capture() doesn't (supersededBy, createdAt). */
   const seed = (records: Memory[]): void => {
-    ensureDir(memoryDir(env));
-    writeFileSync(memoryFile(PROJECT, env), JSON.stringify(records));
+    // cwd undefined → CORPOCODE_HOME in env overrides the base (test isolation), matching the store.
+    ensureDir(memoryDir(undefined, env));
+    writeFileSync(memoryFile(undefined, env), JSON.stringify(records));
     const embeddings: Record<string, number[]> = {};
     for (const m of records) embeddings[m.id] = embedText(m.text);
-    writeFileSync(memoryEmbeddingsFile(PROJECT, env), JSON.stringify(embeddings));
+    writeFileSync(memoryEmbeddingsFile(undefined, env), JSON.stringify(embeddings));
   };
 
   beforeEach(() => {
@@ -134,8 +135,8 @@ describe("native MemoryStore", () => {
   });
 
   it("returns empty recall (no throw) on a corrupt store", async () => {
-    ensureDir(memoryDir(env));
-    writeFileSync(memoryFile(PROJECT, env), "{ this is not valid json");
+    ensureDir(memoryDir(undefined, env));
+    writeFileSync(memoryFile(undefined, env), "{ this is not valid json");
     const results = await mk().recall({ query: "anything", scope, limit: 5 });
     expect(results).toEqual([]);
   });

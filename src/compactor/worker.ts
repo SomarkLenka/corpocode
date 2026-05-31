@@ -102,7 +102,7 @@ export async function handleStop(envelope: StopEnvelope, ctx: HookContext): Prom
 
     // Close the outcome loop: reweight whatever was recalled this session. Without a cross-process
     // pass/fail signal we record a neutral-positive outcome; a future phase can refine the signal.
-    const decision = readLastDecision(envelope.session_id, ctx.env);
+    const decision = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env);
     if (decision?.recalledIds.length) {
       try {
         await ctx.memory.recordOutcome({ recalledIds: decision.recalledIds, passed: true, sessionId: envelope.session_id });

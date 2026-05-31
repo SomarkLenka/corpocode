@@ -12,6 +12,7 @@ export function buildMemoryStore(
   _config: CorpoConfig,
   opts: { project?: string; env?: NodeJS.ProcessEnv; embedder?: Embedder; repoRoot?: string } = {},
 ): MemoryStore {
-  const project = opts.project ?? projectKey(opts.repoRoot ?? cwd());
-  return createNativeMemoryStore({ project, env: opts.env, embedder: opts.embedder });
+  const repoRoot = opts.repoRoot ?? cwd();
+  const project = opts.project ?? projectKey(repoRoot);
+  return createNativeMemoryStore({ project, cwd: repoRoot, env: opts.env, embedder: opts.embedder });
 }
