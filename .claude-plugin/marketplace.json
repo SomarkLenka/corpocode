@@ -1,0 +1,15 @@
+{
+  "name": "corpocode",
+  "owner": { "name": "CorpoCode" },
+  "metadata": {
+    "description": "CorpoCode — cheap-model caretakers that read context, recommend, verify, and remember for coding agents."
+  },
+  "plugins": [
+    {
+      "name": "corpocode",
+      "source": { "source": "npm", "package": "corpocode" },
+      "description": "Cheap-model caretakers that read context, recommend, verify, and remember.",
+      "category": "productivity"
+    }
+  ]
+}

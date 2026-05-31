@@ -1,0 +1,41 @@
+{
+  "name": "corpocode",
+  "version": "0.1.0",
+  "description": "Cheap-model caretakers that read context, recommend, verify, and remember — offloading the main model.",
+  "license": "MIT",
+  "author": { "name": "somark" },
+  "type": "commonjs",
+  "bin": { "corpocode": "./bin/corpocode.js" },
+  "engines": { "node": ">=20" },
+  "repository": { "type": "git", "url": "git+https://github.com/SomarkLenka/corpocode.git" },
+  "publishConfig": { "access": "public" },
+  "files": [
+    "bin",
+    ".claude-plugin",
+    "hooks",
+    "agents",
+    "skills",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dev": "vitest",
+    "verify": "npm run build && npm run typecheck && npm run test",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.21.0",
+    "ollama": "^0.5.11",
+    "openai": "^4.77.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

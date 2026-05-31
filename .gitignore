@@ -1,0 +1,10 @@
+node_modules/
+bin/
+coverage/
+*.tsbuildinfo
+.DS_Store
+graphify-out/
+*.log
+.env
+.env.*
+!.env.example
