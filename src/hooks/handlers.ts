@@ -10,6 +10,7 @@ import type { HookResponse } from "./response";
 import type {
   PostToolUseEnvelope,
   PreToolUseEnvelope,
+  SessionStartEnvelope,
   StopEnvelope,
   SubagentStartEnvelope,
   UserPromptSubmitEnvelope,
@@ -18,6 +19,7 @@ import { handleUserPromptSubmit } from "../router/handler";
 import { handlePreToolUse } from "../filter/handler";
 import { handlePostToolUse } from "../verifier/handler";
 import { handleStop } from "../compactor/worker";
+import { handleSessionStart } from "../toolbox/session-start";
 
 export type Handler<E> = (envelope: E, ctx: HookContext) => Promise<HookResponse>;
 
@@ -27,6 +29,7 @@ export interface HandlerMap {
   PostToolUse: Handler<PostToolUseEnvelope>;
   Stop: Handler<StopEnvelope>;
   SubagentStart: Handler<SubagentStartEnvelope>;
+  SessionStart: Handler<SessionStartEnvelope>;
 }
 
 export function buildHandlers(): Partial<HandlerMap> {
@@ -35,5 +38,6 @@ export function buildHandlers(): Partial<HandlerMap> {
     PreToolUse: handlePreToolUse,
     PostToolUse: handlePostToolUse,
     Stop: handleStop,
+    SessionStart: handleSessionStart,
   };
 }

@@ -11,6 +11,7 @@ import {
   isHookName,
   postToolUseSchema,
   preToolUseSchema,
+  sessionStartSchema,
   stopSchema,
   subagentStartSchema,
   userPromptSubmitSchema,
@@ -111,6 +112,8 @@ export async function dispatchHook(hookName: string, rawStdin: string, deps: Dis
           return runTyped(hookName, stopSchema, parsed, handlers.Stop, ctx, serialize);
         case "SubagentStart":
           return runTyped(hookName, subagentStartSchema, parsed, handlers.SubagentStart, ctx, serialize);
+        case "SessionStart":
+          return runTyped(hookName, sessionStartSchema, parsed, handlers.SessionStart, ctx, serialize);
         default: {
           const unreachable: never = hookName;
           void unreachable;

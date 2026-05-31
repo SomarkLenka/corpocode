@@ -27,6 +27,7 @@ export const componentNameSchema = z.enum([
   "compactor",
   "filter",
   "verifier",
+  "toolbox",
 ]);
 export type ComponentName = z.infer<typeof componentNameSchema>;
 
@@ -56,6 +57,7 @@ const componentsSchema = z
     compactor: z.string().default("cheap_local"),
     filter: z.string().default("default"),
     verifier: z.string().default("default"),
+    toolbox: z.string().default("default"),
   })
   .default({});
 
@@ -139,6 +141,19 @@ export const configSchema = z
         // a directive, but only on a platform whose subagent mechanism the model can be pointed at.
         enabled: z.boolean().default(true),
         mode: z.enum(["suggest", "auto"]).default("suggest"),
+      })
+      .default({}),
+    // Gate the user's skills/agents (strip their "when to use" from the main model's context) and hand
+    // them back by name when a cheap classifier judges them relevant. gate_* control the deterministic
+    // rewrite; route_on_heavy_coding controls the PreToolUse subagent recommendation.
+    toolbox: z
+      .object({
+        enabled: z.boolean().default(true),
+        max_skills: z.number().int().nonnegative().default(4),
+        max_agents: z.number().int().nonnegative().default(2),
+        gate_on_session_start: z.boolean().default(true),
+        gate_plugins: z.boolean().default(true),
+        route_on_heavy_coding: z.boolean().default(true),
       })
       .default({}),
     backends: z

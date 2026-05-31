@@ -15,7 +15,7 @@ import type { HookResponse } from "../hooks/response";
 import { serializeForPlatform, type PlatformId } from "../hooks/platform-output";
 
 export type { PlatformId };
-export type HookEvent = "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "Stop" | "SubagentStart";
+export type HookEvent = "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "Stop" | "SubagentStart" | "SessionStart";
 
 export interface PlatformPaths {
   home: string;

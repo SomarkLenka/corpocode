@@ -12,6 +12,7 @@ export const HOOK_SPECS: HookSpec[] = [
   { name: "PreToolUse", matcher: "*" },
   { name: "PostToolUse", matcher: "Write|Edit" },
   { name: "Stop" },
+  { name: "SessionStart" },
 ];
 
 interface HookEntry {

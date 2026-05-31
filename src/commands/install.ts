@@ -1,7 +1,8 @@
 // CLI handlers for `corpocode install`, `corpocode provision`, and `corpocode uninstall`. Thin
 // orchestration over the install/provision modules; all the real logic lives there.
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { configFile, corpocodeHome, ensureDir, secretsFile } from "../config/paths";
+import { catalogFile, configFile, corpocodeHome, ensureDir, secretsFile, toolboxRestoreDir } from "../config/paths";
+import { restoreToolbox } from "../toolbox/gate";
 import { defaultConfig, loadConfig } from "../config/load";
 import { saveSecrets } from "../config/secrets";
 import { installClaudeCode } from "../install/claude-code";
@@ -147,6 +148,16 @@ export async function runUninstallCommand(argv: string[]): Promise<void> {
   }
 
   process.stdout.write("Removed CorpoCode shims and unregistered its hooks from Claude Code.\n");
+
+  // Restore every skill/agent CorpoCode gated back to its original "when to use" (before any purge,
+  // which deletes the backup).
+  try {
+    const { restored } = restoreToolbox({ restoreDir: toolboxRestoreDir(), catalogPath: catalogFile() });
+    if (restored > 0) process.stdout.write(`Restored ${restored} skill/agent description(s) to their originals.\n`);
+  } catch {
+    // best-effort restore
+  }
+
   if (purge) {
     rmSync(corpocodeHome(), { recursive: true, force: true });
     process.stdout.write(`Purged ${corpocodeHome()} (config, logs, memory).\n`);

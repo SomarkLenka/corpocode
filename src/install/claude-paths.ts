@@ -12,3 +12,7 @@ export const claudeHooksDir = (home: string): string => join(home, "hooks");
 export const claudeAgentsDir = (home: string): string => join(home, "agents");
 export const claudeSkillsDir = (home: string): string => join(home, "skills");
 export const claudePluginsDir = (home: string): string => join(home, "plugins");
+
+// Project-scope agents/skills live under the repo's own .claude dir.
+export const projectClaudeAgentsDir = (repoRoot: string): string => join(repoRoot, ".claude", "agents");
+export const projectClaudeSkillsDir = (repoRoot: string): string => join(repoRoot, ".claude", "skills");

@@ -4,9 +4,12 @@
 // The user edits the placeholder to their real key — or sets the matching env var, which wins over the
 // file. CorpoCode can scaffold everything around the key; it cannot invent the credential itself.
 import { chmodSync, existsSync, writeFileSync } from "node:fs";
-import { configFile, corpocodeHome, ensureDir, secretsFile } from "../config/paths";
-import { defaultConfig } from "../config/load";
+import { cwd } from "node:process";
+import { catalogFile, configFile, corpocodeHome, ensureDir, secretsFile, toolboxRestoreDir } from "../config/paths";
+import { defaultConfig, loadConfig } from "../config/load";
 import { conventionalEnvKey } from "../config/secrets";
+import { claudeHome } from "../install/claude-paths";
+import { defaultRoots, gateToolbox } from "../toolbox/gate";
 
 function placeholderFor(key: string): string {
   return `REPLACE_WITH_YOUR_${key}`;
@@ -58,6 +61,27 @@ export function runInitCommand(argv: string[], env: NodeJS.ProcessEnv = process.
       // POSIX modes don't apply on Windows
     }
     process.stdout.write(`wrote secrets with placeholder(s): ${secPath}\n`);
+  }
+
+  // Gate the user's/plugins' skills & agents (strip "when to use" from the main model's context, keep
+  // them invocable, back up originals). Idempotent; --no-gate skips. Best-effort.
+  if (!argv.includes("--no-gate")) {
+    try {
+      const tb = loadConfig({ env }).toolbox;
+      if (tb.enabled) {
+        const summary = gateToolbox({
+          roots: defaultRoots({ claudeHome: claudeHome(env), repoRoot: cwd(), includePlugins: tb.gate_plugins }),
+          restoreDir: toolboxRestoreDir(env),
+          catalogPath: catalogFile(env),
+        });
+        process.stdout.write(
+          `gated ${summary.gated} skill/agent description(s) (${summary.skipped} already gated). ` +
+            `Originals backed up to ${toolboxRestoreDir(env)} (restored on uninstall).\n`,
+        );
+      }
+    } catch {
+      // gating is best-effort — never fail init over it
+    }
   }
 
   const plural = keys.length === 1 ? "" : "s";

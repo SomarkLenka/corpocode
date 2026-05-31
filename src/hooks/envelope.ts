@@ -35,12 +35,17 @@ export const subagentStartSchema = baseEnvelope.extend({
   subagent_type: z.string().optional(),
 });
 
+export const sessionStartSchema = baseEnvelope.extend({
+  source: z.string().optional(), // e.g. "startup" | "resume" | "clear"
+});
+
 export const ENVELOPE_SCHEMAS = {
   UserPromptSubmit: userPromptSubmitSchema,
   PreToolUse: preToolUseSchema,
   PostToolUse: postToolUseSchema,
   Stop: stopSchema,
   SubagentStart: subagentStartSchema,
+  SessionStart: sessionStartSchema,
 } as const;
 
 export type HookName = keyof typeof ENVELOPE_SCHEMAS;
@@ -56,3 +61,4 @@ export type PreToolUseEnvelope = z.infer<typeof preToolUseSchema>;
 export type PostToolUseEnvelope = z.infer<typeof postToolUseSchema>;
 export type StopEnvelope = z.infer<typeof stopSchema>;
 export type SubagentStartEnvelope = z.infer<typeof subagentStartSchema>;
+export type SessionStartEnvelope = z.infer<typeof sessionStartSchema>;

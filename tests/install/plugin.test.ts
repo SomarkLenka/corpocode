@@ -13,9 +13,9 @@ describe("plugin payload files", () => {
     expect(typeof plugin.description).toBe("string");
   });
 
-  it("hooks.json declares the four Phase 1 hooks via ${CLAUDE_PLUGIN_ROOT}", () => {
+  it("hooks.json declares the hooks via ${CLAUDE_PLUGIN_ROOT}", () => {
     const hooks = JSON.parse(read("hooks", "hooks.json"));
-    expect(Object.keys(hooks.hooks).sort()).toEqual(["PostToolUse", "PreToolUse", "Stop", "UserPromptSubmit"]);
+    expect(Object.keys(hooks.hooks).sort()).toEqual(["PostToolUse", "PreToolUse", "SessionStart", "Stop", "UserPromptSubmit"]);
     expect(hooks.hooks.UserPromptSubmit[0].hooks[0].command).toContain("${CLAUDE_PLUGIN_ROOT}");
     expect(hooks.hooks.UserPromptSubmit[0].hooks[0].command).toContain("hook UserPromptSubmit");
     expect(hooks.hooks.PreToolUse[0].matcher).toBe("*");

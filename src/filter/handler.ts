@@ -11,11 +11,12 @@
 // fail-open: any error returns an empty response and the host proceeds untouched.
 import type { Effort } from "../config/schema";
 import type { HookContext } from "../hooks/context";
-import type { HookResponse } from "../hooks/response";
+import { TAGS, tagged, type HookResponse } from "../hooks/response";
 import type { PreToolUseEnvelope } from "../hooks/envelope";
 import { classifyToolCall, extractCommand, softClassify, type FilterClassification } from "./classify";
 import { injectFileRead, isFileReadTool } from "./inject";
 import { readLastDecision } from "../session/decision-cache";
+import { maybeRouteHeavyCoding } from "../toolbox/route";
 
 export async function handlePreToolUse(
   envelope: PreToolUseEnvelope,
@@ -30,7 +31,12 @@ export async function handlePreToolUse(
   }
 
   const command = extractCommand(envelope.tool_name, envelope.tool_input);
-  if (command === null) return {}; // not a command tool → no teeth here
+  if (command === null) {
+    // Non-command tool (Write/Edit/…): no permission teeth, but on a write entering a heavy coding
+    // phase the toolbox recommends a subagent + skills with context (best-effort, once per phase).
+    const route = await maybeRouteHeavyCoding(envelope, ctx);
+    return route ? { additionalContext: tagged(TAGS.toolbox, route) } : {};
+  }
 
   let classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
   // Only the uncertain middle consults the LLM; deny/allow are already confident and free.

@@ -84,6 +84,17 @@ export function cacheFile(namespace: string, env?: NodeJS.ProcessEnv): string {
   return join(cacheDir(env), `${namespace}.json`);
 }
 
+/** Backup of every skill/agent CorpoCode gated (originals), so uninstall can restore them. Global,
+ * because it mirrors the global ~/.claude tree; entries are keyed by scope+relpath inside. */
+export function toolboxRestoreDir(env?: NodeJS.ProcessEnv): string {
+  return join(corpocodeHome(env), "corpocode-restore");
+}
+
+/** The toolbox catalog: each gated skill/agent's original "when to use", for the classifier. */
+export function catalogFile(env?: NodeJS.ProcessEnv): string {
+  return join(corpocodeHome(env), "toolbox-catalog.json");
+}
+
 /**
  * Per-session cache for the SessionReader (distilled state + transcript byte offset). Persisted
  * to disk so each separate `corpocode hook` process reads only the new transcript slice — keeping

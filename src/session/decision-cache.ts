@@ -14,6 +14,8 @@ export interface CachedDecision {
   effort: string;
   recalledIds: string[];
   ts: number;
+  /** Set once the toolbox has routed this coding phase (rate-limits the PreToolUse subagent recommend). */
+  routedPhaseTs?: number;
 }
 
 export function writeLastDecision(

@@ -22,6 +22,7 @@ export const TAGS = {
   verifier: "middle-management verifier",
   fileContext: "middle-management file-context",
   delegation: "middle-management delegation",
+  toolbox: "middle-management toolbox",
 } as const;
 
 /** Wrap injected content in a source-identifying tag. */

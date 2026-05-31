@@ -17,6 +17,9 @@ import { writeLastDecision } from "../session/decision-cache";
 import { runRetrieval } from "../retrieval/worker";
 import { runDesignReview } from "../review/team";
 import { planDelegation } from "./delegation";
+import { catalogFile } from "../config/paths";
+import { loadCatalog } from "../toolbox/catalog";
+import { pickToolbox, formatToolboxBlock } from "../toolbox/route";
 
 function buildRecommendation(
   decision: RouterDecision,
@@ -169,6 +172,10 @@ export async function handleUserPromptSubmit(
     });
   }
 
+  // Toolbox: from the gated catalog of the user's skills/agents, name the ones relevant to this prompt
+  // (their "when to use" was stripped from the model's context). Best-effort — failure injects nothing.
+  const toolbox = await pickToolboxForPrompt(envelope, ctx, stage1.candidates);
+
   return {
     hookEventName: "UserPromptSubmit",
     additionalContext: joinBlocks([
@@ -176,8 +183,43 @@ export async function handleUserPromptSubmit(
       retrieved ? { tag: TAGS.retrievedContext, content: retrieved } : null,
       review ? { tag: TAGS.designReview, content: review } : null,
       delegation ? { tag: TAGS.delegation, content: delegation.text } : null,
+      toolbox ? { tag: TAGS.toolbox, content: toolbox } : null,
     ]),
   };
+}
+
+/** Classify which gated skills/agents are relevant to the prompt and render the injectable block. */
+async function pickToolboxForPrompt(
+  envelope: UserPromptSubmitEnvelope,
+  ctx: HookContext,
+  candidates: ScoredFile[],
+): Promise<string | null> {
+  if (!ctx.config.toolbox.enabled) return null;
+  try {
+    const catalog = loadCatalog(catalogFile(ctx.env));
+    if (catalog.entries.length === 0) return null;
+    const picks = await pickToolbox({
+      prompt: envelope.prompt,
+      catalog,
+      provider: ctx.registry.forComponent("toolbox"),
+      maxSkills: ctx.config.toolbox.max_skills,
+      maxAgents: ctx.config.toolbox.max_agents,
+    });
+    const block = formatToolboxBlock(picks, candidates.slice(0, 5).map((c) => c.path).join(", ") || undefined);
+    if (block) {
+      ctx.logger.log({
+        event: "toolbox",
+        session_id: envelope.session_id,
+        component: "toolbox",
+        trigger: "userpromptsubmit",
+        skills: picks.skills.length,
+        agents: picks.agents.length,
+      });
+    }
+    return block;
+  } catch {
+    return null; // toolbox routing is best-effort
+  }
 }
 
 /** Run the retrieval team and return its injectable block, or null if it found nothing / failed. */

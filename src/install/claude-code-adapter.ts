@@ -15,6 +15,7 @@ export const claudeCodeAdapter = makeAdapter({
     { event: "PreToolUse", matcher: "*" },
     { event: "PostToolUse", matcher: "Write|Edit" },
     { event: "Stop" },
+    { event: "SessionStart" },
   ],
   agents: ["haiku-helper"],
   skills: ["corpocode-router", "corpocode-setup"],
