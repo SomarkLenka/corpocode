@@ -5,6 +5,7 @@
 import { loadConfig } from "../config/load";
 import type { CorpoConfig } from "../config/schema";
 import { nullLogger, type Logger } from "../log/ndjson";
+import { flowLoggerFromConfig, type FlowLogger } from "../log/flow";
 import {
   ENVELOPE_SCHEMAS,
   baseEnvelope,
@@ -28,6 +29,7 @@ export interface DispatchDeps {
   makeContext?: (config: CorpoConfig, base: BaseEnvelope) => HookContext;
   env?: NodeJS.ProcessEnv;
   logger?: Logger;
+  flow?: FlowLogger;
   hookTimeoutMs?: number;
   platform?: PlatformId; // which platform's stdout envelope to emit (default claude-code)
 }
@@ -62,10 +64,13 @@ async function runTyped<T>(
   handler: Handler<T> | undefined,
   ctx: HookContext,
   serialize: (r: HookResponse) => string,
+  flow: FlowLogger,
 ): Promise<string> {
+  // Compute the response first (empty when there's no handler), then record the flow block BEFORE
+  // returning, so EVERY hook surface — even handler-less ones — diffs the transcript exactly once.
+  const response: HookResponse = handler ? await handler(schema.parse(parsed), ctx) : {};
+  flow.record(hookEventName, parsed, response);
   if (!handler) return emptyResponse();
-  const envelope = schema.parse(parsed);
-  const response = await handler(envelope, ctx);
   // Stamp the hook name so hookSpecificOutput always carries the hookEventName Claude Code requires —
   // no handler can forget it. Handlers may override (the router already sets UserPromptSubmit).
   return serialize({ ...response, hookEventName: response.hookEventName ?? hookEventName });
@@ -84,6 +89,7 @@ export async function dispatchHook(hookName: string, rawStdin: string, deps: Dis
     const base = baseEnvelope.parse(parsed);
     const config = (deps.loadConfig ?? (() => loadConfig({ env: deps.env })))();
     const handlers = deps.handlers ?? buildHandlers();
+    const flow = deps.flow ?? flowLoggerFromConfig(config, { cwd: base.cwd, env: deps.env });
 
     // Which platform this hook runs under: explicit dep, else CORPOCODE_PLATFORM (set by the shim),
     // else Claude Code. An unknown value degrades to Claude Code rather than failing. Resolved before
@@ -103,17 +109,17 @@ export async function dispatchHook(hookName: string, rawStdin: string, deps: Dis
     const route = (): Promise<string> => {
       switch (hookName) {
         case "UserPromptSubmit":
-          return runTyped(hookName, userPromptSubmitSchema, parsed, handlers.UserPromptSubmit, ctx, serialize);
+          return runTyped(hookName, userPromptSubmitSchema, parsed, handlers.UserPromptSubmit, ctx, serialize, flow);
         case "PreToolUse":
-          return runTyped(hookName, preToolUseSchema, parsed, handlers.PreToolUse, ctx, serialize);
+          return runTyped(hookName, preToolUseSchema, parsed, handlers.PreToolUse, ctx, serialize, flow);
         case "PostToolUse":
-          return runTyped(hookName, postToolUseSchema, parsed, handlers.PostToolUse, ctx, serialize);
+          return runTyped(hookName, postToolUseSchema, parsed, handlers.PostToolUse, ctx, serialize, flow);
         case "Stop":
-          return runTyped(hookName, stopSchema, parsed, handlers.Stop, ctx, serialize);
+          return runTyped(hookName, stopSchema, parsed, handlers.Stop, ctx, serialize, flow);
         case "SubagentStart":
-          return runTyped(hookName, subagentStartSchema, parsed, handlers.SubagentStart, ctx, serialize);
+          return runTyped(hookName, subagentStartSchema, parsed, handlers.SubagentStart, ctx, serialize, flow);
         case "SessionStart":
-          return runTyped(hookName, sessionStartSchema, parsed, handlers.SessionStart, ctx, serialize);
+          return runTyped(hookName, sessionStartSchema, parsed, handlers.SessionStart, ctx, serialize, flow);
         default: {
           const unreachable: never = hookName;
           void unreachable;
