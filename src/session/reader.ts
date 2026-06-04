@@ -49,7 +49,7 @@ function dedupeCap(values: string[]): string[] {
 }
 
 /** Read only the bytes appended since `offset`. Handles a rotated/truncated file by restarting. */
-function readSlice(file: string, offset: number): { text: string; newOffset: number } {
+export function readSlice(file: string, offset: number): { text: string; newOffset: number } {
   let size: number;
   try {
     size = statSync(file).size;

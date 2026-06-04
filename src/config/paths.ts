@@ -58,6 +58,23 @@ export function logFile(cwd?: string, env?: NodeJS.ProcessEnv): string {
   return join(logsDir(cwd, env), "corpocode.ndjson");
 }
 
+/**
+ * Human-readable companion to the NDJSON log: each hook appends a block interleaving the new
+ * transcript slice with the hook's output, so the flow reads top-to-bottom. Append-only plain text.
+ */
+export function flowLogFile(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(logsDir(cwd, env), "corpocode-flow.log");
+}
+
+/**
+ * Per-session byte offset for the flow log, kept SEPARATE from the SessionReader's offset
+ * (sessionStateFile) so the two consumers advance the transcript independently and never starve
+ * each other of the slice they each need to read.
+ */
+export function flowCursorFile(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(logsDir(cwd, env), `.flow-${safeSessionId(sessionId)}.offset`);
+}
+
 export function memoryDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
   return join(projectStateDir(cwd, env), "memory");
 }

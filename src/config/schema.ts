@@ -175,7 +175,16 @@ export const configSchema = z
       .default({}),
     // Not in the original prose config example but required by §3/§12 ("disabling logging
     // makes calls no-ops"). Kept as its own block so the knob is discoverable.
-    logging: z.object({ enabled: z.boolean().default(true) }).default({}),
+    //  - `transcript_flow` writes a second, human-readable log (corpocode-flow.log) that interleaves
+    //    the transcript delta with each hook's output, so the hook flow can be read top-to-bottom.
+    //    Gated by `enabled` too: disabling logging disables both. On by default — it's a local debug
+    //    aid and carries no data off the machine.
+    logging: z
+      .object({
+        enabled: z.boolean().default(true),
+        transcript_flow: z.boolean().default(true),
+      })
+      .default({}),
   })
   .superRefine((cfg, ctx) => {
     // Cross-field check: every component must point at a provider that actually exists, so a
