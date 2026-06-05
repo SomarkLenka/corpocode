@@ -23922,10 +23922,52 @@ var BUILTIN_PROMPTS = {
     "{{rubric}}",
     "",
     'Respond with ONLY JSON: {"ok":boolean,"severity":"info"|"warn"|"block","message":string,"confidence":number 0..1}. ok=true means the approach is sound on this tenet.'
-  ].join("\n")
+  ].join("\n"),
+  // The 9 MOLAR-EDIT tenet rubrics (src/verifier/tenets/*.ts). Each is the {{rubric}} the `verifier`
+  // (post-edit) and `review` (design) wrappers fill, so a user can retune any single tenet's standard.
+  "verifier-maintainability": "Assess Maintainability (M): is this change isolated to the files it needs, with accurate names that hold no surprises, magic values named, and no dead or commented-out code? Flag a change that sprawls across unrelated files, names that lie (an isValid() that mutates, a getUser() that creates), unexplained magic numbers/strings, and commented-out code kept 'just in case' (git remembers).",
+  "verifier-observability": "Assess Observability (O): do critical paths emit a latency metric and a success/failure signal, do readiness checks verify real downstream reachability rather than mere process liveness, and do trace IDs propagate across every async/queue boundary? Flag a critical path with no metric, a /health that returns 200 just because the process is up, and high-cardinality metric labels.",
+  "verifier-logging": "Assess Logging (L): are errors logged once, at the layer that handles them, with structured, actionable context (what failed, where, why, what to check next)? Flag bare catch blocks that swallow errors, console.log debug statements, unstructured string logs, and any logging of secrets or PII.",
+  "verifier-atomicity": "Assess Atomicity (A): does each unit in this file do ONE thing, named for that one thing in five words or fewer, with a call graph that reads as a line rather than a tree of unrelated conditionals? Flag functions/files that do several unrelated things, names containing 'and', and junk-drawer modules.",
+  "verifier-responsiveness": "Assess Responsiveness (R) for this UI file: does it work at a \u2264375px viewport, is every flow completable by keyboard alone, does every image carry meaningful alt and every control an associated <label>, is color reinforced by text/icon/pattern rather than being the sole signal, and does any API return structure (blocks/types) rather than presentation (HTML/CSS)? Flag desktop-only layouts, click handlers on non-focusable elements, missing alt/labels, and color-only signals.",
+  "verifier-extensibility": "Assess Extensibility (E): is new behavior placed behind an abstraction that can be swapped, with core logic separated from the concrete implementation, so an alternative can be added without editing call sites? Flag a concrete vendor or implementation hard-wired into business logic where an interface seam belongs.",
+  "verifier-documentation": "Assess Documentation (D): is the WHY recorded for any non-obvious choice (the constraint, the alternative considered, the trade-off, an ADR link), do comments explain intent rather than restate the code, and does this change leave no doc stale? Flag comments that merely restate the line below, an ADR-worthy decision made with no durable record, and a doc the code now contradicts.",
+  "verifier-in-flight": "Assess In-flight (I): does every external call (HTTP, DB, queue, cache) have a timeout, a bounded and jittered retry, and a defined fallback, and does the code keep flying when a dependency is down instead of crashing? Flag an await with no timeout, unbounded/unjittered retries, a cache miss that hard-fails the request, and 'crash and let the orchestrator restart' used as the recovery plan.",
+  "verifier-testing": "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main."
 };
 function allPromptIds() {
   return Object.keys(BUILTIN_PROMPTS);
+}
+
+// src/prompts/catalog.ts
+var PROMPT_META = {
+  router: { path: "router/rank.md", source: "src/router/ranker.ts", effect: "how your prompt's moment is classified and which files preload" },
+  retrieval: { path: "retrieval/plan.md", source: "src/retrieval/planner.ts", effect: "what the retrieval team gathers when no template matches" },
+  compactor: { path: "compactor/digest.md", source: "src/compactor/worker.ts", effect: "how an older transcript slice is summarized at Stop" },
+  skillgen: { path: "skillgen/distill.md", source: "src/loops/skillgen.ts", effect: "how mined memories become skill candidates" },
+  "filter-classify": { path: "filter/classify.md", source: "src/filter/classify.ts", effect: "how an uncertain shell command is judged deny/allow/ask" },
+  "filter-inject": { path: "filter/inject.md", source: "src/filter/inject.ts", effect: "how a file read is narrowed to the relevant slice" },
+  "session-reader": { path: "session/reader.md", source: "src/session/reader.ts", effect: "how the line-of-thought is distilled from the transcript" },
+  toolbox: { path: "toolbox/classify.md", source: "src/toolbox/classifier.ts", effect: "which gated skills/agents are surfaced as relevant" },
+  "docs-facet": { path: "docs/facet.md", source: "src/docs/generator.ts", effect: "each what-code-does facet (impacts, risks, input, \u2026)" },
+  "docs-inline": { path: "docs/inline.md", source: "src/docs/generator.ts", effect: "the inline doc-comment writer" },
+  verifier: { path: "verifier/wrapper.md", source: "src/verifier/worker.ts", effect: "the JSON framing around every post-edit tenet check" },
+  review: { path: "review/wrapper.md", source: "src/molar/engine.ts", effect: "the JSON framing around every design-review tenet check" },
+  "verifier-maintainability": { path: "verifier/tenets/maintainability.md", source: "src/verifier/tenets/maintainability.ts", effect: "the Maintainability (M) standard the verifier enforces" },
+  "verifier-observability": { path: "verifier/tenets/observability.md", source: "src/verifier/tenets/observability.ts", effect: "the Observability (O) standard the verifier enforces" },
+  "verifier-logging": { path: "verifier/tenets/logging.md", source: "src/verifier/tenets/logging.ts", effect: "the Logging (L) standard the verifier enforces" },
+  "verifier-atomicity": { path: "verifier/tenets/atomicity.md", source: "src/verifier/tenets/atomicity.ts", effect: "the Atomicity (A) standard the verifier enforces" },
+  "verifier-responsiveness": { path: "verifier/tenets/responsiveness.md", source: "src/verifier/tenets/responsiveness.ts", effect: "the Responsiveness (R) standard (UI files only)" },
+  "verifier-extensibility": { path: "verifier/tenets/extensibility.md", source: "src/verifier/tenets/extensibility.ts", effect: "the Extensibility (E) standard the verifier enforces" },
+  "verifier-documentation": { path: "verifier/tenets/documentation.md", source: "src/verifier/tenets/documentation.ts", effect: "the Documentation (D) standard the verifier enforces" },
+  "verifier-in-flight": { path: "verifier/tenets/in-flight.md", source: "src/verifier/tenets/in-flight.ts", effect: "the In-flight (I) standard the verifier enforces" },
+  "verifier-testing": { path: "verifier/tenets/testing.md", source: "src/verifier/tenets/testing.ts", effect: "the Testing (T) standard the verifier enforces" }
+};
+function promptRelPath(id) {
+  return PROMPT_META[id].path;
+}
+function promptGroup(id) {
+  return PROMPT_META[id].path.split("/")[0];
 }
 
 // src/prompts/render.ts
@@ -23954,8 +23996,9 @@ function stripHeaderComment(text) {
 }
 function resolveTemplate(id, opts = {}) {
   const read = opts.readFile ?? fsRead;
+  const rel = promptRelPath(id);
   for (const dir of [promptsDir(opts.cwd, opts.env), globalPromptsDir(opts.env)]) {
-    const raw = read((0, import_node_path3.join)(dir, `${id}.md`));
+    const raw = read((0, import_node_path3.join)(dir, rel));
     if (raw == null) continue;
     const text = stripHeaderComment(raw);
     if (text.trim()) return text;
@@ -27357,7 +27400,7 @@ var atomicityCheck = {
   tenet: "A",
   name: "atomicity:one-thing-per-unit",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Atomicity (A): does each unit in this file do ONE thing, named for that one thing in five words or fewer, with a call graph that reads as a line rather than a tree of unrelated conditionals? Flag functions/files that do several unrelated things, names containing 'and', and junk-drawer modules."
+  promptId: "verifier-atomicity"
 };
 
 // src/verifier/tenets/logging.ts
@@ -27365,7 +27408,7 @@ var loggingCheck = {
   tenet: "L",
   name: "logging:structured-and-actionable",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Logging (L): are errors logged once, at the layer that handles them, with structured, actionable context (what failed, where, why, what to check next)? Flag bare catch blocks that swallow errors, console.log debug statements, unstructured string logs, and any logging of secrets or PII."
+  promptId: "verifier-logging"
 };
 
 // src/verifier/tenets/maintainability.ts
@@ -27373,7 +27416,7 @@ var maintainabilityCheck = {
   tenet: "M",
   name: "maintainability:isolated-and-honest",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Maintainability (M): is this change isolated to the files it needs, with accurate names that hold no surprises, magic values named, and no dead or commented-out code? Flag a change that sprawls across unrelated files, names that lie (an isValid() that mutates, a getUser() that creates), unexplained magic numbers/strings, and commented-out code kept 'just in case' (git remembers)."
+  promptId: "verifier-maintainability"
 };
 
 // src/verifier/tenets/observability.ts
@@ -27381,7 +27424,7 @@ var observabilityCheck = {
   tenet: "O",
   name: "observability:metrics-and-readiness",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Observability (O): do critical paths emit a latency metric and a success/failure signal, do readiness checks verify real downstream reachability rather than mere process liveness, and do trace IDs propagate across every async/queue boundary? Flag a critical path with no metric, a /health that returns 200 just because the process is up, and high-cardinality metric labels."
+  promptId: "verifier-observability"
 };
 
 // src/verifier/tenets/responsiveness.ts
@@ -27389,7 +27432,7 @@ var responsivenessCheck = {
   tenet: "R",
   name: "responsiveness:accessible-and-structural",
   appliesTo: (file) => isUi(file.path),
-  prompt: "Assess Responsiveness (R) for this UI file: does it work at a \u2264375px viewport, is every flow completable by keyboard alone, does every image carry meaningful alt and every control an associated <label>, is color reinforced by text/icon/pattern rather than being the sole signal, and does any API return structure (blocks/types) rather than presentation (HTML/CSS)? Flag desktop-only layouts, click handlers on non-focusable elements, missing alt/labels, and color-only signals."
+  promptId: "verifier-responsiveness"
 };
 
 // src/verifier/tenets/extensibility.ts
@@ -27397,7 +27440,7 @@ var extensibilityCheck = {
   tenet: "E",
   name: "extensibility:swappable-behind-a-seam",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Extensibility (E): is new behavior placed behind an abstraction that can be swapped, with core logic separated from the concrete implementation, so an alternative can be added without editing call sites? Flag a concrete vendor or implementation hard-wired into business logic where an interface seam belongs."
+  promptId: "verifier-extensibility"
 };
 
 // src/verifier/tenets/documentation.ts
@@ -27405,7 +27448,7 @@ var documentationCheck = {
   tenet: "D",
   name: "documentation:why-not-what",
   appliesTo: (file) => isSource(file.path) || isDoc(file.path),
-  prompt: "Assess Documentation (D): is the WHY recorded for any non-obvious choice (the constraint, the alternative considered, the trade-off, an ADR link), do comments explain intent rather than restate the code, and does this change leave no doc stale? Flag comments that merely restate the line below, an ADR-worthy decision made with no durable record, and a doc the code now contradicts."
+  promptId: "verifier-documentation"
 };
 
 // src/verifier/tenets/in-flight.ts
@@ -27413,7 +27456,7 @@ var inFlightCheck = {
   tenet: "I",
   name: "in-flight:timeout-retry-fallback",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess In-flight (I): does every external call (HTTP, DB, queue, cache) have a timeout, a bounded and jittered retry, and a defined fallback, and does the code keep flying when a dependency is down instead of crashing? Flag an await with no timeout, unbounded/unjittered retries, a cache miss that hard-fails the request, and 'crash and let the orchestrator restart' used as the recovery plan."
+  promptId: "verifier-in-flight"
 };
 
 // src/verifier/tenets/testing.ts
@@ -27421,7 +27464,7 @@ var testingCheck = {
   tenet: "T",
   name: "testing:regression-and-failure-paths",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main."
+  promptId: "verifier-testing"
 };
 
 // src/verifier/tenets/index.ts
@@ -27464,7 +27507,9 @@ async function runOneCheck(check, file, content, provider, timeoutMs, effort) {
     const out = await provider.chat(
       applyEffort(
         {
-          system: resolvePrompt("verifier", { rubric: check.prompt }),
+          system: resolvePrompt("verifier", {
+            rubric: check.promptId ? resolvePrompt(check.promptId) : check.prompt ?? ""
+          }),
           responseFormat: "json",
           maxTokens: 250,
           timeoutMs,
@@ -27531,7 +27576,8 @@ function createMolarEditEngine(opts) {
   const timeout = opts.perCheckTimeoutMs ?? 8e3;
   const extra = opts.extraChecks ?? [];
   const reviewOne = async (tenet, designContext) => {
-    const rubric = checksForTenets([tenet], extra)[0]?.prompt ?? `Evaluate the ${TENET_LENS[tenet]} tenet.`;
+    const check = checksForTenets([tenet], extra)[0];
+    const rubric = check?.promptId ? resolvePrompt(check.promptId) : check?.prompt ?? `Evaluate the ${TENET_LENS[tenet]} tenet.`;
     try {
       const out = await opts.provider.chat(
         applyEffort(
@@ -30819,11 +30865,15 @@ var import_node_fs43 = require("node:fs");
 var import_node_path33 = require("node:path");
 function renderScaffold(id) {
   const body = BUILTIN_PROMPTS[id];
+  const meta = PROMPT_META[id];
   const vars = templateVars(body);
   const header = [
-    `<!-- CorpoCode prompt "${id}". Edit freely; this global copy is overridden by a project-local`,
-    `     ./.corpocode/prompts/${id}.md, and both override the built-in default. Delete to revert.`,
-    vars.length ? `     Placeholders are filled at run time \u2014 keep them: ${vars.map((v2) => `{{${v2}}}`).join(", ")}` : `     This prompt takes no placeholders.`,
+    `<!-- CorpoCode prompt "${id}"`,
+    `     Used by:           ${meta.source}`,
+    `     Editing this sets: ${meta.effect}`,
+    `     Overrides:         a project-local ./.corpocode/prompts/${meta.path} beats this global copy;`,
+    `                        both beat the built-in default. Delete this file to revert.`,
+    vars.length ? `     Placeholders:      filled at run time \u2014 keep them: ${vars.map((v2) => `{{${v2}}}`).join(", ")}` : `     Placeholders:      none.`,
     `-->`
   ].join("\n");
   return `${header}
@@ -30831,20 +30881,48 @@ function renderScaffold(id) {
 ${body}
 `;
 }
+function renderReadme() {
+  const byGroup = /* @__PURE__ */ new Map();
+  for (const id of allPromptIds()) {
+    const arr = byGroup.get(promptGroup(id)) ?? [];
+    arr.push(id);
+    byGroup.set(promptGroup(id), arr);
+  }
+  const lines = [
+    "# CorpoCode prompts",
+    "",
+    "Each file is a system prompt for one CorpoCode component \u2014 the folder names the component, so you",
+    "can see where a prompt is used (and what editing it affects). A project-local",
+    "`./.corpocode/prompts/<path>` overrides this global copy; both override the built-in default. Delete",
+    "a file to revert. `{{placeholders}}` are filled at run time \u2014 keep them.",
+    ""
+  ];
+  for (const [group, ids] of byGroup) {
+    lines.push(`## ${group}`, "");
+    for (const id of ids) {
+      const m2 = PROMPT_META[id];
+      lines.push(`- \`${m2.path}\` \u2014 ${m2.effect} \xB7 _${m2.source}_`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
 function scaffoldPrompts(opts = {}) {
   const dir = globalPromptsDir(opts.env);
   ensureDir(dir);
   const wrote = [];
   const skipped = [];
   for (const id of allPromptIds()) {
-    const path = (0, import_node_path33.join)(dir, `${id}.md`);
+    const path = (0, import_node_path33.join)(dir, promptRelPath(id));
     if ((0, import_node_fs43.existsSync)(path) && !opts.force) {
       skipped.push(id);
       continue;
     }
+    (0, import_node_fs43.mkdirSync)((0, import_node_path33.dirname)(path), { recursive: true });
     (0, import_node_fs43.writeFileSync)(path, renderScaffold(id));
     wrote.push(id);
   }
+  (0, import_node_fs43.writeFileSync)((0, import_node_path33.join)(dir, "README.md"), renderReadme());
   return { dir, wrote, skipped };
 }
 
@@ -30866,7 +30944,7 @@ function runPromptsCommand(argv, env = process.env) {
 }
 
 // src/cli.ts
-var VERSION3 = "0.2.2";
+var VERSION3 = "0.2.3";
 function renderHelp() {
   const width = Math.max(...COMMANDS.map((c2) => c2.usage.length));
   const lines = COMMANDS.map((c2) => `  ${c2.usage.padEnd(width)}  ${c2.summary}`);
