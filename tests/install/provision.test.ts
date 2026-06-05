@@ -44,10 +44,10 @@ describe("provisionGraphify", () => {
 });
 
 describe("generateOvConf", () => {
-  it("maps the default anthropic provider to a keyless local embedder", () => {
+  it("maps the default anthropic-cli provider to the anthropic API + a keyless local embedder", () => {
     const conf = generateOvConf(defaultConfig(), { apiKey: "sk-test" });
-    expect(conf).toContain('provider = "anthropic"');
-    expect(conf).toContain('model = "claude-haiku-4-5-20251001"');
+    expect(conf).toContain('provider = "anthropic"'); // anthropic-cli → anthropic API for the OpenViking daemon
+    expect(conf).toContain('model = "claude-haiku-4-5"');
     expect(conf).toContain('api_key = "sk-test"');
     expect(conf).toContain("nomic-embed-text");
   });

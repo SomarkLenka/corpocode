@@ -25,7 +25,7 @@ describe("loadConfig", () => {
   it("returns coherent defaults when the file is missing", () => {
     const r = loadConfigDetailed({ path: join(dir, "absent.json"), env: {} });
     expect(r.source).toBe("defaults");
-    expect(r.config.providers.default.kind).toBe("anthropic");
+    expect(r.config.providers.default.kind).toBe("anthropic-cli");
   });
 
   it("round-trips a valid file", () => {

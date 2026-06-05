@@ -54,7 +54,7 @@ const componentsSchema = z
   .object({
     router: z.string().default("default"),
     retrieval: z.string().default("default"),
-    compactor: z.string().default("cheap_local"),
+    compactor: z.string().default("default"),
     filter: z.string().default("default"),
     verifier: z.string().default("default"),
     toolbox: z.string().default("default"),
@@ -74,10 +74,14 @@ export const configSchema = z
     // blocks (or carries a now-removed legacy key) still loads cleanly — an upgrade never breaks a
     // user who has not touched their config (Phase 4 §1).
     version: z.number().int().positive().default(1),
+    // Default to the keyless `anthropic-cli` provider: it shells out to the user's installed `claude`
+    // CLI (their existing login/subscription), so CorpoCode's cheap-model calls work with NO API key to
+    // configure. `cheap_local` is a ready-to-use local alternative — repoint any component at it to run
+    // that component's calls on ollama instead.
     providers: z
       .record(providerConfigSchema)
       .default({
-        default: { kind: "anthropic", model: "claude-haiku-4-5-20251001" },
+        default: { kind: "anthropic-cli", model: "claude-haiku-4-5" },
         cheap_local: { kind: "ollama", model: "qwen2.5-coder:7b", host: "http://localhost:11434" },
       }),
     components: componentsSchema,
