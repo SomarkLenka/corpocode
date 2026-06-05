@@ -20,7 +20,11 @@ describe("settings hook registration", () => {
     expect(next.model).toBe("opus");
     expect(next.hooks!.UserPromptSubmit).toHaveLength(2); // foreign + ours
     expect(next.hooks!.PreToolUse![0]!.matcher).toBe("*");
-    expect(next.hooks!.PostToolUse![0]!.matcher).toBe("Write|Edit");
+    expect(next.hooks!.PostToolUse![0]!.matcher).toBe("*"); // broadened so the flow log sees every tool result
+    // Every surface Claude Code exposes is registered (the handler-less ones exist for flow logging).
+    for (const event of ["SubagentStart", "SubagentStop", "SessionStart", "SessionEnd", "Notification", "PreCompact"]) {
+      expect(next.hooks![event], `${event} should be registered`).toBeDefined();
+    }
     expect(hasCorpocodeHooks(next)).toBe(true);
   });
 

@@ -18,7 +18,9 @@ export interface FilterClassification {
 
 /** Extract a shell command string from a tool input, or null for non-command tools. */
 export function extractCommand(toolName: string, toolInput: Record<string, unknown>): string | null {
-  if (toolName === "Bash" || toolName === "Shell") {
+  // PowerShell/pwsh are shell command tools too — on Windows they carry the command the same way, so
+  // they get the same deny/allow/ask treatment as Bash rather than slipping through ungated.
+  if (toolName === "Bash" || toolName === "Shell" || toolName === "PowerShell" || toolName === "pwsh") {
     return typeof toolInput.command === "string" ? toolInput.command : null;
   }
   return null;

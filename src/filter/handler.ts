@@ -38,25 +38,50 @@ export async function handlePreToolUse(
     return route ? { additionalContext: tagged(TAGS.toolbox, route) } : {};
   }
 
-  let classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
-  // Only the uncertain middle consults the LLM; deny/allow are already confident and free.
-  if (classification.decision === "ask") {
-    const effort = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env)?.effort as Effort | undefined;
-    classification = await softClassify(command, ctx.registry.forComponent("filter"), effort);
+  const classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
+
+  // Without a loaded cheap model, CorpoCode can't intelligently judge a command — so it must NOT deny.
+  // A blind regex deny with no model behind it is its own harm (the In-flight tenet): degrade by
+  // keeping the deterministic auto-allow for clearly-safe commands and deferring everything else to the
+  // host's own permission prompt, rather than blocking. The deny-list only has teeth with a model loaded.
+  if (!ctx.registry.availableFor("filter")) {
+    if (classification.decision === "allow") {
+      logFilter(ctx, envelope, classification.decision, classification.reason, classification.matched, true);
+      return toResponse(classification);
+    }
+    logFilter(ctx, envelope, classification.decision, "no LLM loaded — deny disabled, deferring to host", classification.matched, false);
+    return {};
   }
 
+  // Only the uncertain middle consults the LLM; deny/allow are already confident and free.
+  let decided = classification;
+  if (decided.decision === "ask") {
+    const effort = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env)?.effort as Effort | undefined;
+    decided = await softClassify(command, ctx.registry.forComponent("filter"), effort);
+  }
+
+  logFilter(ctx, envelope, decided.decision, decided.reason, decided.matched, true);
+  return toResponse(decided);
+}
+
+function logFilter(
+  ctx: HookContext,
+  envelope: PreToolUseEnvelope,
+  decision: string,
+  reason: string,
+  matched: string | undefined,
+  enforced: boolean,
+): void {
   ctx.logger.log({
     event: "filter",
     session_id: envelope.session_id,
     component: "filter",
     tool: envelope.tool_name,
-    decision: classification.decision,
-    reason: classification.reason,
-    matched: classification.matched,
-    enforced: true, // Phase 2: the filter now sets the permission decision
+    decision,
+    reason,
+    matched,
+    enforced,
   });
-
-  return toResponse(classification);
 }
 
 function toResponse(c: FilterClassification): HookResponse {

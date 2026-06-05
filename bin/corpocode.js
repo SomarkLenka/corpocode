@@ -23945,7 +23945,7 @@ ${formatMessages(messages)}`
 }
 
 // src/log/flow.ts
-var MAX_MESSAGE_CHARS = 8e3;
+var MAX_ENTRY_CHARS = 8e3;
 var RULE = "\u2550".repeat(76);
 function extractBase(raw) {
   if (!raw || typeof raw !== "object") return null;
@@ -23953,7 +23953,7 @@ function extractBase(raw) {
   const sessionId = typeof o2.session_id === "string" ? o2.session_id : "";
   const transcriptPath = typeof o2.transcript_path === "string" ? o2.transcript_path : "";
   if (!sessionId || !transcriptPath) return null;
-  return { sessionId, transcriptPath, tool: typeof o2.tool_name === "string" ? o2.tool_name : void 0 };
+  return { sessionId, transcriptPath };
 }
 function shortSession(id) {
   return id.length > 8 ? id.slice(0, 8) : id;
@@ -23961,26 +23961,139 @@ function shortSession(id) {
 function indent(text, pad) {
   return text.split(/\r?\n/).map((l2) => pad + l2).join("\n");
 }
-function truncate(s2) {
-  return s2.length <= MAX_MESSAGE_CHARS ? s2 : `${s2.slice(0, MAX_MESSAGE_CHARS)}
-\u2026 (truncated ${s2.length - MAX_MESSAGE_CHARS} chars)`;
+function cap(s2) {
+  return s2.length <= MAX_ENTRY_CHARS ? s2 : `${s2.slice(0, MAX_ENTRY_CHARS)}
+\u2026 (truncated ${s2.length - MAX_ENTRY_CHARS} chars)`;
 }
-function inputHint(raw) {
+function coerceText(v2) {
+  if (typeof v2 === "string") return v2;
+  if (Array.isArray(v2)) {
+    return v2.map((p2) => typeof p2 === "string" ? p2 : p2 && typeof p2 === "object" && typeof p2.text === "string" ? p2.text : "").join("");
+  }
+  return "";
+}
+function compactInput(input) {
+  if (!input || typeof input !== "object") return "";
+  const o2 = input;
+  const key = ["file_path", "command", "pattern", "path", "url", "prompt", "description", "query"].find((k2) => typeof o2[k2] === "string");
+  if (key) {
+    const v2 = String(o2[key]).replace(/\s+/g, " ").trim();
+    return `${key}: ${v2.length > 120 ? `${v2.slice(0, 120)}\u2026` : v2}`;
+  }
+  const keys = Object.keys(o2);
+  return keys.length ? `{ ${keys.join(", ")} }` : "";
+}
+function renderTranscriptSlice(text) {
+  const out = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    let obj;
+    try {
+      obj = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (!obj || typeof obj !== "object") continue;
+    const top = obj;
+    const msg = top.message && typeof top.message === "object" ? top.message : top;
+    const roleRaw = String(msg.role ?? top.type ?? "");
+    const role = roleRaw === "assistant" ? "assistant" : roleRaw === "system" ? "system" : "user";
+    const content = msg.content ?? top.content ?? top.text;
+    if (typeof content === "string") {
+      if (content.trim()) out.push(cap(`[${role}] ${content}`));
+      continue;
+    }
+    if (!Array.isArray(content)) continue;
+    for (const block of content) {
+      if (typeof block === "string") {
+        if (block.trim()) out.push(cap(`[${role}] ${block}`));
+        continue;
+      }
+      if (!block || typeof block !== "object") continue;
+      const b2 = block;
+      switch (b2.type) {
+        case "text": {
+          const t2 = typeof b2.text === "string" ? b2.text : "";
+          if (t2.trim()) out.push(cap(`[${role}] ${t2}`));
+          break;
+        }
+        case "tool_use": {
+          const name = typeof b2.name === "string" ? b2.name : "tool";
+          const inp = compactInput(b2.input);
+          out.push(cap(`[${role} \u25B6 ${name}]${inp ? ` ${inp}` : ""}`));
+          break;
+        }
+        case "tool_result": {
+          const body = coerceText(b2.content).replace(/\s+/g, " ").trim();
+          out.push(cap(`[tool result${b2.is_error === true ? " \u2717" : ""}]${body ? ` ${body}` : ""}`));
+          break;
+        }
+        // thinking / redacted_thinking / unknown blocks are intentionally skipped — they bloat the
+        // log and aren't needed to follow the hook↔tool flow.
+        default:
+          break;
+      }
+    }
+  }
+  return out;
+}
+function headerDetail(hookName, raw) {
   if (!raw || typeof raw !== "object") return void 0;
-  const ti = raw.tool_input;
-  if (!ti || typeof ti !== "object") return void 0;
-  const o2 = ti;
-  const key = ["file_path", "command", "pattern", "path", "url", "prompt"].find((k2) => typeof o2[k2] === "string");
-  if (!key) return void 0;
-  const value = String(o2[key]).replace(/\s+/g, " ").trim();
-  return `${key}: ${value.length > 160 ? `${value.slice(0, 160)}\u2026` : value}`;
+  const o2 = raw;
+  const str2 = (k2) => typeof o2[k2] === "string" ? o2[k2] : void 0;
+  switch (hookName) {
+    case "PreToolUse":
+    case "PostToolUse": {
+      const name = str2("tool_name");
+      const inp = compactInput(o2.tool_input);
+      return name ? `${name}${inp ? ` ${inp}` : ""}` : void 0;
+    }
+    case "SessionStart":
+      return str2("source");
+    case "SessionEnd":
+      return str2("reason");
+    case "Notification":
+      return str2("notification_type") ?? str2("title");
+    case "PreCompact":
+      return str2("trigger");
+    case "SubagentStart":
+    case "SubagentStop":
+      return str2("agent_type") ?? str2("subagent_type");
+    default:
+      return void 0;
+  }
 }
-function renderMessages(messages) {
-  if (messages.length === 0) return indent("(no new transcript content)", "  ");
-  return messages.map((m2) => indent(`[${m2.role}] ${truncate(m2.content)}`, "  ")).join("\n\n");
+function eventNote(hookName, raw) {
+  if (!raw || typeof raw !== "object") return void 0;
+  const o2 = raw;
+  const str2 = (k2) => typeof o2[k2] === "string" ? o2[k2].trim() : "";
+  switch (hookName) {
+    case "Notification": {
+      const parts = [str2("notification_type"), str2("message")].filter(Boolean);
+      return parts.length ? `notification: ${parts.join(" \u2014 ")}` : void 0;
+    }
+    case "PreCompact": {
+      const t2 = str2("trigger");
+      return `compaction triggered${t2 ? ` (${t2})` : ""}`;
+    }
+    case "SubagentStop": {
+      const agent = str2("agent_type");
+      const last = str2("last_assistant_message");
+      const lines = [agent ? `subagent ${agent} finished` : "subagent finished", last ? `last: ${cap(last)}` : ""].filter(Boolean);
+      return lines.join("\n");
+    }
+    default:
+      return void 0;
+  }
 }
-function renderOutput(response) {
+function renderTranscript(entries) {
+  if (entries.length === 0) return indent("(no new transcript content)", "  ");
+  return entries.map((e2) => indent(e2, "  ")).join("\n\n");
+}
+function renderOutput(response, note) {
   const parts = [];
+  if (note) parts.push(note);
   if (response.additionalContext) parts.push(`additionalContext:
 ${indent(response.additionalContext, "    ")}`);
   if (response.permissionDecision) {
@@ -23991,25 +24104,26 @@ ${indent(response.additionalContext, "    ")}`);
   if (parts.length === 0) return indent("(no output \u2014 empty response)", "  ");
   return indent(parts.join("\n"), "  ");
 }
-function buildBlock(hookName, base, raw, response, messages, ts) {
-  const toolPart = base.tool ? `  \xB7  ${base.tool}` : "";
+function hasResponseSignal(response) {
+  return Boolean(response.additionalContext || response.permissionDecision || response.decision || response.continue === false);
+}
+function buildBlock(hookName, base, raw, response, entries, note, ts) {
+  const detail = headerDetail(hookName, raw);
+  const detailPart = detail ? `  \xB7  ${detail}` : "";
   const head = `${RULE}
-\u25B6 ${hookName}${toolPart}  \xB7  ${ts}  \xB7  session ${shortSession(base.sessionId)}
+\u25B6 ${hookName}${detailPart}  \xB7  ${ts}  \xB7  session ${shortSession(base.sessionId)}
 ${RULE}`;
-  const hint = inputHint(raw);
-  const hintLine = hint ? `
-  ${hint}` : "";
-  const count = `${messages.length} new message${messages.length === 1 ? "" : "s"}`;
+  const count = `${entries.length} new entr${entries.length === 1 ? "y" : "ies"}`;
   return `
-${head}${hintLine}
+${head}
 
 \u2576 transcript (${count}) \u2574
 
-${renderMessages(messages)}
+${renderTranscript(entries)}
 
 \u2576 hook output \u2574
 
-${renderOutput(response)}
+${renderOutput(response, note)}
 `;
 }
 function createFlowLogger(opts) {
@@ -24041,8 +24155,13 @@ function createFlowLogger(opts) {
       const base = extractBase(raw);
       if (!base) return;
       const { text, newOffset } = readSlice(base.transcriptPath, loadOffset(base.sessionId));
-      const messages = text.trim() ? parseTranscriptSlice(text) : [];
-      write(buildBlock(hookName, base, raw, response, messages, now().toISOString()));
+      const entries = text.trim() ? renderTranscriptSlice(text) : [];
+      const note = eventNote(hookName, raw);
+      if (entries.length === 0 && !note && !hasResponseSignal(response)) {
+        saveOffset(base.sessionId, newOffset);
+        return;
+      }
+      write(buildBlock(hookName, base, raw, response, entries, note, now().toISOString()));
       saveOffset(base.sessionId, newOffset);
     } catch {
     }
@@ -24078,14 +24197,39 @@ var postToolUseSchema = baseEnvelope.extend({
   tool_response: external_exports.unknown().optional()
 });
 var stopSchema = baseEnvelope.extend({
-  stop_hook_active: external_exports.boolean().optional()
+  stop_hook_active: external_exports.boolean().optional(),
+  last_assistant_message: external_exports.string().optional()
 });
 var subagentStartSchema = baseEnvelope.extend({
-  subagent_type: external_exports.string().optional()
+  subagent_type: external_exports.string().optional(),
+  agent_type: external_exports.string().optional()
+});
+var subagentStopSchema = baseEnvelope.extend({
+  agent_id: external_exports.string().optional(),
+  agent_type: external_exports.string().optional(),
+  agent_transcript_path: external_exports.string().optional(),
+  last_assistant_message: external_exports.string().optional(),
+  stop_hook_active: external_exports.boolean().optional()
 });
 var sessionStartSchema = baseEnvelope.extend({
-  source: external_exports.string().optional()
-  // e.g. "startup" | "resume" | "clear"
+  source: external_exports.string().optional(),
+  // e.g. "startup" | "resume" | "clear" | "compact"
+  model: external_exports.string().optional()
+});
+var sessionEndSchema = baseEnvelope.extend({
+  reason: external_exports.string().optional()
+  // e.g. "clear" | "resume" | "logout" | "other"
+});
+var notificationSchema = baseEnvelope.extend({
+  message: external_exports.string().optional(),
+  title: external_exports.string().optional(),
+  notification_type: external_exports.string().optional()
+  // e.g. "permission_prompt" | "idle_prompt"
+});
+var preCompactSchema = baseEnvelope.extend({
+  trigger: external_exports.string().optional(),
+  // "manual" | "auto"
+  custom_instructions: external_exports.string().optional()
 });
 var ENVELOPE_SCHEMAS = {
   UserPromptSubmit: userPromptSubmitSchema,
@@ -24093,7 +24237,11 @@ var ENVELOPE_SCHEMAS = {
   PostToolUse: postToolUseSchema,
   Stop: stopSchema,
   SubagentStart: subagentStartSchema,
-  SessionStart: sessionStartSchema
+  SubagentStop: subagentStopSchema,
+  SessionStart: sessionStartSchema,
+  SessionEnd: sessionEndSchema,
+  Notification: notificationSchema,
+  PreCompact: preCompactSchema
 };
 function isHookName(name) {
   return Object.prototype.hasOwnProperty.call(ENVELOPE_SCHEMAS, name);
@@ -24771,6 +24919,7 @@ function createOllamaProvider(opts) {
 }
 
 // src/providers/registry.ts
+var nonEmpty = (v2) => typeof v2 === "string" && v2.trim().length > 0;
 function buildProvider(cfg, apiKey) {
   const base = { model: cfg.model, apiKey, host: cfg.host, baseUrl: cfg.baseUrl };
   switch (cfg.kind) {
@@ -24808,9 +24957,23 @@ function buildRegistry(config, opts = {}) {
     cache.set(key, provider);
     return provider;
   };
+  const isProviderLoaded = (cfg) => {
+    switch (cfg.kind) {
+      case "ollama":
+        return nonEmpty(cfg.host) || nonEmpty(cfg.baseUrl);
+      case "anthropic-cli":
+        return nonEmpty(cfg.model);
+      default:
+        return Boolean(resolveApiKey({ kind: cfg.kind, apiKeyRef: cfg.apiKeyRef }, secrets, env));
+    }
+  };
   return {
     forComponent: (name) => providerForKey(config.components[name]),
-    all: () => [...new Set(Object.values(config.components))].map(providerForKey)
+    all: () => [...new Set(Object.values(config.components))].map(providerForKey),
+    availableFor: (name) => {
+      const cfg = config.providers[config.components[name]];
+      return cfg ? isProviderLoaded(cfg) : false;
+    }
   };
 }
 
@@ -26560,11 +26723,11 @@ async function handleItem(item, backends, perItemTimeoutMs, now = () => Date.now
 
 // src/perf/limiter.ts
 function createLimiter(max) {
-  const cap = Math.max(1, Math.floor(max));
+  const cap2 = Math.max(1, Math.floor(max));
   let active = 0;
   const waiters = [];
   const acquire = () => new Promise((resolve2) => {
-    if (active < cap) {
+    if (active < cap2) {
       active++;
       resolve2();
     } else {
@@ -27340,7 +27503,7 @@ var DEFAULT_POLICIES = {
 
 // src/filter/classify.ts
 function extractCommand(toolName, toolInput) {
-  if (toolName === "Bash" || toolName === "Shell") {
+  if (toolName === "Bash" || toolName === "Shell" || toolName === "PowerShell" || toolName === "pwsh") {
     return typeof toolInput.command === "string" ? toolInput.command : null;
   }
   return null;
@@ -27499,23 +27662,34 @@ async function handlePreToolUse(envelope, ctx) {
     const route = await maybeRouteHeavyCoding(envelope, ctx);
     return route ? { additionalContext: tagged(TAGS.toolbox, route) } : {};
   }
-  let classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
-  if (classification.decision === "ask") {
-    const effort = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env)?.effort;
-    classification = await softClassify(command, ctx.registry.forComponent("filter"), effort);
+  const classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
+  if (!ctx.registry.availableFor("filter")) {
+    if (classification.decision === "allow") {
+      logFilter(ctx, envelope, classification.decision, classification.reason, classification.matched, true);
+      return toResponse(classification);
+    }
+    logFilter(ctx, envelope, classification.decision, "no LLM loaded \u2014 deny disabled, deferring to host", classification.matched, false);
+    return {};
   }
+  let decided = classification;
+  if (decided.decision === "ask") {
+    const effort = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env)?.effort;
+    decided = await softClassify(command, ctx.registry.forComponent("filter"), effort);
+  }
+  logFilter(ctx, envelope, decided.decision, decided.reason, decided.matched, true);
+  return toResponse(decided);
+}
+function logFilter(ctx, envelope, decision, reason, matched, enforced) {
   ctx.logger.log({
     event: "filter",
     session_id: envelope.session_id,
     component: "filter",
     tool: envelope.tool_name,
-    decision: classification.decision,
-    reason: classification.reason,
-    matched: classification.matched,
-    enforced: true
-    // Phase 2: the filter now sets the permission decision
+    decision,
+    reason,
+    matched,
+    enforced
   });
-  return toResponse(classification);
 }
 function toResponse(c2) {
   return { permissionDecision: c2.decision, permissionDecisionReason: c2.reason };
@@ -28478,8 +28652,16 @@ async function dispatchHook(hookName, rawStdin, deps = {}) {
           return runTyped(hookName, stopSchema, parsed, handlers.Stop, ctx, serialize, flow);
         case "SubagentStart":
           return runTyped(hookName, subagentStartSchema, parsed, handlers.SubagentStart, ctx, serialize, flow);
+        case "SubagentStop":
+          return runTyped(hookName, subagentStopSchema, parsed, handlers.SubagentStop, ctx, serialize, flow);
         case "SessionStart":
           return runTyped(hookName, sessionStartSchema, parsed, handlers.SessionStart, ctx, serialize, flow);
+        case "SessionEnd":
+          return runTyped(hookName, sessionEndSchema, parsed, handlers.SessionEnd, ctx, serialize, flow);
+        case "Notification":
+          return runTyped(hookName, notificationSchema, parsed, handlers.Notification, ctx, serialize, flow);
+        case "PreCompact":
+          return runTyped(hookName, preCompactSchema, parsed, handlers.PreCompact, ctx, serialize, flow);
         default: {
           const unreachable = hookName;
           return Promise.resolve(emptyResponse());
@@ -28547,9 +28729,14 @@ var import_node_path22 = require("node:path");
 var HOOK_SPECS = [
   { name: "UserPromptSubmit" },
   { name: "PreToolUse", matcher: "*" },
-  { name: "PostToolUse", matcher: "Write|Edit" },
+  { name: "PostToolUse", matcher: "*" },
   { name: "Stop" },
-  { name: "SessionStart" }
+  { name: "SubagentStart" },
+  { name: "SubagentStop" },
+  { name: "SessionStart" },
+  { name: "SessionEnd" },
+  { name: "Notification" },
+  { name: "PreCompact" }
 ];
 function isCorpocodeGroup(group) {
   return Array.isArray(group.hooks) && group.hooks.some((h2) => typeof h2?.command === "string" && h2.command.includes("corpocode"));
@@ -30040,7 +30227,7 @@ Next: open ${secPath} and replace the placeholder${plural} with your real key${p
 }
 
 // src/cli.ts
-var VERSION3 = "0.1.4";
+var VERSION3 = "0.2.1-alpha.0";
 function renderHelp() {
   const width = Math.max(...COMMANDS.map((c2) => c2.usage.length));
   const lines = COMMANDS.map((c2) => `  ${c2.usage.padEnd(width)}  ${c2.summary}`);

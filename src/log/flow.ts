@@ -11,17 +11,22 @@
 //
 // The transcript "diff" is a byte-offset cursor kept per session, DISTINCT from the SessionReader's
 // offset, so the two advance independently and neither steals the other's unread slice.
+//
+// Transcript rendering is flow-LOCAL (not the SessionReader's text-only parser) because following the
+// flow requires the structure that parser discards: a transcript message's `role` is "assistant" for
+// tool CALLS (tool_use blocks) but "user" for tool RESULTS (tool_result blocks). Rendering by role
+// alone makes a tool result look like a user message that appears AFTER the tool call. So we classify
+// each content block (text / tool_use / tool_result) and keep file order, which is true chat order.
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { ensureDir, flowCursorFile, flowLogFile } from "../config/paths";
 import type { CorpoConfig } from "../config/schema";
 import type { HookResponse } from "../hooks/response";
-import type { TranscriptMessage } from "../compactor/types";
-import { parseTranscriptSlice, readSlice } from "../session/reader";
+import { readSlice } from "../session/reader";
 
-// One transcript message can be enormous (a pasted file, a long tool result). Cap each so a single
-// blob can't bloat the flow log past usefulness; the delta model means we never repeat content anyway.
-const MAX_MESSAGE_CHARS = 8000;
+// One transcript entry can be enormous (a pasted file, a long tool result). Cap each so a single blob
+// can't bloat the flow log past usefulness; the delta model means we never repeat content anyway.
+const MAX_ENTRY_CHARS = 8000;
 const RULE = "═".repeat(76);
 
 export interface FlowLogger {
@@ -43,7 +48,6 @@ export interface FlowLoggerOptions {
 interface HookBase {
   sessionId: string;
   transcriptPath: string;
-  tool?: string;
 }
 
 /** Pull the fields every hook envelope carries; null if the transcript can't be located. */
@@ -53,7 +57,7 @@ function extractBase(raw: unknown): HookBase | null {
   const sessionId = typeof o.session_id === "string" ? o.session_id : "";
   const transcriptPath = typeof o.transcript_path === "string" ? o.transcript_path : "";
   if (!sessionId || !transcriptPath) return null;
-  return { sessionId, transcriptPath, tool: typeof o.tool_name === "string" ? o.tool_name : undefined };
+  return { sessionId, transcriptPath };
 }
 
 function shortSession(id: string): string {
@@ -67,29 +71,157 @@ function indent(text: string, pad: string): string {
     .join("\n");
 }
 
-function truncate(s: string): string {
-  return s.length <= MAX_MESSAGE_CHARS ? s : `${s.slice(0, MAX_MESSAGE_CHARS)}\n… (truncated ${s.length - MAX_MESSAGE_CHARS} chars)`;
+function cap(s: string): string {
+  return s.length <= MAX_ENTRY_CHARS ? s : `${s.slice(0, MAX_ENTRY_CHARS)}\n… (truncated ${s.length - MAX_ENTRY_CHARS} chars)`;
 }
 
-/** A one-line hint of the most salient tool input (file, command, …) for quick scanning. */
-function inputHint(raw: unknown): string | undefined {
+/** Flatten an Anthropic content value (string or block array) to plain text, for tool_result bodies. */
+function coerceText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) {
+    return v
+      .map((p) => (typeof p === "string" ? p : p && typeof p === "object" && typeof (p as { text?: unknown }).text === "string" ? (p as { text: string }).text : ""))
+      .join("");
+  }
+  return "";
+}
+
+/** A compact, single-line summary of a tool input — the most salient field, else its key set. */
+function compactInput(input: unknown): string {
+  if (!input || typeof input !== "object") return "";
+  const o = input as Record<string, unknown>;
+  const key = ["file_path", "command", "pattern", "path", "url", "prompt", "description", "query"].find((k) => typeof o[k] === "string");
+  if (key) {
+    const v = String(o[key]).replace(/\s+/g, " ").trim();
+    return `${key}: ${v.length > 120 ? `${v.slice(0, 120)}…` : v}`;
+  }
+  const keys = Object.keys(o);
+  return keys.length ? `{ ${keys.join(", ")} }` : "";
+}
+
+/** Render one transcript JSONL slice into ordered, classified, labeled entries (true chat order). */
+function renderTranscriptSlice(text: string): string[] {
+  const out: string[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    let obj: unknown;
+    try {
+      obj = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (!obj || typeof obj !== "object") continue;
+    const top = obj as Record<string, unknown>;
+    const msg = (top.message && typeof top.message === "object" ? top.message : top) as Record<string, unknown>;
+    const roleRaw = String(msg.role ?? top.type ?? "");
+    const role = roleRaw === "assistant" ? "assistant" : roleRaw === "system" ? "system" : "user";
+    const content = msg.content ?? top.content ?? top.text;
+
+    if (typeof content === "string") {
+      if (content.trim()) out.push(cap(`[${role}] ${content}`));
+      continue;
+    }
+    if (!Array.isArray(content)) continue;
+
+    for (const block of content) {
+      if (typeof block === "string") {
+        if (block.trim()) out.push(cap(`[${role}] ${block}`));
+        continue;
+      }
+      if (!block || typeof block !== "object") continue;
+      const b = block as Record<string, unknown>;
+      switch (b.type) {
+        case "text": {
+          const t = typeof b.text === "string" ? b.text : "";
+          if (t.trim()) out.push(cap(`[${role}] ${t}`));
+          break;
+        }
+        case "tool_use": {
+          const name = typeof b.name === "string" ? b.name : "tool";
+          const inp = compactInput(b.input);
+          out.push(cap(`[${role} ▶ ${name}]${inp ? ` ${inp}` : ""}`));
+          break;
+        }
+        case "tool_result": {
+          const body = coerceText(b.content).replace(/\s+/g, " ").trim();
+          out.push(cap(`[tool result${b.is_error === true ? " ✗" : ""}]${body ? ` ${body}` : ""}`));
+          break;
+        }
+        // thinking / redacted_thinking / unknown blocks are intentionally skipped — they bloat the
+        // log and aren't needed to follow the hook↔tool flow.
+        default:
+          break;
+      }
+    }
+  }
+  return out;
+}
+
+/** Event-specific header annotation (e.g. the session source, the notified type, the tool + input). */
+function headerDetail(hookName: string, raw: unknown): string | undefined {
   if (!raw || typeof raw !== "object") return undefined;
-  const ti = (raw as Record<string, unknown>).tool_input;
-  if (!ti || typeof ti !== "object") return undefined;
-  const o = ti as Record<string, unknown>;
-  const key = ["file_path", "command", "pattern", "path", "url", "prompt"].find((k) => typeof o[k] === "string");
-  if (!key) return undefined;
-  const value = String(o[key]).replace(/\s+/g, " ").trim();
-  return `${key}: ${value.length > 160 ? `${value.slice(0, 160)}…` : value}`;
+  const o = raw as Record<string, unknown>;
+  const str = (k: string): string | undefined => (typeof o[k] === "string" ? (o[k] as string) : undefined);
+  switch (hookName) {
+    case "PreToolUse":
+    case "PostToolUse": {
+      const name = str("tool_name");
+      const inp = compactInput(o.tool_input);
+      return name ? `${name}${inp ? ` ${inp}` : ""}` : undefined;
+    }
+    case "SessionStart":
+      return str("source");
+    case "SessionEnd":
+      return str("reason");
+    case "Notification":
+      return str("notification_type") ?? str("title");
+    case "PreCompact":
+      return str("trigger");
+    case "SubagentStart":
+    case "SubagentStop":
+      return str("agent_type") ?? str("subagent_type");
+    default:
+      return undefined;
+  }
 }
 
-function renderMessages(messages: TranscriptMessage[]): string {
-  if (messages.length === 0) return indent("(no new transcript content)", "  ");
-  return messages.map((m) => indent(`[${m.role}] ${truncate(m.content)}`, "  ")).join("\n\n");
+// Events whose VALUE lives in the payload, not the transcript or a HookResponse. Returning a note for
+// these keeps their block from being suppressed as "empty" and surfaces the payload. SessionStart /
+// SessionEnd / SubagentStart deliberately return nothing here: bare boundary markers with no
+// transcript and no output are noise (the spammy empty-SessionStart case), so they get suppressed.
+function eventNote(hookName: string, raw: unknown): string | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const str = (k: string): string => (typeof o[k] === "string" ? (o[k] as string).trim() : "");
+  switch (hookName) {
+    case "Notification": {
+      const parts = [str("notification_type"), str("message")].filter(Boolean);
+      return parts.length ? `notification: ${parts.join(" — ")}` : undefined;
+    }
+    case "PreCompact": {
+      const t = str("trigger");
+      return `compaction triggered${t ? ` (${t})` : ""}`;
+    }
+    case "SubagentStop": {
+      const agent = str("agent_type");
+      const last = str("last_assistant_message");
+      const lines = [agent ? `subagent ${agent} finished` : "subagent finished", last ? `last: ${cap(last)}` : ""].filter(Boolean);
+      return lines.join("\n");
+    }
+    default:
+      return undefined;
+  }
 }
 
-function renderOutput(response: HookResponse): string {
+function renderTranscript(entries: string[]): string {
+  if (entries.length === 0) return indent("(no new transcript content)", "  ");
+  return entries.map((e) => indent(e, "  ")).join("\n\n");
+}
+
+function renderOutput(response: HookResponse, note: string | undefined): string {
   const parts: string[] = [];
+  if (note) parts.push(note);
   if (response.additionalContext) parts.push(`additionalContext:\n${indent(response.additionalContext, "    ")}`);
   if (response.permissionDecision) {
     parts.push(`permissionDecision: ${response.permissionDecision}${response.permissionDecisionReason ? ` (${response.permissionDecisionReason})` : ""}`);
@@ -100,13 +232,17 @@ function renderOutput(response: HookResponse): string {
   return indent(parts.join("\n"), "  ");
 }
 
-function buildBlock(hookName: string, base: HookBase, raw: unknown, response: HookResponse, messages: TranscriptMessage[], ts: string): string {
-  const toolPart = base.tool ? `  ·  ${base.tool}` : "";
-  const head = `${RULE}\n▶ ${hookName}${toolPart}  ·  ${ts}  ·  session ${shortSession(base.sessionId)}\n${RULE}`;
-  const hint = inputHint(raw);
-  const hintLine = hint ? `\n  ${hint}` : "";
-  const count = `${messages.length} new message${messages.length === 1 ? "" : "s"}`;
-  return `\n${head}${hintLine}\n\n╶ transcript (${count}) ╴\n\n${renderMessages(messages)}\n\n╶ hook output ╴\n\n${renderOutput(response)}\n`;
+/** True when the hook's RESPONSE carries something worth recording (independent of the transcript). */
+function hasResponseSignal(response: HookResponse): boolean {
+  return Boolean(response.additionalContext || response.permissionDecision || response.decision || response.continue === false);
+}
+
+function buildBlock(hookName: string, base: HookBase, raw: unknown, response: HookResponse, entries: string[], note: string | undefined, ts: string): string {
+  const detail = headerDetail(hookName, raw);
+  const detailPart = detail ? `  ·  ${detail}` : "";
+  const head = `${RULE}\n▶ ${hookName}${detailPart}  ·  ${ts}  ·  session ${shortSession(base.sessionId)}\n${RULE}`;
+  const count = `${entries.length} new entr${entries.length === 1 ? "y" : "ies"}`;
+  return `\n${head}\n\n╶ transcript (${count}) ╴\n\n${renderTranscript(entries)}\n\n╶ hook output ╴\n\n${renderOutput(response, note)}\n`;
 }
 
 export function createFlowLogger(opts: FlowLoggerOptions): FlowLogger {
@@ -146,8 +282,18 @@ export function createFlowLogger(opts: FlowLoggerOptions): FlowLogger {
       const base = extractBase(raw);
       if (!base) return; // no transcript to diff (shouldn't happen for a real hook envelope)
       const { text, newOffset } = readSlice(base.transcriptPath, loadOffset(base.sessionId));
-      const messages = text.trim() ? parseTranscriptSlice(text) : [];
-      write(buildBlock(hookName, base, raw, response, messages, now().toISOString()));
+      const entries = text.trim() ? renderTranscriptSlice(text) : [];
+      const note = eventNote(hookName, raw);
+
+      // Suppress pure-noise blocks: a hook that added no transcript, produced no response, and carries
+      // no payload note is not worth a block — this is what silences the repeated empty SessionStarts.
+      // Still advance the cursor so the consumed (e.g. thinking-only) bytes aren't re-read next time.
+      if (entries.length === 0 && !note && !hasResponseSignal(response)) {
+        saveOffset(base.sessionId, newOffset);
+        return;
+      }
+
+      write(buildBlock(hookName, base, raw, response, entries, note, now().toISOString()));
       saveOffset(base.sessionId, newOffset); // advance only after a successful write
     } catch {
       // Swallowed by design (invariant 1): a flow-log failure must never surface to the hook.

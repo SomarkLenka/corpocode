@@ -19,7 +19,18 @@ export interface ProviderRegistry {
   forComponent(name: ComponentName): Provider;
   /** Every distinct provider in use, for doctor's reachability sweep. */
   all(): Provider[];
+  /**
+   * Whether a usable cheap model is actually configured for a component — checked synchronously from
+   * config + secrets, without a network call. Lets callers degrade gracefully (e.g. the filter
+   * disabling its deny path) when no LLM is loaded, rather than relying on a call that will fail.
+   *  - key-requiring vendors (anthropic, google, openai, openrouter): a key must resolve;
+   *  - ollama: an endpoint (`host` or `baseUrl`) must be populated — the default kind alone is not enough;
+   *  - anthropic-cli: a model must be populated (its only config knob; it uses the `claude` CLI session).
+   */
+  availableFor(name: ComponentName): boolean;
 }
+
+const nonEmpty = (v?: string): boolean => typeof v === "string" && v.trim().length > 0;
 
 /** Construct a single provider from its config slice + resolved key. */
 export function buildProvider(cfg: ProviderConfig, apiKey: string | undefined): Provider {
@@ -66,8 +77,26 @@ export function buildRegistry(
     return provider;
   };
 
+  const isProviderLoaded = (cfg: ProviderConfig): boolean => {
+    switch (cfg.kind) {
+      case "ollama":
+        // Local daemon: loaded only when an endpoint is configured, not just because the kind is set.
+        return nonEmpty(cfg.host) || nonEmpty(cfg.baseUrl);
+      case "anthropic-cli":
+        // Uses the user's `claude` CLI session (no key/endpoint); loaded when a model is configured.
+        return nonEmpty(cfg.model);
+      default:
+        // Key-requiring vendors: loaded only when a key resolves from secrets/env.
+        return Boolean(resolveApiKey({ kind: cfg.kind, apiKeyRef: cfg.apiKeyRef }, secrets, env));
+    }
+  };
+
   return {
     forComponent: (name) => providerForKey(config.components[name]),
     all: () => [...new Set(Object.values(config.components))].map(providerForKey),
+    availableFor: (name) => {
+      const cfg = config.providers[config.components[name]];
+      return cfg ? isProviderLoaded(cfg) : false;
+    },
   };
 }
