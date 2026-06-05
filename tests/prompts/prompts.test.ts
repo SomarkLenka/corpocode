@@ -8,6 +8,7 @@ import { BUILTIN_PROMPTS } from "../../src/prompts/registry";
 import { scaffoldPrompts } from "../../src/prompts/scaffold";
 import { promptsDir, globalPromptsDir } from "../../src/config/paths";
 import { isPromptId } from "../../src/prompts/registry";
+import { promptRelPath, assertCatalogComplete } from "../../src/prompts/catalog";
 import { ALL_CHECKS } from "../../src/verifier/tenets";
 
 describe("renderTemplate", () => {
@@ -23,8 +24,8 @@ describe("renderTemplate", () => {
 describe("resolveTemplate precedence (local → global → built-in)", () => {
   const env = {};
   const cwd = "/proj";
-  const local = join(promptsDir(cwd, env), "router.md");
-  const global = join(globalPromptsDir(env), "router.md");
+  const local = join(promptsDir(cwd, env), promptRelPath("router"));
+  const global = join(globalPromptsDir(env), promptRelPath("router"));
   const seam = (files: Record<string, string>) => (p: string) => files[p] ?? null;
 
   it("prefers the project-local file", () => {
@@ -58,6 +59,12 @@ describe("resolvePrompt", () => {
   });
 });
 
+describe("prompt catalog", () => {
+  it("every prompt id has folder/source/effect metadata", () => {
+    expect(() => assertCatalogComplete()).not.toThrow();
+  });
+});
+
 describe("verifier tenet rubrics are editable prompts", () => {
   it("every built-in tenet check is backed by a registry promptId (so each rubric is editable)", () => {
     expect(ALL_CHECKS).toHaveLength(9);
@@ -75,8 +82,9 @@ describe("scaffoldPrompts", () => {
 
     const first = scaffoldPrompts({ env });
     expect(first.wrote).toContain("router");
-    const file = readFileSync(join(home, "prompts", "router.md"), "utf8");
+    const file = readFileSync(join(home, "prompts", "router", "rank.md"), "utf8"); // foldered by component
     expect(file).toContain("<!-- CorpoCode prompt"); // guidance header present on disk
+    expect(file).toContain("src/router/ranker.ts"); // names the source that uses it
     expect(file).toContain("{{candidates}}"); // placeholders documented in the body
 
     // resolved form (real fs) drops the header but keeps the body
@@ -84,10 +92,14 @@ describe("scaffoldPrompts", () => {
     expect(resolved).not.toContain("<!--");
     expect(resolved).toContain("{{candidates}}");
 
+    // a README indexes every prompt; tenet prompts land under verifier/tenets/
+    expect(readFileSync(join(home, "prompts", "README.md"), "utf8")).toContain("verifier/tenets/testing.md");
+    expect(existsSync(join(home, "prompts", "verifier", "tenets", "maintainability.md"))).toBe(true);
+
     // re-running keeps the (possibly-edited) file
     expect(scaffoldPrompts({ env }).skipped).toContain("router");
     // --force rewrites it
     expect(scaffoldPrompts({ env, force: true }).wrote).toContain("router");
-    expect(existsSync(join(home, "prompts", "filter-classify.md"))).toBe(true);
+    expect(existsSync(join(home, "prompts", "filter", "classify.md"))).toBe(true);
   });
 });

@@ -23902,6 +23902,37 @@ function allPromptIds() {
   return Object.keys(BUILTIN_PROMPTS);
 }
 
+// src/prompts/catalog.ts
+var PROMPT_META = {
+  router: { path: "router/rank.md", source: "src/router/ranker.ts", effect: "how your prompt's moment is classified and which files preload" },
+  retrieval: { path: "retrieval/plan.md", source: "src/retrieval/planner.ts", effect: "what the retrieval team gathers when no template matches" },
+  compactor: { path: "compactor/digest.md", source: "src/compactor/worker.ts", effect: "how an older transcript slice is summarized at Stop" },
+  skillgen: { path: "skillgen/distill.md", source: "src/loops/skillgen.ts", effect: "how mined memories become skill candidates" },
+  "filter-classify": { path: "filter/classify.md", source: "src/filter/classify.ts", effect: "how an uncertain shell command is judged deny/allow/ask" },
+  "filter-inject": { path: "filter/inject.md", source: "src/filter/inject.ts", effect: "how a file read is narrowed to the relevant slice" },
+  "session-reader": { path: "session/reader.md", source: "src/session/reader.ts", effect: "how the line-of-thought is distilled from the transcript" },
+  toolbox: { path: "toolbox/classify.md", source: "src/toolbox/classifier.ts", effect: "which gated skills/agents are surfaced as relevant" },
+  "docs-facet": { path: "docs/facet.md", source: "src/docs/generator.ts", effect: "each what-code-does facet (impacts, risks, input, \u2026)" },
+  "docs-inline": { path: "docs/inline.md", source: "src/docs/generator.ts", effect: "the inline doc-comment writer" },
+  verifier: { path: "verifier/wrapper.md", source: "src/verifier/worker.ts", effect: "the JSON framing around every post-edit tenet check" },
+  review: { path: "review/wrapper.md", source: "src/molar/engine.ts", effect: "the JSON framing around every design-review tenet check" },
+  "verifier-maintainability": { path: "verifier/tenets/maintainability.md", source: "src/verifier/tenets/maintainability.ts", effect: "the Maintainability (M) standard the verifier enforces" },
+  "verifier-observability": { path: "verifier/tenets/observability.md", source: "src/verifier/tenets/observability.ts", effect: "the Observability (O) standard the verifier enforces" },
+  "verifier-logging": { path: "verifier/tenets/logging.md", source: "src/verifier/tenets/logging.ts", effect: "the Logging (L) standard the verifier enforces" },
+  "verifier-atomicity": { path: "verifier/tenets/atomicity.md", source: "src/verifier/tenets/atomicity.ts", effect: "the Atomicity (A) standard the verifier enforces" },
+  "verifier-responsiveness": { path: "verifier/tenets/responsiveness.md", source: "src/verifier/tenets/responsiveness.ts", effect: "the Responsiveness (R) standard (UI files only)" },
+  "verifier-extensibility": { path: "verifier/tenets/extensibility.md", source: "src/verifier/tenets/extensibility.ts", effect: "the Extensibility (E) standard the verifier enforces" },
+  "verifier-documentation": { path: "verifier/tenets/documentation.md", source: "src/verifier/tenets/documentation.ts", effect: "the Documentation (D) standard the verifier enforces" },
+  "verifier-in-flight": { path: "verifier/tenets/in-flight.md", source: "src/verifier/tenets/in-flight.ts", effect: "the In-flight (I) standard the verifier enforces" },
+  "verifier-testing": { path: "verifier/tenets/testing.md", source: "src/verifier/tenets/testing.ts", effect: "the Testing (T) standard the verifier enforces" }
+};
+function promptRelPath(id) {
+  return PROMPT_META[id].path;
+}
+function promptGroup(id) {
+  return PROMPT_META[id].path.split("/")[0];
+}
+
 // src/prompts/render.ts
 function renderTemplate(template, vars = {}) {
   return template.replace(
@@ -23928,8 +23959,9 @@ function stripHeaderComment(text) {
 }
 function resolveTemplate(id, opts = {}) {
   const read = opts.readFile ?? fsRead;
+  const rel = promptRelPath(id);
   for (const dir of [promptsDir(opts.cwd, opts.env), globalPromptsDir(opts.env)]) {
-    const raw = read((0, import_node_path3.join)(dir, `${id}.md`));
+    const raw = read((0, import_node_path3.join)(dir, rel));
     if (raw == null) continue;
     const text = stripHeaderComment(raw);
     if (text.trim()) return text;
@@ -30397,11 +30429,15 @@ var import_node_fs42 = require("node:fs");
 var import_node_path33 = require("node:path");
 function renderScaffold(id) {
   const body = BUILTIN_PROMPTS[id];
+  const meta = PROMPT_META[id];
   const vars = templateVars(body);
   const header = [
-    `<!-- CorpoCode prompt "${id}". Edit freely; this global copy is overridden by a project-local`,
-    `     ./.corpocode/prompts/${id}.md, and both override the built-in default. Delete to revert.`,
-    vars.length ? `     Placeholders are filled at run time \u2014 keep them: ${vars.map((v2) => `{{${v2}}}`).join(", ")}` : `     This prompt takes no placeholders.`,
+    `<!-- CorpoCode prompt "${id}"`,
+    `     Used by:           ${meta.source}`,
+    `     Editing this sets: ${meta.effect}`,
+    `     Overrides:         a project-local ./.corpocode/prompts/${meta.path} beats this global copy;`,
+    `                        both beat the built-in default. Delete this file to revert.`,
+    vars.length ? `     Placeholders:      filled at run time \u2014 keep them: ${vars.map((v2) => `{{${v2}}}`).join(", ")}` : `     Placeholders:      none.`,
     `-->`
   ].join("\n");
   return `${header}
@@ -30409,20 +30445,48 @@ function renderScaffold(id) {
 ${body}
 `;
 }
+function renderReadme() {
+  const byGroup = /* @__PURE__ */ new Map();
+  for (const id of allPromptIds()) {
+    const arr = byGroup.get(promptGroup(id)) ?? [];
+    arr.push(id);
+    byGroup.set(promptGroup(id), arr);
+  }
+  const lines = [
+    "# CorpoCode prompts",
+    "",
+    "Each file is a system prompt for one CorpoCode component \u2014 the folder names the component, so you",
+    "can see where a prompt is used (and what editing it affects). A project-local",
+    "`./.corpocode/prompts/<path>` overrides this global copy; both override the built-in default. Delete",
+    "a file to revert. `{{placeholders}}` are filled at run time \u2014 keep them.",
+    ""
+  ];
+  for (const [group, ids] of byGroup) {
+    lines.push(`## ${group}`, "");
+    for (const id of ids) {
+      const m2 = PROMPT_META[id];
+      lines.push(`- \`${m2.path}\` \u2014 ${m2.effect} \xB7 _${m2.source}_`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
 function scaffoldPrompts(opts = {}) {
   const dir = globalPromptsDir(opts.env);
   ensureDir(dir);
   const wrote = [];
   const skipped = [];
   for (const id of allPromptIds()) {
-    const path = (0, import_node_path33.join)(dir, `${id}.md`);
+    const path = (0, import_node_path33.join)(dir, promptRelPath(id));
     if ((0, import_node_fs42.existsSync)(path) && !opts.force) {
       skipped.push(id);
       continue;
     }
+    (0, import_node_fs42.mkdirSync)((0, import_node_path33.dirname)(path), { recursive: true });
     (0, import_node_fs42.writeFileSync)(path, renderScaffold(id));
     wrote.push(id);
   }
+  (0, import_node_fs42.writeFileSync)((0, import_node_path33.join)(dir, "README.md"), renderReadme());
   return { dir, wrote, skipped };
 }
 

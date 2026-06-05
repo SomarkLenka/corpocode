@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { globalPromptsDir, promptsDir } from "../config/paths";
 import { BUILTIN_PROMPTS, type PromptId } from "./registry";
+import { promptRelPath } from "./catalog";
 import { renderTemplate } from "./render";
 
 export interface PromptResolverOptions {
@@ -32,8 +33,9 @@ function stripHeaderComment(text: string): string {
 /** The template for a prompt: project-local file → global file → built-in default. */
 export function resolveTemplate(id: PromptId, opts: PromptResolverOptions = {}): string {
   const read = opts.readFile ?? fsRead;
+  const rel = promptRelPath(id);
   for (const dir of [promptsDir(opts.cwd, opts.env), globalPromptsDir(opts.env)]) {
-    const raw = read(join(dir, `${id}.md`));
+    const raw = read(join(dir, rel));
     if (raw == null) continue;
     const text = stripHeaderComment(raw);
     if (text.trim()) return text; // a present-but-empty override is treated as "not set"
