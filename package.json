@@ -1,6 +1,6 @@
 {
   "name": "corpocode",
-  "version": "0.1.4",
+  "version": "0.2.1-alpha",
   "description": "Cheap-model caretakers that read context, recommend, verify, and remember — offloading the main model.",
   "license": "MIT",
   "author": {
@@ -29,7 +29,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "node build.mjs",
+    "sync-version": "node scripts/sync-plugin-version.mjs",
+    "build": "npm run sync-version && node build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev": "vitest",
@@ -44,6 +45,8 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "@types/node": "^22.10.5",
     "esbuild": "^0.24.2",
     "typescript": "^5.7.3",
