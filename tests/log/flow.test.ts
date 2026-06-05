@@ -41,14 +41,47 @@ describe("flow logger", () => {
     });
 
     const out = read();
-    expect(out).toContain("▶ PreToolUse  ·  Read");
+    expect(out).toContain("▶ PreToolUse  ·  Read file_path: src/filter/classify.ts"); // tool + input in header
     expect(out).toContain("session abc12345");
-    expect(out).toContain("file_path: src/filter/classify.ts"); // input hint
     expect(out).toContain("[user] analyze the filter");
     expect(out).toContain("[assistant] reading classify.ts");
     expect(out).toContain("additionalContext:");
     expect(out).toContain("permissionDecision: allow (not a command tool)");
-    expect(out).toContain("2 new messages");
+    expect(out).toContain("2 new entries");
+  });
+
+  it("classifies tool_use and tool_result in true chat order (not as a late user message)", () => {
+    // A tool RESULT is a role:"user" message — the bug was it rendering as "[user]" AFTER the tool
+    // call. The renderer must label the call [assistant ▶ Read] and the result [tool result], in order.
+    const assistant = JSON.stringify({
+      role: "assistant",
+      content: [
+        { type: "text", text: "let me read it" },
+        { type: "tool_use", name: "Read", input: { file_path: "a.ts" } },
+      ],
+    });
+    const toolResult = JSON.stringify({ role: "user", content: [{ type: "tool_result", content: "file contents here" }] });
+    writeFileSync(transcript, `${assistant}\n${toolResult}\n`);
+
+    const flow = createFlowLogger({ enabled: true, env, now: FIXED });
+    flow.record("PostToolUse", { session_id: "s1", transcript_path: transcript, tool_name: "Read" }, {});
+
+    const out = read();
+    const callAt = out.indexOf("[assistant ▶ Read] file_path: a.ts");
+    const resultAt = out.indexOf("[tool result] file contents here");
+    expect(callAt).toBeGreaterThan(-1);
+    expect(resultAt).toBeGreaterThan(-1);
+    expect(callAt).toBeLessThan(resultAt); // call BEFORE result — the ordering fix
+    expect(out).not.toContain("[user] file contents here"); // result is NOT mislabeled as a user message
+  });
+
+  it("surfaces a Notification's payload even with no transcript or response", () => {
+    writeFileSync(transcript, "");
+    const flow = createFlowLogger({ enabled: true, env, now: FIXED });
+    flow.record("Notification", { session_id: "s1", transcript_path: transcript, notification_type: "permission_prompt", message: "Claude needs your permission" }, {});
+    const out = read();
+    expect(out).toContain("▶ Notification  ·  permission_prompt");
+    expect(out).toContain("notification: permission_prompt — Claude needs your permission");
   });
 
   it("only emits NEW transcript lines on the next hook (delta advances)", () => {
@@ -72,11 +105,21 @@ describe("flow logger", () => {
     expect(segs[2]).toContain("(no output — empty response)"); // empty response renders explicitly
   });
 
-  it("renders a hook with no new transcript content", () => {
-    writeFileSync(transcript, ""); // SessionStart often fires before any transcript exists
+  it("suppresses an empty boundary hook (no transcript, no output, no payload) — the SessionStart-spam fix", () => {
+    writeFileSync(transcript, ""); // SessionStart firing before any transcript exists = pure noise
     const flow = createFlowLogger({ enabled: true, env, now: FIXED });
-    flow.record("SessionStart", { session_id: "s1", transcript_path: transcript }, {});
-    expect(read()).toContain("(no new transcript content)");
+    flow.record("SessionStart", { session_id: "s1", transcript_path: transcript, source: "startup" }, {});
+    expect(existsSync(flowLogFile(undefined, env))).toBe(false); // nothing worth recording → no block
+  });
+
+  it("still records a hook that has output even with no new transcript", () => {
+    writeFileSync(transcript, "");
+    const flow = createFlowLogger({ enabled: true, env, now: FIXED });
+    flow.record("UserPromptSubmit", { session_id: "s1", transcript_path: transcript }, { additionalContext: "<rec>hi</rec>" });
+    const out = read();
+    expect(out).toContain("▶ UserPromptSubmit");
+    expect(out).toContain("(no new transcript content)");
+    expect(out).toContain("<rec>hi</rec>");
   });
 
   it("is a no-op when disabled", () => {

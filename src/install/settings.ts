@@ -7,12 +7,22 @@ export interface HookSpec {
   matcher?: string;
 }
 
+// Every hook surface Claude Code exposes is registered, so the flow log can observe the full
+// session. PostToolUse uses matcher "*" (not just Write|Edit) so tool RESULTS for reads/commands
+// land in the flow log too — the verifier itself still no-ops on non-write tools, so broadening the
+// matcher only adds flow visibility, not verification work. SubagentStart/Stop, SessionEnd,
+// Notification, and PreCompact have no handler; they exist purely for flow-log observability.
 export const HOOK_SPECS: HookSpec[] = [
   { name: "UserPromptSubmit" },
   { name: "PreToolUse", matcher: "*" },
-  { name: "PostToolUse", matcher: "Write|Edit" },
+  { name: "PostToolUse", matcher: "*" },
   { name: "Stop" },
+  { name: "SubagentStart" },
+  { name: "SubagentStop" },
   { name: "SessionStart" },
+  { name: "SessionEnd" },
+  { name: "Notification" },
+  { name: "PreCompact" },
 ];
 
 interface HookEntry {

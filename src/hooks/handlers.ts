@@ -3,16 +3,26 @@
 //   PreToolUse       → filter (deny/allow/ask) + context injector
 //   PostToolUse      → verifier (MOLAR-EDIT fan-out, can block)
 //   Stop             → compactor (sliding window + tiered digest + consolidation)
+//   SessionStart     → toolbox gate (re-gate skills/agents)
 // Each handler is a thin function (envelope, ctx) → HookResponse. The dispatcher builds the
 // context and routes the validated envelope to the matching handler.
+//
+// The remaining surfaces (SubagentStart/Stop, SessionEnd, Notification, PreCompact) carry no
+// business logic — they are registered purely so the flow log can observe every hook Claude Code
+// fires. They have no entry in buildHandlers(); the dispatcher records the flow block and returns
+// an empty response for them.
 import type { HookContext } from "./context";
 import type { HookResponse } from "./response";
 import type {
+  NotificationEnvelope,
   PostToolUseEnvelope,
+  PreCompactEnvelope,
   PreToolUseEnvelope,
+  SessionEndEnvelope,
   SessionStartEnvelope,
   StopEnvelope,
   SubagentStartEnvelope,
+  SubagentStopEnvelope,
   UserPromptSubmitEnvelope,
 } from "./envelope";
 import { handleUserPromptSubmit } from "../router/handler";
@@ -29,7 +39,11 @@ export interface HandlerMap {
   PostToolUse: Handler<PostToolUseEnvelope>;
   Stop: Handler<StopEnvelope>;
   SubagentStart: Handler<SubagentStartEnvelope>;
+  SubagentStop: Handler<SubagentStopEnvelope>;
   SessionStart: Handler<SessionStartEnvelope>;
+  SessionEnd: Handler<SessionEndEnvelope>;
+  Notification: Handler<NotificationEnvelope>;
+  PreCompact: Handler<PreCompactEnvelope>;
 }
 
 export function buildHandlers(): Partial<HandlerMap> {

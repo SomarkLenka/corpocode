@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { HOOK_SPECS } from "../../src/install/settings";
 
 const ROOT = process.cwd();
 const read = (...p: string[]): string => readFileSync(join(ROOT, ...p), "utf8");
@@ -13,13 +14,19 @@ describe("plugin payload files", () => {
     expect(typeof plugin.description).toBe("string");
   });
 
-  it("hooks.json declares the hooks via ${CLAUDE_PLUGIN_ROOT}", () => {
+  it("hooks.json declares every HOOK_SPEC via ${CLAUDE_PLUGIN_ROOT} and cannot drift from it", () => {
     const hooks = JSON.parse(read("hooks", "hooks.json"));
-    expect(Object.keys(hooks.hooks).sort()).toEqual(["PostToolUse", "PreToolUse", "SessionStart", "Stop", "UserPromptSubmit"]);
-    expect(hooks.hooks.UserPromptSubmit[0].hooks[0].command).toContain("${CLAUDE_PLUGIN_ROOT}");
-    expect(hooks.hooks.UserPromptSubmit[0].hooks[0].command).toContain("hook UserPromptSubmit");
+    // The plugin manifest (what Claude Code reads) must match the install spec exactly, so the two
+    // registration paths — plugin and npm/native — never diverge on which surfaces are attached.
+    expect(Object.keys(hooks.hooks).sort()).toEqual(HOOK_SPECS.map((s) => s.name).sort());
+    for (const spec of HOOK_SPECS) {
+      const group = hooks.hooks[spec.name][0];
+      expect(group.hooks[0].command).toContain("${CLAUDE_PLUGIN_ROOT}");
+      expect(group.hooks[0].command).toContain(`hook ${spec.name}`);
+      expect(group.matcher).toBe(spec.matcher); // both undefined when the spec has no matcher
+    }
     expect(hooks.hooks.PreToolUse[0].matcher).toBe("*");
-    expect(hooks.hooks.PostToolUse[0].matcher).toBe("Write|Edit");
+    expect(hooks.hooks.PostToolUse[0].matcher).toBe("*"); // broadened so the flow log sees every tool result
   });
 
   it("marketplace.json installs the plugin from an HTTPS git url (no SSH, no npm needed)", () => {

@@ -10,11 +10,15 @@ import {
   ENVELOPE_SCHEMAS,
   baseEnvelope,
   isHookName,
+  notificationSchema,
   postToolUseSchema,
+  preCompactSchema,
   preToolUseSchema,
+  sessionEndSchema,
   sessionStartSchema,
   stopSchema,
   subagentStartSchema,
+  subagentStopSchema,
   userPromptSubmitSchema,
   type BaseEnvelope,
 } from "./envelope";
@@ -118,8 +122,16 @@ export async function dispatchHook(hookName: string, rawStdin: string, deps: Dis
           return runTyped(hookName, stopSchema, parsed, handlers.Stop, ctx, serialize, flow);
         case "SubagentStart":
           return runTyped(hookName, subagentStartSchema, parsed, handlers.SubagentStart, ctx, serialize, flow);
+        case "SubagentStop":
+          return runTyped(hookName, subagentStopSchema, parsed, handlers.SubagentStop, ctx, serialize, flow);
         case "SessionStart":
           return runTyped(hookName, sessionStartSchema, parsed, handlers.SessionStart, ctx, serialize, flow);
+        case "SessionEnd":
+          return runTyped(hookName, sessionEndSchema, parsed, handlers.SessionEnd, ctx, serialize, flow);
+        case "Notification":
+          return runTyped(hookName, notificationSchema, parsed, handlers.Notification, ctx, serialize, flow);
+        case "PreCompact":
+          return runTyped(hookName, preCompactSchema, parsed, handlers.PreCompact, ctx, serialize, flow);
         default: {
           const unreachable: never = hookName;
           void unreachable;
