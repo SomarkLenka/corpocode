@@ -45,6 +45,7 @@ function makeCtx(over: CtxOver): HookContext {
     env: over.env,
     logger: { enabled: false, log: () => {} },
     registry: { forComponent: () => provider(over.relevance ?? "{}"), all: () => [] },
+    prompts: { resolve: (id: string) => id },
     memory: {
       id: "native",
       recall: async () => over.warnings ?? [],

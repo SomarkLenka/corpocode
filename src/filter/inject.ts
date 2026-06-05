@@ -63,13 +63,7 @@ async function relevancePass(
     const out = await ctx.registry.forComponent("filter").chat(
       applyEffort(
         {
-          system:
-            `You decide which part of a file matters for a stated purpose, to focus a reader.\n` +
-            `Purpose: ${purpose}\n` +
-            `Structurally related symbols (from the code graph): ${neighbors.join(", ") || "(none)"}\n` +
-            `Return ONLY JSON {"relevant":boolean,"confidence":number 0..1,"focus":string}, where focus ` +
-            `names the function(s)/section(s) to read for this purpose. If the whole file is needed or ` +
-            `you are unsure, set relevant=false.`,
+          system: ctx.prompts.resolve("filter-inject", { purpose, neighbors: neighbors.join(", ") || "(none)" }),
           responseFormat: "json",
           maxTokens: 200,
           messages: [{ role: "user", content: content.slice(0, 6000) }],

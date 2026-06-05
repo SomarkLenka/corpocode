@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { Provider } from "../providers/types";
 import type { Effort } from "../config/schema";
 import { applyEffort } from "../providers/effort";
+import { resolvePrompt } from "../prompts/resolve";
 import type { TenetCheck, TenetFinding } from "../molar/types";
 
 export type ReadFile = (path: string) => string | null;
@@ -51,7 +52,7 @@ async function runOneCheck(
     const out = await provider.chat(
       applyEffort(
         {
-          system: `${check.prompt}\n\nRespond with ONLY JSON: {"ok":boolean,"severity":"info"|"warn"|"block","message":string,"confidence":number 0..1}. ok=true means the tenet is satisfied.`,
+          system: resolvePrompt("verifier", { rubric: check.prompt }),
           responseFormat: "json",
           maxTokens: 250,
           timeoutMs,
