@@ -52,7 +52,9 @@ async function runOneCheck(
     const out = await provider.chat(
       applyEffort(
         {
-          system: resolvePrompt("verifier", { rubric: check.prompt }),
+          system: resolvePrompt("verifier", {
+            rubric: check.promptId ? resolvePrompt(check.promptId) : check.prompt ?? "",
+          }),
           responseFormat: "json",
           maxTokens: 250,
           timeoutMs,
