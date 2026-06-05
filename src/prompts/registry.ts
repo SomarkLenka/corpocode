@@ -107,6 +107,27 @@ export const BUILTIN_PROMPTS = {
     "",
     'Respond with ONLY JSON: {"ok":boolean,"severity":"info"|"warn"|"block","message":string,"confidence":number 0..1}. ok=true means the approach is sound on this tenet.',
   ].join("\n"),
+
+  // The 9 MOLAR-EDIT tenet rubrics (src/verifier/tenets/*.ts). Each is the {{rubric}} the `verifier`
+  // (post-edit) and `review` (design) wrappers fill, so a user can retune any single tenet's standard.
+  "verifier-maintainability":
+    "Assess Maintainability (M): is this change isolated to the files it needs, with accurate names that hold no surprises, magic values named, and no dead or commented-out code? Flag a change that sprawls across unrelated files, names that lie (an isValid() that mutates, a getUser() that creates), unexplained magic numbers/strings, and commented-out code kept 'just in case' (git remembers).",
+  "verifier-observability":
+    "Assess Observability (O): do critical paths emit a latency metric and a success/failure signal, do readiness checks verify real downstream reachability rather than mere process liveness, and do trace IDs propagate across every async/queue boundary? Flag a critical path with no metric, a /health that returns 200 just because the process is up, and high-cardinality metric labels.",
+  "verifier-logging":
+    "Assess Logging (L): are errors logged once, at the layer that handles them, with structured, actionable context (what failed, where, why, what to check next)? Flag bare catch blocks that swallow errors, console.log debug statements, unstructured string logs, and any logging of secrets or PII.",
+  "verifier-atomicity":
+    "Assess Atomicity (A): does each unit in this file do ONE thing, named for that one thing in five words or fewer, with a call graph that reads as a line rather than a tree of unrelated conditionals? Flag functions/files that do several unrelated things, names containing 'and', and junk-drawer modules.",
+  "verifier-responsiveness":
+    "Assess Responsiveness (R) for this UI file: does it work at a ≤375px viewport, is every flow completable by keyboard alone, does every image carry meaningful alt and every control an associated <label>, is color reinforced by text/icon/pattern rather than being the sole signal, and does any API return structure (blocks/types) rather than presentation (HTML/CSS)? Flag desktop-only layouts, click handlers on non-focusable elements, missing alt/labels, and color-only signals.",
+  "verifier-extensibility":
+    "Assess Extensibility (E): is new behavior placed behind an abstraction that can be swapped, with core logic separated from the concrete implementation, so an alternative can be added without editing call sites? Flag a concrete vendor or implementation hard-wired into business logic where an interface seam belongs.",
+  "verifier-documentation":
+    "Assess Documentation (D): is the WHY recorded for any non-obvious choice (the constraint, the alternative considered, the trade-off, an ADR link), do comments explain intent rather than restate the code, and does this change leave no doc stale? Flag comments that merely restate the line below, an ADR-worthy decision made with no durable record, and a doc the code now contradicts.",
+  "verifier-in-flight":
+    "Assess In-flight (I): does every external call (HTTP, DB, queue, cache) have a timeout, a bounded and jittered retry, and a defined fallback, and does the code keep flying when a dependency is down instead of crashing? Flag an await with no timeout, unbounded/unjittered retries, a cache miss that hard-fails the request, and 'crash and let the orchestrator restart' used as the recovery plan.",
+  "verifier-testing":
+    "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main.",
 } as const;
 
 export type PromptId = keyof typeof BUILTIN_PROMPTS;

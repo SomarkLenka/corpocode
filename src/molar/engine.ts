@@ -51,7 +51,10 @@ export function createMolarEditEngine(opts: MolarEngineOptions): MolarEditEngine
   const extra = opts.extraChecks ?? [];
 
   const reviewOne = async (tenet: Tenet, designContext: string): Promise<TenetFinding> => {
-    const rubric = checksForTenets([tenet], extra)[0]?.prompt ?? `Evaluate the ${TENET_LENS[tenet]} tenet.`;
+    const check = checksForTenets([tenet], extra)[0];
+    const rubric = check?.promptId
+      ? resolvePrompt(check.promptId)
+      : check?.prompt ?? `Evaluate the ${TENET_LENS[tenet]} tenet.`;
     try {
       const out = await opts.provider.chat(
         applyEffort(

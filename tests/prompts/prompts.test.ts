@@ -7,6 +7,8 @@ import { resolveTemplate, resolvePrompt } from "../../src/prompts/resolve";
 import { BUILTIN_PROMPTS } from "../../src/prompts/registry";
 import { scaffoldPrompts } from "../../src/prompts/scaffold";
 import { promptsDir, globalPromptsDir } from "../../src/config/paths";
+import { isPromptId } from "../../src/prompts/registry";
+import { ALL_CHECKS } from "../../src/verifier/tenets";
 
 describe("renderTemplate", () => {
   it("fills known placeholders and leaves unknown ones intact", () => {
@@ -53,6 +55,16 @@ describe("resolvePrompt", () => {
   });
   it("static prompts come through verbatim from the built-in default", () => {
     expect(resolvePrompt("filter-classify", {}, { readFile: () => null })).toBe(BUILTIN_PROMPTS["filter-classify"]);
+  });
+});
+
+describe("verifier tenet rubrics are editable prompts", () => {
+  it("every built-in tenet check is backed by a registry promptId (so each rubric is editable)", () => {
+    expect(ALL_CHECKS).toHaveLength(9);
+    for (const check of ALL_CHECKS) {
+      expect(check.promptId, `${check.name} should expose a promptId`).toBeDefined();
+      expect(isPromptId(check.promptId!), `${check.promptId} should exist in the registry`).toBe(true);
+    }
   });
 });
 

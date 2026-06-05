@@ -23885,7 +23885,18 @@ var BUILTIN_PROMPTS = {
     "{{rubric}}",
     "",
     'Respond with ONLY JSON: {"ok":boolean,"severity":"info"|"warn"|"block","message":string,"confidence":number 0..1}. ok=true means the approach is sound on this tenet.'
-  ].join("\n")
+  ].join("\n"),
+  // The 9 MOLAR-EDIT tenet rubrics (src/verifier/tenets/*.ts). Each is the {{rubric}} the `verifier`
+  // (post-edit) and `review` (design) wrappers fill, so a user can retune any single tenet's standard.
+  "verifier-maintainability": "Assess Maintainability (M): is this change isolated to the files it needs, with accurate names that hold no surprises, magic values named, and no dead or commented-out code? Flag a change that sprawls across unrelated files, names that lie (an isValid() that mutates, a getUser() that creates), unexplained magic numbers/strings, and commented-out code kept 'just in case' (git remembers).",
+  "verifier-observability": "Assess Observability (O): do critical paths emit a latency metric and a success/failure signal, do readiness checks verify real downstream reachability rather than mere process liveness, and do trace IDs propagate across every async/queue boundary? Flag a critical path with no metric, a /health that returns 200 just because the process is up, and high-cardinality metric labels.",
+  "verifier-logging": "Assess Logging (L): are errors logged once, at the layer that handles them, with structured, actionable context (what failed, where, why, what to check next)? Flag bare catch blocks that swallow errors, console.log debug statements, unstructured string logs, and any logging of secrets or PII.",
+  "verifier-atomicity": "Assess Atomicity (A): does each unit in this file do ONE thing, named for that one thing in five words or fewer, with a call graph that reads as a line rather than a tree of unrelated conditionals? Flag functions/files that do several unrelated things, names containing 'and', and junk-drawer modules.",
+  "verifier-responsiveness": "Assess Responsiveness (R) for this UI file: does it work at a \u2264375px viewport, is every flow completable by keyboard alone, does every image carry meaningful alt and every control an associated <label>, is color reinforced by text/icon/pattern rather than being the sole signal, and does any API return structure (blocks/types) rather than presentation (HTML/CSS)? Flag desktop-only layouts, click handlers on non-focusable elements, missing alt/labels, and color-only signals.",
+  "verifier-extensibility": "Assess Extensibility (E): is new behavior placed behind an abstraction that can be swapped, with core logic separated from the concrete implementation, so an alternative can be added without editing call sites? Flag a concrete vendor or implementation hard-wired into business logic where an interface seam belongs.",
+  "verifier-documentation": "Assess Documentation (D): is the WHY recorded for any non-obvious choice (the constraint, the alternative considered, the trade-off, an ADR link), do comments explain intent rather than restate the code, and does this change leave no doc stale? Flag comments that merely restate the line below, an ADR-worthy decision made with no durable record, and a doc the code now contradicts.",
+  "verifier-in-flight": "Assess In-flight (I): does every external call (HTTP, DB, queue, cache) have a timeout, a bounded and jittered retry, and a defined fallback, and does the code keep flying when a dependency is down instead of crashing? Flag an await with no timeout, unbounded/unjittered retries, a cache miss that hard-fails the request, and 'crash and let the orchestrator restart' used as the recovery plan.",
+  "verifier-testing": "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main."
 };
 function allPromptIds() {
   return Object.keys(BUILTIN_PROMPTS);
@@ -27027,7 +27038,7 @@ var atomicityCheck = {
   tenet: "A",
   name: "atomicity:one-thing-per-unit",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Atomicity (A): does each unit in this file do ONE thing, named for that one thing in five words or fewer, with a call graph that reads as a line rather than a tree of unrelated conditionals? Flag functions/files that do several unrelated things, names containing 'and', and junk-drawer modules."
+  promptId: "verifier-atomicity"
 };
 
 // src/verifier/tenets/logging.ts
@@ -27035,7 +27046,7 @@ var loggingCheck = {
   tenet: "L",
   name: "logging:structured-and-actionable",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Logging (L): are errors logged once, at the layer that handles them, with structured, actionable context (what failed, where, why, what to check next)? Flag bare catch blocks that swallow errors, console.log debug statements, unstructured string logs, and any logging of secrets or PII."
+  promptId: "verifier-logging"
 };
 
 // src/verifier/tenets/maintainability.ts
@@ -27043,7 +27054,7 @@ var maintainabilityCheck = {
   tenet: "M",
   name: "maintainability:isolated-and-honest",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Maintainability (M): is this change isolated to the files it needs, with accurate names that hold no surprises, magic values named, and no dead or commented-out code? Flag a change that sprawls across unrelated files, names that lie (an isValid() that mutates, a getUser() that creates), unexplained magic numbers/strings, and commented-out code kept 'just in case' (git remembers)."
+  promptId: "verifier-maintainability"
 };
 
 // src/verifier/tenets/observability.ts
@@ -27051,7 +27062,7 @@ var observabilityCheck = {
   tenet: "O",
   name: "observability:metrics-and-readiness",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Observability (O): do critical paths emit a latency metric and a success/failure signal, do readiness checks verify real downstream reachability rather than mere process liveness, and do trace IDs propagate across every async/queue boundary? Flag a critical path with no metric, a /health that returns 200 just because the process is up, and high-cardinality metric labels."
+  promptId: "verifier-observability"
 };
 
 // src/verifier/tenets/responsiveness.ts
@@ -27059,7 +27070,7 @@ var responsivenessCheck = {
   tenet: "R",
   name: "responsiveness:accessible-and-structural",
   appliesTo: (file) => isUi(file.path),
-  prompt: "Assess Responsiveness (R) for this UI file: does it work at a \u2264375px viewport, is every flow completable by keyboard alone, does every image carry meaningful alt and every control an associated <label>, is color reinforced by text/icon/pattern rather than being the sole signal, and does any API return structure (blocks/types) rather than presentation (HTML/CSS)? Flag desktop-only layouts, click handlers on non-focusable elements, missing alt/labels, and color-only signals."
+  promptId: "verifier-responsiveness"
 };
 
 // src/verifier/tenets/extensibility.ts
@@ -27067,7 +27078,7 @@ var extensibilityCheck = {
   tenet: "E",
   name: "extensibility:swappable-behind-a-seam",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Extensibility (E): is new behavior placed behind an abstraction that can be swapped, with core logic separated from the concrete implementation, so an alternative can be added without editing call sites? Flag a concrete vendor or implementation hard-wired into business logic where an interface seam belongs."
+  promptId: "verifier-extensibility"
 };
 
 // src/verifier/tenets/documentation.ts
@@ -27075,7 +27086,7 @@ var documentationCheck = {
   tenet: "D",
   name: "documentation:why-not-what",
   appliesTo: (file) => isSource(file.path) || isDoc(file.path),
-  prompt: "Assess Documentation (D): is the WHY recorded for any non-obvious choice (the constraint, the alternative considered, the trade-off, an ADR link), do comments explain intent rather than restate the code, and does this change leave no doc stale? Flag comments that merely restate the line below, an ADR-worthy decision made with no durable record, and a doc the code now contradicts."
+  promptId: "verifier-documentation"
 };
 
 // src/verifier/tenets/in-flight.ts
@@ -27083,7 +27094,7 @@ var inFlightCheck = {
   tenet: "I",
   name: "in-flight:timeout-retry-fallback",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess In-flight (I): does every external call (HTTP, DB, queue, cache) have a timeout, a bounded and jittered retry, and a defined fallback, and does the code keep flying when a dependency is down instead of crashing? Flag an await with no timeout, unbounded/unjittered retries, a cache miss that hard-fails the request, and 'crash and let the orchestrator restart' used as the recovery plan."
+  promptId: "verifier-in-flight"
 };
 
 // src/verifier/tenets/testing.ts
@@ -27091,7 +27102,7 @@ var testingCheck = {
   tenet: "T",
   name: "testing:regression-and-failure-paths",
   appliesTo: (file) => isSource(file.path),
-  prompt: "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main."
+  promptId: "verifier-testing"
 };
 
 // src/verifier/tenets/index.ts
@@ -27134,7 +27145,9 @@ async function runOneCheck(check, file, content, provider, timeoutMs, effort) {
     const out = await provider.chat(
       applyEffort(
         {
-          system: resolvePrompt("verifier", { rubric: check.prompt }),
+          system: resolvePrompt("verifier", {
+            rubric: check.promptId ? resolvePrompt(check.promptId) : check.prompt ?? ""
+          }),
           responseFormat: "json",
           maxTokens: 250,
           timeoutMs,
@@ -27201,7 +27214,8 @@ function createMolarEditEngine(opts) {
   const timeout = opts.perCheckTimeoutMs ?? 8e3;
   const extra = opts.extraChecks ?? [];
   const reviewOne = async (tenet, designContext) => {
-    const rubric = checksForTenets([tenet], extra)[0]?.prompt ?? `Evaluate the ${TENET_LENS[tenet]} tenet.`;
+    const check = checksForTenets([tenet], extra)[0];
+    const rubric = check?.promptId ? resolvePrompt(check.promptId) : check?.prompt ?? `Evaluate the ${TENET_LENS[tenet]} tenet.`;
     try {
       const out = await opts.provider.chat(
         applyEffort(
