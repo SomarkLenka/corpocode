@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Provider } from "../providers/types";
 import type { Effort } from "../config/schema";
 import { applyEffort } from "../providers/effort";
+import { resolvePrompt } from "../prompts/resolve";
 import type { ToolboxEntry, ToolboxKind } from "./types";
 
 const selectionSchema = z.object({
@@ -31,10 +32,7 @@ export async function classifyRelevant(
 ): Promise<Selected[]> {
   if (input.candidates.length === 0 || input.limit === 0) return [];
   const menu = input.candidates.map((e) => `- ${e.name}: ${e.description}`).join("\n");
-  const system =
-    `You pick which ${input.kind}s are relevant to the user's request, from this catalog ` +
-    `(name: when-to-use):\n${menu}\n\nPick ONLY the genuinely relevant ones — often zero. ` +
-    `Respond with ONLY JSON: {"selected":[{"name":string,"reason":string}]}. Use exact names from the catalog.`;
+  const system = resolvePrompt("toolbox", { kind: input.kind, menu });
   try {
     const out = await deps.provider.chat(
       applyEffort(

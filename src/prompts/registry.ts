@@ -37,6 +37,39 @@ export const BUILTIN_PROMPTS = {
     "intent (string), approach (string, optional), openQuestions (string[]), recentDecisions",
     "(string[]), entities (string[] of files/symbols/concepts in active play).",
   ].join(" "),
+
+  // retrieval/planner.ts — the keyless fallback that plans a retrieval checklist for the moment.
+  retrieval: [
+    "You plan a retrieval checklist for a coding agent. Choose a short list of items, each from this",
+    "menu of kinds: query_graph (code structure), ov_find (reference docs), mem_recall (past",
+    "decisions/mistakes), get_node (locate a named symbol). Each item has a focused `query`. Respond",
+    'with ONLY JSON: {"items":[{"kind":...,"query":...}]}.',
+  ].join(" "),
+
+  // compactor/worker.ts — digests an older transcript slice at Stop.
+  compactor: [
+    "Summarize the following older slice of a coding session into a compact digest that preserves the",
+    "decisions made, problems solved, files touched, and any open threads. Be concise and factual; no",
+    "preamble.",
+  ].join(" "),
+
+  // loops/skillgen.ts — distills recorded mistakes/approaches into reusable skill candidates.
+  skillgen: [
+    "You turn an agent's recorded mistakes and approaches into reusable skill candidates. Cluster the",
+    "memories by recurring theme; for each strong, generalizable theme propose one skill as",
+    "{ name, description, body }: a short kebab-case name, a one-line description of when to use it, and",
+    "a body of concrete guidance. Only propose a skill when a theme recurs or is clearly reusable —",
+    "prefer fewer, higher-quality candidates. Respond as JSON: { candidates: [...] }.",
+  ].join(" "),
+
+  // toolbox/classifier.ts — picks the relevant gated skills/agents. {{kind}} = "skill"|"agent";
+  // {{menu}} = the bulleted "name: when-to-use" catalog for that kind.
+  toolbox: [
+    "You pick which {{kind}}s are relevant to the user's request, from this catalog (name: when-to-use):",
+    "{{menu}}",
+    "",
+    'Pick ONLY the genuinely relevant ones — often zero. Respond with ONLY JSON: {"selected":[{"name":string,"reason":string}]}. Use exact names from the catalog.',
+  ].join("\n"),
 } as const;
 
 export type PromptId = keyof typeof BUILTIN_PROMPTS;

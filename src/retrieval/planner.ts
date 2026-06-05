@@ -7,6 +7,7 @@ import type { RetrievalCues } from "../session/types";
 import type { Provider } from "../providers/types";
 import type { Effort } from "../config/schema";
 import { applyEffort } from "../providers/effort";
+import { resolvePrompt } from "../prompts/resolve";
 import type { ChecklistItem } from "./types";
 import type { RetrievalTemplate, TemplateFn } from "../plugins/types";
 import { plannerOutputJsonSchema, plannerOutputSchema, type PlannerItem } from "./output-schema";
@@ -33,12 +34,6 @@ function templatesFor(extra: RetrievalTemplate[] | undefined): Record<string, Te
   for (const t of extra) merged[t.type] = t.build;
   return { ...merged, ...TEMPLATES };
 }
-
-const MENU_PROMPT =
-  "You plan a retrieval checklist for a coding agent. Choose a short list of items, each from this " +
-  "menu of kinds: query_graph (code structure), ov_find (reference docs), mem_recall (past " +
-  "decisions/mistakes), get_node (locate a named symbol). Each item has a focused `query`. Respond " +
-  "with ONLY JSON: {\"items\":[{\"kind\":...,\"query\":...}]}.";
 
 export interface PlanInput {
   type: string;
@@ -87,7 +82,7 @@ async function fallbackSelect(input: PlanInput, deps: PlanDeps): Promise<Checkli
     const out = await deps.provider.chat(
       applyEffort(
         {
-          system: MENU_PROMPT,
+          system: resolvePrompt("retrieval"),
           responseFormat: "json",
           jsonSchema: plannerOutputJsonSchema,
           maxTokens: 300,

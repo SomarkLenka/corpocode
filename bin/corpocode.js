@@ -23824,7 +23824,36 @@ var BUILTIN_PROMPTS = {
     "intent unless the new slice clearly changes it. Keep arrays short and concrete. Fields:",
     "intent (string), approach (string, optional), openQuestions (string[]), recentDecisions",
     "(string[]), entities (string[] of files/symbols/concepts in active play)."
-  ].join(" ")
+  ].join(" "),
+  // retrieval/planner.ts — the keyless fallback that plans a retrieval checklist for the moment.
+  retrieval: [
+    "You plan a retrieval checklist for a coding agent. Choose a short list of items, each from this",
+    "menu of kinds: query_graph (code structure), ov_find (reference docs), mem_recall (past",
+    "decisions/mistakes), get_node (locate a named symbol). Each item has a focused `query`. Respond",
+    'with ONLY JSON: {"items":[{"kind":...,"query":...}]}.'
+  ].join(" "),
+  // compactor/worker.ts — digests an older transcript slice at Stop.
+  compactor: [
+    "Summarize the following older slice of a coding session into a compact digest that preserves the",
+    "decisions made, problems solved, files touched, and any open threads. Be concise and factual; no",
+    "preamble."
+  ].join(" "),
+  // loops/skillgen.ts — distills recorded mistakes/approaches into reusable skill candidates.
+  skillgen: [
+    "You turn an agent's recorded mistakes and approaches into reusable skill candidates. Cluster the",
+    "memories by recurring theme; for each strong, generalizable theme propose one skill as",
+    "{ name, description, body }: a short kebab-case name, a one-line description of when to use it, and",
+    "a body of concrete guidance. Only propose a skill when a theme recurs or is clearly reusable \u2014",
+    "prefer fewer, higher-quality candidates. Respond as JSON: { candidates: [...] }."
+  ].join(" "),
+  // toolbox/classifier.ts — picks the relevant gated skills/agents. {{kind}} = "skill"|"agent";
+  // {{menu}} = the bulleted "name: when-to-use" catalog for that kind.
+  toolbox: [
+    "You pick which {{kind}}s are relevant to the user's request, from this catalog (name: when-to-use):",
+    "{{menu}}",
+    "",
+    'Pick ONLY the genuinely relevant ones \u2014 often zero. Respond with ONLY JSON: {"selected":[{"name":string,"reason":string}]}. Use exact names from the catalog.'
+  ].join("\n")
 };
 function allPromptIds() {
   return Object.keys(BUILTIN_PROMPTS);
@@ -26662,7 +26691,6 @@ function templatesFor(extra) {
   for (const t2 of extra) merged[t2.type] = t2.build;
   return { ...merged, ...TEMPLATES };
 }
-var MENU_PROMPT = 'You plan a retrieval checklist for a coding agent. Choose a short list of items, each from this menu of kinds: query_graph (code structure), ov_find (reference docs), mem_recall (past decisions/mistakes), get_node (locate a named symbol). Each item has a focused `query`. Respond with ONLY JSON: {"items":[{"kind":...,"query":...}]}.';
 async function planChecklist(input, deps) {
   const template = templatesFor(deps.templates)[input.type];
   const items = template ? template(input.cues, input.prompt) : await fallbackSelect(input, deps);
@@ -26693,7 +26721,7 @@ async function fallbackSelect(input, deps) {
     const out = await deps.provider.chat(
       applyEffort(
         {
-          system: MENU_PROMPT,
+          system: resolvePrompt("retrieval"),
           responseFormat: "json",
           jsonSchema: plannerOutputJsonSchema,
           maxTokens: 300,
@@ -27268,10 +27296,7 @@ var selectionSchema = external_exports.object({
 async function classifyRelevant(input, deps) {
   if (input.candidates.length === 0 || input.limit === 0) return [];
   const menu = input.candidates.map((e2) => `- ${e2.name}: ${e2.description}`).join("\n");
-  const system = `You pick which ${input.kind}s are relevant to the user's request, from this catalog (name: when-to-use):
-${menu}
-
-Pick ONLY the genuinely relevant ones \u2014 often zero. Respond with ONLY JSON: {"selected":[{"name":string,"reason":string}]}. Use exact names from the catalog.`;
+  const system = resolvePrompt("toolbox", { kind: input.kind, menu });
   try {
     const out = await deps.provider.chat(
       applyEffort(
@@ -28340,7 +28365,6 @@ async function runDocGeneration(ctx, changedFiles) {
 }
 
 // src/compactor/worker.ts
-var DIGEST_PROMPT = "Summarize the following older slice of a coding session into a compact digest that preserves the decisions made, problems solved, files touched, and any open threads. Be concise and factual; no preamble.";
 function readTranscript(path, sessionId) {
   let text = "";
   try {
@@ -28356,7 +28380,7 @@ async function makeDigest(ctx, messages) {
   const body = messages.map((m2) => `${m2.role}: ${m2.content}`).join("\n").slice(0, 12e3);
   try {
     const out = await ctx.registry.forComponent("compactor").chat({
-      system: DIGEST_PROMPT,
+      system: ctx.prompts.resolve("compactor"),
       maxTokens: 600,
       messages: [{ role: "user", content: body }]
     });
@@ -29748,7 +29772,6 @@ function candidatesDir(env = process.env) {
 var zCandidates = external_exports.object({
   candidates: external_exports.array(external_exports.object({ name: external_exports.string(), description: external_exports.string(), body: external_exports.string() }))
 });
-var DISTILL_SYSTEM = "You turn an agent's recorded mistakes and approaches into reusable skill candidates. Cluster the memories by recurring theme; for each strong, generalizable theme propose one skill as { name, description, body }: a short kebab-case name, a one-line description of when to use it, and a body of concrete guidance. Only propose a skill when a theme recurs or is clearly reusable \u2014 prefer fewer, higher-quality candidates. Respond as JSON: { candidates: [...] }.";
 function slugify(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 }
@@ -29772,7 +29795,7 @@ async function generateSkillCandidates(deps) {
   let candidates;
   try {
     const out = await deps.provider.chat({
-      system: DISTILL_SYSTEM,
+      system: resolvePrompt("skillgen", {}, { env: deps.env }),
       messages: [{ role: "user", content: corpus }],
       responseFormat: "json",
       maxTokens: 1200
