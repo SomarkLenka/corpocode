@@ -81,6 +81,7 @@ function contextFor(repo: string, records: Record<string, unknown>[]): HookConte
     platform: "claude-code",
     logger: { enabled: true, log: (r) => records.push(r as Record<string, unknown>) },
     registry: { forComponent: () => failingProvider, all: () => [failingProvider], availableFor: () => true },
+    prompts: { resolve: (id: string) => id },
     graph: {} as unknown as HookContext["graph"],
     context: {} as unknown as HookContext["context"],
     memory: emptyMemory,

@@ -8,6 +8,7 @@ import { ensureDir, sessionStateFile, sessionsDir } from "../config/paths";
 import type { Provider } from "../providers/types";
 import type { TranscriptMessage } from "../compactor/types";
 import type { RetrievalCues, SessionReader, ThoughtState } from "./types";
+import { resolvePrompt, type PromptResolver } from "../prompts/resolve";
 
 const MAX_ACCUMULATED = 20; // cap carried-forward entities/decisions so state can't grow unbounded
 
@@ -21,18 +22,12 @@ const thoughtStateSchema = z.object({
   entities: z.array(z.string()).default([]),
 });
 
-const SYSTEM_PROMPT =
-  "You track a coding agent's line of thought across a session. Given the prior ThoughtState and " +
-  "the newest transcript slice, return the UPDATED ThoughtState as JSON. Carry forward the prior " +
-  "intent unless the new slice clearly changes it. Keep arrays short and concrete. Fields: " +
-  "intent (string), approach (string, optional), openQuestions (string[]), recentDecisions " +
-  "(string[]), entities (string[] of files/symbols/concepts in active play).";
-
 export interface SessionReaderOptions {
   provider: Provider;
   cwd?: string; // project root; the per-session cache lives under <cwd>/.corpocode/sessions
   env?: NodeJS.ProcessEnv;
   now?: () => number;
+  prompts?: PromptResolver; // editable "session-reader" prompt; falls back to the built-in default
 }
 
 interface CachedSession {
@@ -152,10 +147,13 @@ export function createSessionReader(opts: SessionReaderOptions): SessionReader {
     entities: dedupeCap([...prior.entities, ...next.entities]),
   });
 
+  const systemPrompt = (): string =>
+    opts.prompts ? opts.prompts.resolve("session-reader") : resolvePrompt("session-reader", {}, { cwd, env });
+
   const distill = async (prior: ThoughtState, messages: TranscriptMessage[]): Promise<ThoughtState> => {
     try {
       const out = await opts.provider.chat({
-        system: SYSTEM_PROMPT,
+        system: systemPrompt(),
         responseFormat: "json",
         maxTokens: 500,
         messages: [

@@ -7,6 +7,7 @@ import type { Provider } from "../providers/types";
 import type { Effort } from "../config/schema";
 import { applyEffort } from "../providers/effort";
 import { DEFAULT_POLICIES, type FilterPolicies } from "./policies";
+import { resolvePrompt } from "../prompts/resolve";
 
 export type FilterDecision = "deny" | "allow" | "ask";
 
@@ -50,23 +51,19 @@ const softSchema = z.object({
   reason: z.string().default(""),
 });
 
-const SOFT_PROMPT =
-  "You are a safety classifier for shell commands run inside a coding session. Decide: deny " +
-  "(clearly destructive or dangerous — wipes data, exfiltrates secrets, modifies the system), " +
-  "allow (clearly safe — read-only inspection, a test/build/lint run), or ask (uncertain — let " +
-  "the human decide). Default to ask when unsure. Respond with ONLY JSON {\"decision\":...,\"reason\":...}.";
-
-/** The optional LLM pass for the soft "ask" cases. Best-effort: any failure stays at "ask". */
+/** The optional LLM pass for the soft "ask" cases. Best-effort: any failure stays at "ask". The system
+ *  prompt is the editable "filter-classify" prompt; callers pass a resolved one, else the built-in. */
 export async function softClassify(
   command: string,
   provider: Provider,
   effort?: Effort,
+  systemPrompt?: string,
 ): Promise<FilterClassification> {
   try {
     const out = await provider.chat(
       applyEffort(
         {
-          system: SOFT_PROMPT,
+          system: systemPrompt ?? resolvePrompt("filter-classify"),
           responseFormat: "json",
           maxTokens: 150,
           timeoutMs: 6000,

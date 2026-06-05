@@ -57,7 +57,7 @@ export async function handlePreToolUse(
   let decided = classification;
   if (decided.decision === "ask") {
     const effort = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env)?.effort as Effort | undefined;
-    decided = await softClassify(command, ctx.registry.forComponent("filter"), effort);
+    decided = await softClassify(command, ctx.registry.forComponent("filter"), effort, ctx.prompts.resolve("filter-classify"));
   }
 
   logFilter(ctx, envelope, decided.decision, decided.reason, decided.matched, true);
