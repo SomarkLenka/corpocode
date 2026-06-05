@@ -111,7 +111,9 @@ dangerous command, halt a tenet-violating edit) and record each write to the tra
 compacts the session into memory, promotes to the clean branch, and documents the touched code.
 Everything reaches the model only as hook `additionalContext`.
 
-See `docs/` for the design spec, the phase plans, and the architecture decision records.
+For the full guided tour — the architecture, the per-turn flow, and the rationale subsystem by
+subsystem — read the narrative documentation in [`docs/narrative/`](docs/narrative/00-overview.md). See
+the rest of `docs/` for the design spec, the phase plans, and the architecture decision records.
 
 ## Develop
 
