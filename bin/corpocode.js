@@ -30244,7 +30244,7 @@ Next: open ${secPath} and replace the placeholder${plural} with your real key${p
 }
 
 // src/cli.ts
-var VERSION3 = "0.2.1-alpha.0";
+var VERSION3 = "0.2.1";
 function renderHelp() {
   const width = Math.max(...COMMANDS.map((c2) => c2.usage.length));
   const lines = COMMANDS.map((c2) => `  ${c2.usage.padEnd(width)}  ${c2.summary}`);
