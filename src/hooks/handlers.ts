@@ -4,13 +4,13 @@
 //   PostToolUse      → verifier (MOLAR-EDIT fan-out, can block)
 //   Stop             → compactor (sliding window + tiered digest + consolidation)
 //   SessionStart     → toolbox gate (re-gate skills/agents)
+//   SessionEnd       → agent-seam cleanup (release agent sessions + evict); a no-op until agents.enabled
 // Each handler is a thin function (envelope, ctx) → HookResponse. The dispatcher builds the
 // context and routes the validated envelope to the matching handler.
 //
-// The remaining surfaces (SubagentStart/Stop, SessionEnd, Notification, PreCompact) carry no
-// business logic — they are registered purely so the flow log can observe every hook Claude Code
-// fires. They have no entry in buildHandlers(); the dispatcher records the flow block and returns
-// an empty response for them.
+// The remaining surfaces (SubagentStart/Stop, Notification, PreCompact) carry no business logic — they
+// are registered purely so the flow log can observe every hook Claude Code fires. They have no entry in
+// buildHandlers(); the dispatcher records the flow block and returns an empty response for them.
 import type { HookContext } from "./context";
 import type { HookResponse } from "./response";
 import type {
@@ -30,6 +30,7 @@ import { handlePreToolUse } from "../filter/handler";
 import { handlePostToolUse } from "../verifier/handler";
 import { handleStop } from "../compactor/worker";
 import { handleSessionStart } from "../toolbox/session-start";
+import { handleSessionEnd } from "../agents/session-end";
 
 export type Handler<E> = (envelope: E, ctx: HookContext) => Promise<HookResponse>;
 
@@ -53,5 +54,6 @@ export function buildHandlers(): Partial<HandlerMap> {
     PostToolUse: handlePostToolUse,
     Stop: handleStop,
     SessionStart: handleSessionStart,
+    SessionEnd: handleSessionEnd, // agent-seam cleanup; a no-op until agents.enabled
   };
 }

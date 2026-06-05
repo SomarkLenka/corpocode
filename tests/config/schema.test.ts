@@ -53,4 +53,33 @@ describe("configSchema", () => {
     expect(cfg.router.trivial_early_exit).toBe(false);
     expect(cfg.router.heuristic_candidate_limit_files).toBe(10);
   });
+
+  it("defaults the agent seam to off, anthropic-cli, no task overrides", () => {
+    const cfg = configSchema.parse({});
+    expect(cfg.agents.enabled).toBe(false); // ships dark
+    expect(cfg.agents.default_backend).toBe("anthropic-cli");
+    expect(cfg.agents.task_backends).toEqual({});
+    expect(cfg.agents.max_parallel).toBe(3);
+    expect(cfg.agents.session_ttl_ms).toBe(1_800_000);
+    expect(cfg.agents.max_sessions).toBe(50);
+    expect(cfg.agents.router_router).toBe(true);
+  });
+
+  it("accepts a valid per-task backend mapping", () => {
+    const cfg = configSchema.parse({ agents: { enabled: true, task_backends: { triage: "agent-engine" } } });
+    expect(cfg.agents.task_backends.triage).toBe("agent-engine");
+  });
+
+  it("rejects an unknown agent backend key", () => {
+    const result = configSchema.safeParse({ agents: { default_backend: "bogus" } });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.join(".") === "agents.default_backend")).toBe(true);
+    }
+  });
+
+  it("rejects an unknown agent task kind in task_backends", () => {
+    const result = configSchema.safeParse({ agents: { task_backends: { not_a_kind: "anthropic-cli" } } });
+    expect(result.success).toBe(false);
+  });
 });

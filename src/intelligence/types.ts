@@ -46,13 +46,3 @@ export type Intent =
   | { kind: "pre-write"; file: string; proposedContent?: string; sessionId: string; transcriptPath: string }
   | { kind: "pre-read"; file: string; sessionId: string; transcriptPath: string }
   | { kind: "post-write"; file: string; sessionId: string; transcriptPath: string };
-
-/** A persisted agent-session record (per-file/per-topic), so a fresh hook process can `--resume` it. */
-export interface AgentSessionRecord {
-  key: string;
-  claudeSessionId: string;
-  lastUsedTs: number;
-  turns: number;
-  files: string[];
-  persisted: boolean;
-}

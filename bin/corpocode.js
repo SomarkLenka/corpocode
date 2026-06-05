@@ -18962,10 +18962,10 @@ var init_browser = __esm({
       return response;
     };
     post = async (fetch4, host, data, options) => {
-      const isRecord = (input) => {
+      const isRecord2 = (input) => {
         return input !== null && typeof input === "object" && !Array.isArray(input);
       };
-      const formattedData = isRecord(data) ? JSON.stringify(data) : data;
+      const formattedData = isRecord2(data) ? JSON.stringify(data) : data;
       const response = await fetchWithHeaders(fetch4, host, {
         method: "POST",
         body: formattedData,
@@ -19423,6 +19423,12 @@ function sessionStateFile(sessionId, cwd6, env) {
 }
 function sessionDecisionFile(sessionId, cwd6, env) {
   return (0, import_node_path.join)(sessionsDir(cwd6, env), `${safeSessionId(sessionId)}.decision.json`);
+}
+function agentSessionsDir(cwd6, env) {
+  return (0, import_node_path.join)(projectStateDir(cwd6, env), "agent-sessions");
+}
+function agentSessionFile(key, cwd6, env) {
+  return (0, import_node_path.join)(agentSessionsDir(cwd6, env), `${safeSessionId(key)}.json`);
 }
 function safeSessionId(sessionId) {
   return sessionId.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80) || "session";
@@ -23478,7 +23484,21 @@ var coerce = {
 };
 var NEVER = INVALID;
 
+// src/agents/backend.ts
+var AGENT_TASK_KINDS = [
+  "triage",
+  "rank",
+  "file-relevance",
+  "pre-write-guidance",
+  "review",
+  "housekeeping",
+  "general"
+];
+var AGENT_BACKEND_KEYS = ["anthropic-cli", "agent-engine"];
+
 // src/config/schema.ts
+var agentTaskKindSchema = external_exports.enum(AGENT_TASK_KINDS);
+var agentBackendKeySchema = external_exports.enum(AGENT_BACKEND_KEYS);
 var providerKindSchema = external_exports.enum([
   "anthropic",
   "anthropic-cli",
@@ -23597,6 +23617,23 @@ var configSchema = external_exports.object({
     knowledgeGraph: external_exports.enum(["graphify", "native"]).default("native"),
     contextStore: external_exports.enum(["openviking", "native"]).default("native"),
     memoryStore: external_exports.literal("native").default("native")
+  }).default({}),
+  // The IntelligentRouter's agent seam. OFF by default — the orchestration layer ships dark and is
+  // proven in isolation before any handler consumes it (Phase 4). `task_backends` maps a task kind to
+  // a backend; unmapped kinds use `default_backend`. Keys/values are validated against the seam's
+  // single source of truth, so a typo is a config error, not a confusing runtime fallback.
+  agents: external_exports.object({
+    enabled: external_exports.boolean().default(false),
+    default_backend: agentBackendKeySchema.default("anthropic-cli"),
+    task_backends: external_exports.record(agentTaskKindSchema, agentBackendKeySchema).default({}),
+    max_parallel: external_exports.number().int().positive().default(3),
+    // each agent is a full process
+    session_ttl_ms: external_exports.number().int().positive().default(18e5),
+    // 30 min before a session is evictable
+    max_sessions: external_exports.number().int().positive().default(50),
+    // LRU bound on persisted agent sessions
+    router_router: external_exports.boolean().default(true)
+    // the triage gate; false routes everything to the full router
   }).default({}),
   // Off by default — the foundation of the privacy posture. When enabled, only the whitelisted
   // aggregate fields in src/telemetry/whitelist.ts are ever transmitted, to `endpoint`, batched.
@@ -24402,7 +24439,9 @@ var TAGS = {
   verifier: "middle-management verifier",
   fileContext: "middle-management file-context",
   delegation: "middle-management delegation",
-  toolbox: "middle-management toolbox"
+  toolbox: "middle-management toolbox",
+  // The IntelligentRouter's single synthesized injection (one tag for the whole orchestrated workspace).
+  intelligentRouter: "middle-management intelligent-router"
 };
 function tagged(tag, content) {
   return `<${tag}>
@@ -26397,6 +26436,289 @@ function loadPluginContributions(deps) {
   return { plugins, templates, tenets };
 }
 
+// src/agents/registry.ts
+function buildAgentRegistry(opts) {
+  const defaultKey = opts.defaultBackend ?? "anthropic-cli";
+  const keyForTask = (kind3) => opts.taskBackends?.[kind3] ?? defaultKey;
+  const isLoaded = opts.loaded ?? ((key) => Boolean(opts.backends[key]));
+  const backendFor = (kind3) => {
+    const want = keyForTask(kind3);
+    const chosen = opts.backends[want] ?? Object.values(opts.backends).find(Boolean);
+    if (!chosen) throw new Error("no AgentBackend registered");
+    return chosen;
+  };
+  return {
+    forTask: backendFor,
+    all: () => [...new Set(Object.values(opts.backends).filter(Boolean))],
+    availableFor: (kind3) => {
+      const want = keyForTask(kind3);
+      if (opts.backends[want] && isLoaded(want)) return true;
+      return Object.keys(opts.backends).some((k2) => opts.backends[k2] && isLoaded(k2));
+    }
+  };
+}
+
+// src/agents/backends/anthropic-cli.ts
+var import_node_crypto3 = require("node:crypto");
+
+// src/agents/spawn.ts
+var import_node_child_process5 = require("node:child_process");
+var spawnText2 = (cmd, args, stdin, signal) => new Promise((resolve2, reject) => {
+  const child = (0, import_node_child_process5.spawn)(cmd, args, { stdio: ["pipe", "pipe", "pipe"] });
+  let stdout = "";
+  let stderr = "";
+  const onAbort = () => {
+    child.kill("SIGTERM");
+  };
+  if (signal.aborted) onAbort();
+  signal.addEventListener("abort", onAbort, { once: true });
+  child.stdout.on("data", (d2) => stdout += d2.toString());
+  child.stderr.on("data", (d2) => stderr += d2.toString());
+  child.on("error", (err) => {
+    signal.removeEventListener("abort", onAbort);
+    reject(err);
+  });
+  child.on("close", (code) => {
+    signal.removeEventListener("abort", onAbort);
+    if (code === 0) resolve2({ stdout });
+    else reject(Object.assign(new Error(`${cmd} exited ${code}: ${stderr.slice(0, 200)}`), { code }));
+  });
+  child.stdin.write(stdin);
+  child.stdin.end();
+});
+
+// src/agents/backends/anthropic-cli.ts
+var DEFAULT_AGENT_MODEL = "claude-haiku-4-5";
+var DEFAULT_TIMEOUT_MS2 = 3e4;
+var DEFAULT_MAX_TURNS = 6;
+var READ_ONLY_TOOLS = ["Read", "Glob", "Grep"];
+function allowedTools(policy) {
+  if (policy === "none") return [];
+  if (policy === void 0 || policy === "read-only") return [...READ_ONLY_TOOLS];
+  const tools = [];
+  if (policy.read !== false) tools.push("Read");
+  if (policy.glob !== false) tools.push("Glob");
+  if (policy.grep !== false) tools.push("Grep");
+  if (policy.write) tools.push("Write", "Edit");
+  for (const m2 of policy.mcp ?? []) tools.push(m2);
+  return tools;
+}
+function buildArgs(call, model, repoRoot) {
+  const args = ["--print", "--output-format", "json", "--model", model, "--bare"];
+  const tools = allowedTools(call.tools);
+  if (tools.length) args.push("--allowedTools", tools.join(","));
+  args.push("--max-turns", String(DEFAULT_MAX_TURNS));
+  if (repoRoot) args.push("--add-dir", repoRoot);
+  let newSessionId;
+  const session = call.session ?? "ephemeral";
+  if (session !== "ephemeral") {
+    if (session.reuse) {
+      args.push("--resume", session.reuse);
+    } else if (session.persist) {
+      newSessionId = (0, import_node_crypto3.randomUUID)();
+      args.push("--session-id", newSessionId);
+    }
+  }
+  if (!(typeof session === "object" && session.reuse)) {
+    args.push("--append-system-prompt", call.task);
+  }
+  return { args, newSessionId };
+}
+function buildStdin(call) {
+  const parts = [];
+  if (call.inputs?.transcript) parts.push(`TRANSCRIPT:
+${call.inputs.transcript}`);
+  if (call.inputs?.reasoning) parts.push(`PRIOR REASONING:
+${call.inputs.reasoning}`);
+  if (call.inputs?.decisions) parts.push(`PRIOR DECISIONS:
+${call.inputs.decisions}`);
+  if (call.inputs?.files?.length) parts.push(`CANDIDATE FILES (read what you need):
+${call.inputs.files.join("\n")}`);
+  return parts.join("\n\n") || "(no additional input)";
+}
+function extractJson2(text) {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const body = (fenced ? fenced[1] : text).trim();
+  return JSON.parse(body);
+}
+function mapSpawnError(err) {
+  const code = err?.code;
+  if (code === "ENOENT") return { kind: "model_unavailable", message: "`claude` CLI not found on PATH", retryable: false };
+  const message = err instanceof Error ? err.message : String(err);
+  return { kind: "network", message, retryable: true };
+}
+function createAnthropicCliAgent(opts = {}) {
+  const run = opts.spawn ?? spawnText2;
+  const now = opts.now ?? (() => Date.now());
+  async function invoke(call) {
+    const model = call.model ?? opts.defaultModel ?? { providerKey: "default", model: DEFAULT_AGENT_MODEL };
+    const started = now();
+    const zero = { inputTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: 0, model: model.model };
+    const { args, newSessionId } = buildArgs(call, model.model, opts.repoRoot);
+    const stdin = buildStdin(call);
+    const timeoutMs = call.timeoutMs ?? DEFAULT_TIMEOUT_MS2;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const { stdout } = await run("claude", args, stdin, controller.signal);
+      clearTimeout(timer);
+      const obj = JSON.parse(stdout);
+      const text = obj.result ?? "";
+      const usage = {
+        inputTokens: obj.usage?.input_tokens ?? 0,
+        outputTokens: obj.usage?.output_tokens ?? 0,
+        costUsd: obj.total_cost_usd ?? 0,
+        latencyMs: now() - started,
+        model: obj.model ?? model.model
+      };
+      const sessionId = newSessionId ?? obj.session_id;
+      const session = sessionId ? { id: sessionId, persisted: Boolean(newSessionId) } : void 0;
+      if (obj.is_error) {
+        return { ok: false, text, usage, model, session, error: { kind: "invalid_response", message: text || "claude reported is_error", retryable: false } };
+      }
+      if (call.schema) {
+        try {
+          return { ok: true, data: extractJson2(text), usage, model, session };
+        } catch {
+          return { ok: false, text, usage, model, session, error: { kind: "invalid_response", message: "agent did not return parseable JSON", retryable: true } };
+        }
+      }
+      return { ok: true, text, usage, model, session };
+    } catch (err) {
+      clearTimeout(timer);
+      const aborted = controller.signal.aborted;
+      const error = aborted ? { kind: "timeout", message: `agent exceeded ${timeoutMs}ms`, retryable: true } : mapSpawnError(err);
+      return { ok: false, usage: { ...zero, latencyMs: now() - started }, model, error };
+    }
+  }
+  return {
+    id: "anthropic-cli",
+    invoke,
+    // The CLI has no explicit session-delete; releasing simply means CorpoCode stops resuming it (the
+    // session store drops the record). Server-side retention is claude's own concern.
+    release: async () => {
+    },
+    health: async () => {
+      try {
+        await run("claude", ["--version"], "", AbortSignal.timeout(5e3));
+        return { up: true };
+      } catch {
+        return { up: false };
+      }
+    },
+    ping: async () => {
+      try {
+        await run("claude", ["--version"], "", AbortSignal.timeout(5e3));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    shutdown: async () => {
+    }
+  };
+}
+
+// src/agents/backends/agent-engine.ts
+var AGENT_ENGINE_PKG = "corpocode-agent-engine";
+function toEngineTools(tools) {
+  if (tools === void 0 || tools === "none" || tools === "read-only") return tools ?? "read-only";
+  const enable = { read: tools.read !== false, glob: tools.glob !== false, grep: tools.grep !== false };
+  for (const m2 of tools.mcp ?? []) enable[m2] = true;
+  return { enable, allowMutation: Boolean(tools.write) };
+}
+function toEngineCall(call) {
+  const out = { component: call.component, task: call.task };
+  if (call.inputs) out.inputs = { transcript: call.inputs.transcript, files: call.inputs.files, reasoning: call.inputs.reasoning, decisions: call.inputs.decisions ? [call.inputs.decisions] : void 0 };
+  if (call.model) out.model = { providerID: call.model.providerKey, modelID: call.model.model };
+  if (call.effort) out.effort = call.effort;
+  if (call.schema) out.schema = { name: "result", jsonSchema: call.schema, parse: (j2) => j2 };
+  out.tools = toEngineTools(call.tools);
+  if (call.session) out.session = call.session === "ephemeral" ? "ephemeral" : { reuse: call.session.reuse, persist: call.session.persist };
+  if (call.timeoutMs) out.timeoutMs = call.timeoutMs;
+  return out;
+}
+var ERROR_KIND_MAP = {
+  schema_invalid: "invalid_response",
+  server_unavailable: "model_unavailable",
+  aborted: "timeout",
+  unknown: "network"
+};
+function fromEngineResult(r2) {
+  const model = { providerKey: r2.model.providerID, model: r2.model.modelID };
+  const res = {
+    ok: r2.ok,
+    data: r2.data,
+    text: r2.text,
+    usage: { inputTokens: r2.usage.inputTokens, outputTokens: r2.usage.outputTokens, costUsd: r2.usage.costUsd, latencyMs: r2.usage.latencyMs, model: r2.model.modelID },
+    model,
+    session: r2.session
+  };
+  if (r2.trace) res.trace = r2.trace.map((t2) => ({ name: t2.tool, input: t2.title }));
+  if (r2.error) res.error = { kind: ERROR_KIND_MAP[r2.error.kind] ?? r2.error.kind, message: r2.error.message, retryable: r2.error.retryable };
+  return res;
+}
+var unavailable = (call, message) => ({
+  ok: false,
+  usage: { inputTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: 0, model: call.model?.model ?? "agent-engine" },
+  model: call.model ?? { providerKey: "agent-engine", model: "agent-engine" },
+  error: { kind: "model_unavailable", message, retryable: false }
+});
+async function defaultLoad() {
+  try {
+    return await import(AGENT_ENGINE_PKG);
+  } catch {
+    return null;
+  }
+}
+function createAgentEngineBackend(opts = {}) {
+  let instance = opts.engine;
+  const load = opts.load ?? defaultLoad;
+  const getEngine = async () => {
+    if (instance !== void 0) return instance;
+    const mod = await load();
+    instance = mod ? mod.createOpencodeEngine(opts.engineConfig ?? {}) : null;
+    return instance;
+  };
+  return {
+    id: "agent-engine",
+    invoke: async (call) => {
+      try {
+        const engine = await getEngine();
+        if (!engine) return unavailable(call, "corpocode-agent-engine is not installed");
+        return fromEngineResult(await engine.invoke(toEngineCall(call)));
+      } catch (err) {
+        return unavailable(call, err instanceof Error ? err.message : String(err));
+      }
+    },
+    release: async (id) => {
+      const engine = await getEngine().catch(() => null);
+      await engine?.release(id).catch(() => {
+      });
+    },
+    health: async () => {
+      const engine = await getEngine().catch(() => null);
+      if (!engine) return { up: false };
+      try {
+        const h2 = await engine.health();
+        return { up: h2.ok && h2.serverUp };
+      } catch {
+        return { up: false };
+      }
+    },
+    ping: async () => {
+      const engine = await getEngine().catch(() => null);
+      if (!engine) return false;
+      return engine.health().then((h2) => h2.ok && h2.serverUp).catch(() => false);
+    },
+    shutdown: async () => {
+      const engine = instance || null;
+      await engine?.shutdown().catch(() => {
+      });
+    }
+  };
+}
+
 // src/hooks/context.ts
 function discoverContributions() {
   try {
@@ -26418,7 +26740,15 @@ function buildContext(config, opts = {}) {
   const prompts = createPromptResolver({ cwd: repoRoot, env });
   const sessionReader = createSessionReader({ provider: registry.forComponent("router"), env, cwd: repoRoot, prompts });
   const plugins = opts.plugins ?? discoverContributions();
-  return { config, env, repoRoot, project, platform, logger, registry, graph, context, memory, sessionReader, prompts, plugins };
+  const agents = config.agents.enabled ? buildAgentRegistry({
+    backends: {
+      "anthropic-cli": createAnthropicCliAgent({ repoRoot }),
+      "agent-engine": createAgentEngineBackend()
+    },
+    taskBackends: config.agents.task_backends,
+    defaultBackend: config.agents.default_backend
+  }) : void 0;
+  return { config, env, repoRoot, project, platform, logger, registry, graph, context, memory, sessionReader, prompts, plugins, agents };
 }
 
 // src/router/heuristics.ts
@@ -27831,9 +28161,9 @@ function toResponse(c2) {
 var import_node_path19 = require("node:path");
 
 // src/install/run.ts
-var import_node_child_process5 = require("node:child_process");
+var import_node_child_process6 = require("node:child_process");
 var spawnRunner = (cmd, args, opts) => new Promise((resolve2) => {
-  const child = (0, import_node_child_process5.spawn)(cmd, args, {
+  const child = (0, import_node_child_process6.spawn)(cmd, args, {
     cwd: opts?.cwd,
     // Merge over the inherited environment so callers can set e.g. GIT_INDEX_FILE without dropping PATH.
     env: opts?.env ? { ...process.env, ...opts.env } : process.env,
@@ -28723,6 +29053,110 @@ async function handleSessionStart(envelope, ctx) {
   return {};
 }
 
+// src/agents/sessions.ts
+var import_node_fs29 = require("node:fs");
+function isRecord(v2) {
+  if (typeof v2 !== "object" || v2 === null) return false;
+  const r2 = v2;
+  return typeof r2.key === "string" && typeof r2.claudeSessionId === "string" && typeof r2.lastUsedTs === "number";
+}
+function createSessionStore(opts) {
+  const now = opts.now ?? (() => Date.now());
+  const file = (key) => agentSessionFile(key, opts.cwd, opts.env);
+  const readRecord = (path) => {
+    try {
+      const parsed = JSON.parse((0, import_node_fs29.readFileSync)(path, "utf8"));
+      return isRecord(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+  const all = () => {
+    let names;
+    try {
+      names = (0, import_node_fs29.readdirSync)(agentSessionsDir(opts.cwd, opts.env)).filter((n2) => n2.endsWith(".json"));
+    } catch {
+      return [];
+    }
+    const out = [];
+    for (const name of names) {
+      const rec = readRecord(agentSessionFile(name.replace(/\.json$/, ""), opts.cwd, opts.env));
+      if (rec) out.push(rec);
+    }
+    return out;
+  };
+  const remove = (key) => {
+    try {
+      (0, import_node_fs29.rmSync)(file(key), { force: true });
+    } catch {
+    }
+  };
+  return {
+    all,
+    remove,
+    get(key) {
+      const rec = readRecord(file(key));
+      if (!rec) return null;
+      if (now() - rec.lastUsedTs > opts.ttlMs) {
+        remove(key);
+        return null;
+      }
+      return rec;
+    },
+    put(record) {
+      try {
+        ensureDir(agentSessionsDir(opts.cwd, opts.env));
+        (0, import_node_fs29.writeFileSync)(file(record.key), JSON.stringify(record), "utf8");
+      } catch (err) {
+        opts.logger?.log({ event: "agent_session_put_failed", key: record.key, reason: err instanceof Error ? err.message : String(err) });
+      }
+    },
+    evict(at2) {
+      const t2 = at2 ?? now();
+      const records = all();
+      let removed = 0;
+      const live = [];
+      for (const rec of records) {
+        if (t2 - rec.lastUsedTs > opts.ttlMs) {
+          remove(rec.key);
+          removed++;
+        } else {
+          live.push(rec);
+        }
+      }
+      if (live.length > opts.maxSessions) {
+        live.sort((a2, b2) => a2.lastUsedTs - b2.lastUsedTs);
+        for (const rec of live.slice(0, live.length - opts.maxSessions)) {
+          remove(rec.key);
+          removed++;
+        }
+      }
+      if (removed > 0) opts.logger?.log({ event: "agent_sessions_evicted", removed, remaining: Math.min(live.length, opts.maxSessions) });
+      return { removed };
+    }
+  };
+}
+
+// src/agents/session-end.ts
+async function handleSessionEnd(envelope, ctx) {
+  if (!ctx.agents) return {};
+  const store = createSessionStore({
+    ttlMs: ctx.config.agents.session_ttl_ms,
+    maxSessions: ctx.config.agents.max_sessions,
+    cwd: ctx.repoRoot,
+    env: ctx.env,
+    logger: ctx.logger
+  });
+  const backends = ctx.agents.all();
+  for (const rec of store.all().filter((r2) => r2.hostSessionId === envelope.session_id)) {
+    await Promise.all(backends.map((b2) => b2.release(rec.claudeSessionId).catch(() => {
+    })));
+    store.remove(rec.key);
+  }
+  store.evict();
+  return {};
+}
+
 // src/hooks/handlers.ts
 function buildHandlers() {
   return {
@@ -28730,7 +29164,9 @@ function buildHandlers() {
     PreToolUse: handlePreToolUse,
     PostToolUse: handlePostToolUse,
     Stop: handleStop,
-    SessionStart: handleSessionStart
+    SessionStart: handleSessionStart,
+    SessionEnd: handleSessionEnd
+    // agent-seam cleanup; a no-op until agents.enabled
   };
 }
 
@@ -28850,10 +29286,10 @@ async function runHook(hookName, platform) {
 }
 
 // src/commands/install.ts
-var import_node_fs33 = require("node:fs");
+var import_node_fs34 = require("node:fs");
 
 // src/install/claude-code.ts
-var import_node_fs29 = require("node:fs");
+var import_node_fs30 = require("node:fs");
 var import_node_path23 = require("node:path");
 
 // src/install/settings.ts
@@ -28901,7 +29337,7 @@ function hasCorpocodeHooks(settings) {
 var SKILLS = ["corpocode-router", "corpocode-setup"];
 function readJsonOr(path, fallback) {
   try {
-    return JSON.parse((0, import_node_fs29.readFileSync)(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse((0, import_node_fs30.readFileSync)(path, "utf8").replace(/^﻿/, ""));
   } catch {
     return fallback;
   }
@@ -28930,10 +29366,10 @@ exec ${binCommand} hook ${name}
     changes.push({ action: "write hook shim", path });
     if (!dryRun) {
       ensureDir(hooksDir);
-      (0, import_node_fs29.writeFileSync)(path, shimBody(spec.name));
+      (0, import_node_fs30.writeFileSync)(path, shimBody(spec.name));
       if (!isWin) {
         try {
-          (0, import_node_fs29.chmodSync)(path, 493);
+          (0, import_node_fs30.chmodSync)(path, 493);
         } catch {
         }
       }
@@ -28943,7 +29379,7 @@ exec ${binCommand} hook ${name}
   if (!dryRun) {
     ensureDir(opts.claudeHome);
     const settings = readJsonOr(settingsPath, {});
-    (0, import_node_fs29.writeFileSync)(settingsPath, `${JSON.stringify(registerHooks(settings, commandFor), null, 2)}
+    (0, import_node_fs30.writeFileSync)(settingsPath, `${JSON.stringify(registerHooks(settings, commandFor), null, 2)}
 `);
   }
   const agentDst = (0, import_node_path23.join)(agentsDir, "haiku-helper.md");
@@ -28951,7 +29387,7 @@ exec ${binCommand} hook ${name}
   if (!dryRun) {
     ensureDir(agentsDir);
     const src = (0, import_node_path23.join)(opts.assetsRoot, "agents", "haiku-helper.md");
-    if ((0, import_node_fs29.existsSync)(src)) (0, import_node_fs29.copyFileSync)(src, agentDst);
+    if ((0, import_node_fs30.existsSync)(src)) (0, import_node_fs30.copyFileSync)(src, agentDst);
   }
   for (const skill of SKILLS) {
     const dstDir = (0, import_node_path23.join)(skillsDir2, skill);
@@ -28960,7 +29396,7 @@ exec ${binCommand} hook ${name}
     if (!dryRun) {
       ensureDir(dstDir);
       const src = (0, import_node_path23.join)(opts.assetsRoot, "skills", skill, "SKILL.md");
-      if ((0, import_node_fs29.existsSync)(src)) (0, import_node_fs29.copyFileSync)(src, dst);
+      if ((0, import_node_fs30.existsSync)(src)) (0, import_node_fs30.copyFileSync)(src, dst);
     }
   }
   return { changes, applied: !dryRun, settingsPath };
@@ -28975,11 +29411,11 @@ function packageRoot(argv = process.argv) {
 }
 
 // src/install/backends/graphify.ts
-var import_node_fs30 = require("node:fs");
+var import_node_fs31 = require("node:fs");
 var import_node_path25 = require("node:path");
 async function provisionGraphify(opts) {
   const run = opts.run ?? spawnRunner;
-  const exists = opts.exists ?? import_node_fs30.existsSync;
+  const exists = opts.exists ?? import_node_fs31.existsSync;
   const python = opts.pythonCmd ?? "python";
   const graphPath = (0, import_node_path25.join)(opts.repoRoot, "graphify-out", "graph.json");
   const steps = [];
@@ -29016,7 +29452,7 @@ async function provisionGraphify(opts) {
 }
 
 // src/install/backends/openviking.ts
-var import_node_fs31 = require("node:fs");
+var import_node_fs32 = require("node:fs");
 var import_node_os4 = require("node:os");
 var import_node_path26 = require("node:path");
 function ovConfPath(env = process.env) {
@@ -29066,7 +29502,7 @@ async function provisionOpenViking(opts) {
   const confPath = opts.confPath ?? ovConfPath();
   const writeConf = opts.writeConf ?? ((path, content) => {
     ensureDir((0, import_node_path26.dirname)(path));
-    (0, import_node_fs31.writeFileSync)(path, content);
+    (0, import_node_fs32.writeFileSync)(path, content);
   });
   const steps = [];
   if (opts.dryRun) {
@@ -29130,7 +29566,7 @@ async function provision(config, opts) {
 }
 
 // src/install/platform.ts
-var import_node_fs32 = require("node:fs");
+var import_node_fs33 = require("node:fs");
 var import_node_os5 = require("node:os");
 var import_node_path27 = require("node:path");
 function isCorpocodeGroup2(group) {
@@ -29166,7 +29602,7 @@ function makeAdapter(cfg) {
   };
   return {
     id: cfg.id,
-    detect: (env) => (0, import_node_fs32.existsSync)(home(env)),
+    detect: (env) => (0, import_node_fs33.existsSync)(home(env)),
     hookEvents: () => cfg.specs.map((s2) => s2.event),
     paths: (env) => ({ home: home(env), settingsFile: (0, import_node_path27.join)(home(env), cfg.settingsRel), shimDir: (0, import_node_path27.join)(home(env), cfg.shimSubdir) }),
     register: (settings, ctx) => registerJsonHooks(settings, cfg.specs.filter((s2) => ctx.events.includes(s2.event)), ctx.commandFor),
@@ -29177,7 +29613,7 @@ function makeAdapter(cfg) {
 }
 function readJsonOr2(path, fallback) {
   try {
-    return JSON.parse((0, import_node_fs32.readFileSync)(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse((0, import_node_fs33.readFileSync)(path, "utf8").replace(/^﻿/, ""));
   } catch {
     return fallback;
   }
@@ -29204,10 +29640,10 @@ exec ${binCommand} hook ${e2} --platform ${adapter.id}
     changes.push({ action: "write hook shim", path: p2 });
     if (!dryRun) {
       ensureDir(shimDir);
-      (0, import_node_fs32.writeFileSync)(p2, shimBody(e2));
+      (0, import_node_fs33.writeFileSync)(p2, shimBody(e2));
       if (!isWin) {
         try {
-          (0, import_node_fs32.chmodSync)(p2, 493);
+          (0, import_node_fs33.chmodSync)(p2, 493);
         } catch {
         }
       }
@@ -29217,7 +29653,7 @@ exec ${binCommand} hook ${e2} --platform ${adapter.id}
   if (!dryRun) {
     ensureDir(home);
     const updated = adapter.register(readJsonOr2(settingsFile, {}), { events, commandFor });
-    (0, import_node_fs32.writeFileSync)(settingsFile, `${JSON.stringify(updated, null, 2)}
+    (0, import_node_fs33.writeFileSync)(settingsFile, `${JSON.stringify(updated, null, 2)}
 `);
   }
   const { agents, skills } = adapter.assets();
@@ -29227,7 +29663,7 @@ exec ${binCommand} hook ${e2} --platform ${adapter.id}
     if (!dryRun) {
       ensureDir((0, import_node_path27.join)(home, "agents"));
       const src = (0, import_node_path27.join)(opts.assetsRoot, "agents", `${agent}.md`);
-      if ((0, import_node_fs32.existsSync)(src)) (0, import_node_fs32.copyFileSync)(src, dst);
+      if ((0, import_node_fs33.existsSync)(src)) (0, import_node_fs33.copyFileSync)(src, dst);
     }
   }
   for (const skill of skills) {
@@ -29236,7 +29672,7 @@ exec ${binCommand} hook ${e2} --platform ${adapter.id}
     if (!dryRun) {
       ensureDir((0, import_node_path27.join)(home, "skills", skill));
       const src = (0, import_node_path27.join)(opts.assetsRoot, "skills", skill, "SKILL.md");
-      if ((0, import_node_fs32.existsSync)(src)) (0, import_node_fs32.copyFileSync)(src, dst);
+      if ((0, import_node_fs33.existsSync)(src)) (0, import_node_fs33.copyFileSync)(src, dst);
     }
   }
   return { platform: adapter.id, changes, applied: !dryRun, settingsFile, events };
@@ -29356,11 +29792,11 @@ function printInstall(label, changes, dryRun) {
 function ensureBaseState(dryRun) {
   if (dryRun) return;
   ensureDir(corpocodeHome());
-  if (!(0, import_node_fs33.existsSync)(configFile())) {
-    (0, import_node_fs33.writeFileSync)(configFile(), `${JSON.stringify(defaultConfig(), null, 2)}
+  if (!(0, import_node_fs34.existsSync)(configFile())) {
+    (0, import_node_fs34.writeFileSync)(configFile(), `${JSON.stringify(defaultConfig(), null, 2)}
 `);
   }
-  if (!(0, import_node_fs33.existsSync)(secretsFile())) {
+  if (!(0, import_node_fs34.existsSync)(secretsFile())) {
     saveSecrets({});
   }
 }
@@ -29437,13 +29873,13 @@ async function runUninstallCommand(argv) {
   const ext = process.platform === "win32" ? "ps1" : "sh";
   for (const spec of HOOK_SPECS) {
     const shim = (0, import_node_path28.join)(hooksDir, `corpocode-${spec.name}.${ext}`);
-    if ((0, import_node_fs33.existsSync)(shim)) (0, import_node_fs33.rmSync)(shim, { force: true });
+    if ((0, import_node_fs34.existsSync)(shim)) (0, import_node_fs34.rmSync)(shim, { force: true });
   }
   const settingsPath = claudeSettingsFile(home);
-  if ((0, import_node_fs33.existsSync)(settingsPath)) {
+  if ((0, import_node_fs34.existsSync)(settingsPath)) {
     try {
-      const settings = JSON.parse((0, import_node_fs33.readFileSync)(settingsPath, "utf8").replace(/^﻿/, ""));
-      (0, import_node_fs33.writeFileSync)(settingsPath, `${JSON.stringify(unregisterHooks(settings), null, 2)}
+      const settings = JSON.parse((0, import_node_fs34.readFileSync)(settingsPath, "utf8").replace(/^﻿/, ""));
+      (0, import_node_fs34.writeFileSync)(settingsPath, `${JSON.stringify(unregisterHooks(settings), null, 2)}
 `);
     } catch {
     }
@@ -29456,29 +29892,29 @@ async function runUninstallCommand(argv) {
   } catch {
   }
   if (purge) {
-    (0, import_node_fs33.rmSync)(corpocodeHome(), { recursive: true, force: true });
+    (0, import_node_fs34.rmSync)(corpocodeHome(), { recursive: true, force: true });
     process.stdout.write(`Purged ${corpocodeHome()} (config, logs, memory).
 `);
   }
 }
 
 // src/commands/doctor.ts
-var import_node_fs34 = require("node:fs");
+var import_node_fs35 = require("node:fs");
 var import_node_path29 = require("node:path");
 var REPAIR_INSTALL = "corpocode install --repair";
 var REPAIR_PROVISION = "corpocode provision";
 function readJsonOr3(path, fallback) {
   try {
-    return JSON.parse((0, import_node_fs34.readFileSync)(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse((0, import_node_fs35.readFileSync)(path, "utf8").replace(/^﻿/, ""));
   } catch {
     return fallback;
   }
 }
 function defaultSecretsState(env) {
   const path = secretsFile(env);
-  if (!(0, import_node_fs34.existsSync)(path)) return "absent";
+  if (!(0, import_node_fs35.existsSync)(path)) return "absent";
   try {
-    (0, import_node_fs34.readFileSync)(path, "utf8");
+    (0, import_node_fs35.readFileSync)(path, "utf8");
     return "ok";
   } catch {
     return "unreadable";
@@ -29490,7 +29926,7 @@ function pluginInstalled(home) {
     if (depth > 3) return false;
     let entries;
     try {
-      entries = (0, import_node_fs34.readdirSync)(dir, { withFileTypes: true });
+      entries = (0, import_node_fs35.readdirSync)(dir, { withFileTypes: true });
     } catch {
       return false;
     }
@@ -29512,8 +29948,8 @@ function defaultMemoryWritable(cwd6, env) {
     const dir = memoryDir(cwd6, env);
     ensureDir(dir);
     const probe = (0, import_node_path29.join)(dir, ".doctor-probe");
-    (0, import_node_fs34.writeFileSync)(probe, "ok");
-    (0, import_node_fs34.rmSync)(probe, { force: true });
+    (0, import_node_fs35.writeFileSync)(probe, "ok");
+    (0, import_node_fs35.rmSync)(probe, { force: true });
     return true;
   } catch {
     return false;
@@ -29585,7 +30021,7 @@ async function runDoctor(deps = {}) {
   const cs = config?.backends.contextStore ?? "native";
   if (kg === "graphify") {
     const graphifyOk = await (deps.graphifyVersion ?? (async () => (await spawnRunner("graphify", ["--version"])).code === 0))();
-    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs34.existsSync)((0, import_node_path29.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
+    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs35.existsSync)((0, import_node_path29.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
     if (!graphifyOk) {
       checks.push({ name: "graphify", status: "fail", detail: "graphify CLI not found on PATH", repair: REPAIR_PROVISION });
     } else if (!graphPresent) {
@@ -29594,7 +30030,7 @@ async function runDoctor(deps = {}) {
       checks.push({ name: "graphify", status: "ok", detail: "CLI present and graph built" });
     }
   } else {
-    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs34.existsSync)((0, import_node_path29.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
+    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs35.existsSync)((0, import_node_path29.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
     checks.push({
       name: "knowledge graph",
       status: "ok",
@@ -29646,7 +30082,7 @@ ${failed === 0 ? "All required checks passed." : `${failed} check(s) failed.`}
 }
 
 // src/commands/stats.ts
-var import_node_fs35 = require("node:fs");
+var import_node_fs36 = require("node:fs");
 
 // src/cost/tracker.ts
 var UNKNOWN = "unknown";
@@ -29732,7 +30168,7 @@ function computeStats(lines, opts = {}) {
 }
 function readLogLines() {
   try {
-    return (0, import_node_fs35.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs36.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -29786,7 +30222,7 @@ function runStatsCommand(argv, env) {
 var import_node_process4 = require("node:process");
 
 // src/loops/skillgen.ts
-var import_node_fs36 = require("node:fs");
+var import_node_fs37 = require("node:fs");
 var import_node_os6 = require("node:os");
 var import_node_path30 = require("node:path");
 function candidatesDir(env = process.env) {
@@ -29830,7 +30266,7 @@ async function generateSkillCandidates(deps) {
   }
   const dir = deps.dir ?? candidatesDir(deps.env);
   ensureDir(dir);
-  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs36.writeFileSync)(p2, c2));
+  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs37.writeFileSync)(p2, c2));
   const names = [];
   for (const c2 of candidates.slice(0, deps.maxCandidates ?? 5)) {
     const slug = slugify(c2.name);
@@ -29842,7 +30278,7 @@ async function generateSkillCandidates(deps) {
 }
 
 // src/loops/skillify.ts
-var import_node_fs37 = require("node:fs");
+var import_node_fs38 = require("node:fs");
 var import_node_os7 = require("node:os");
 var import_node_path31 = require("node:path");
 function skillsDir(env = process.env) {
@@ -29867,7 +30303,7 @@ function promoteCandidates(opts = {}) {
   const to = opts.toDir ?? skillsDir(opts.env);
   let files;
   try {
-    files = (0, import_node_fs37.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
+    files = (0, import_node_fs38.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
   } catch {
     return { promoted: [], skipped: [] };
   }
@@ -29875,7 +30311,7 @@ function promoteCandidates(opts = {}) {
   const skipped = [];
   for (const f2 of files) {
     const path = (0, import_node_path31.join)(from, f2);
-    const raw = (0, import_node_fs37.readFileSync)(path, "utf8");
+    const raw = (0, import_node_fs38.readFileSync)(path, "utf8");
     const { fm } = parseFrontmatter(raw);
     const slug = fm.name ? slugify(fm.name) : "";
     if (!slug || !fm.description) {
@@ -29884,11 +30320,11 @@ function promoteCandidates(opts = {}) {
     }
     const skillDir = (0, import_node_path31.join)(to, slug);
     ensureDir(skillDir);
-    (0, import_node_fs37.writeFileSync)((0, import_node_path31.join)(skillDir, "SKILL.md"), raw);
+    (0, import_node_fs38.writeFileSync)((0, import_node_path31.join)(skillDir, "SKILL.md"), raw);
     promoted.push(slug);
     if (opts.removeAfter !== false) {
       try {
-        (0, import_node_fs37.rmSync)(path);
+        (0, import_node_fs38.rmSync)(path);
       } catch {
       }
     }
@@ -29938,7 +30374,7 @@ async function runSkillifyCommand(argv, env = process.env) {
 }
 
 // src/commands/review.ts
-var import_node_fs38 = require("node:fs");
+var import_node_fs39 = require("node:fs");
 var MIN_FIRES = 5;
 var LOW_CONFIDENCE = 0.5;
 function computeReview(lines, opts = {}) {
@@ -30018,7 +30454,7 @@ function buildProposals(tenets, verifierChecks, turns, stage2, config) {
 }
 function readLogLines2() {
   try {
-    return (0, import_node_fs38.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs39.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -30072,7 +30508,7 @@ function runReviewCommand(argv, env) {
 }
 
 // src/commands/telemetry.ts
-var import_node_fs39 = require("node:fs");
+var import_node_fs40 = require("node:fs");
 
 // src/telemetry/whitelist.ts
 var TELEMETRY_SCHEMA = "corpocode-telemetry/1";
@@ -30144,7 +30580,7 @@ function buildTelemetryPayload(lines, config) {
 var NEVER_COLLECTED = "prompts, code, file contents, file paths, transcripts, memory contents, and repository identity";
 function readRawConfig(env) {
   try {
-    const parsed = JSON.parse((0, import_node_fs39.readFileSync)(configFile(env), "utf8"));
+    const parsed = JSON.parse((0, import_node_fs40.readFileSync)(configFile(env), "utf8"));
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
@@ -30155,12 +30591,12 @@ function setTelemetryEnabled(enabled, env) {
   const tel = raw.telemetry && typeof raw.telemetry === "object" ? raw.telemetry : {};
   raw.telemetry = { ...tel, enabled };
   ensureDir(corpocodeHome(env));
-  (0, import_node_fs39.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
+  (0, import_node_fs40.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
 `);
 }
 function readLogLines3() {
   try {
-    return (0, import_node_fs39.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs40.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -30199,7 +30635,7 @@ Set telemetry.endpoint in your config to choose where it is sent. Preview anytim
 }
 
 // src/commands/docs.ts
-var import_node_fs40 = require("node:fs");
+var import_node_fs41 = require("node:fs");
 var import_node_path32 = require("node:path");
 
 // src/docs-site/config-reference.ts
@@ -30273,8 +30709,8 @@ function runDocsCommand(argv) {
   const commands = generateCommandReference();
   if (out) {
     ensureDir(out);
-    (0, import_node_fs40.writeFileSync)((0, import_node_path32.join)(out, "config-reference.md"), config);
-    (0, import_node_fs40.writeFileSync)((0, import_node_path32.join)(out, "command-reference.md"), commands);
+    (0, import_node_fs41.writeFileSync)((0, import_node_path32.join)(out, "config-reference.md"), config);
+    (0, import_node_fs41.writeFileSync)((0, import_node_path32.join)(out, "command-reference.md"), commands);
     process.stdout.write(`Wrote config-reference.md and command-reference.md to ${out}
 `);
     return;
@@ -30285,7 +30721,7 @@ ${commands}
 }
 
 // src/commands/init.ts
-var import_node_fs41 = require("node:fs");
+var import_node_fs42 = require("node:fs");
 var import_node_process5 = require("node:process");
 function placeholderFor(key) {
   return `REPLACE_WITH_YOUR_${key}`;
@@ -30319,24 +30755,24 @@ function runInitCommand(argv, env = process.env) {
   const force = argv.includes("--force");
   ensureDir(corpocodeHome(env));
   const cfgPath = configFile(env);
-  if ((0, import_node_fs41.existsSync)(cfgPath) && !force) {
+  if ((0, import_node_fs42.existsSync)(cfgPath) && !force) {
     process.stdout.write(`\xB7 config already exists, leaving it: ${cfgPath}
 `);
   } else {
-    (0, import_node_fs41.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
+    (0, import_node_fs42.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
 `);
     process.stdout.write(`wrote default config: ${cfgPath}
 `);
   }
   const keys = defaultKeyNames();
   const secPath = secretsFile(env);
-  if ((0, import_node_fs41.existsSync)(secPath) && !force) {
+  if ((0, import_node_fs42.existsSync)(secPath) && !force) {
     process.stdout.write(`\xB7 secrets already exists, not touching it: ${secPath}
 `);
   } else {
-    (0, import_node_fs41.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
+    (0, import_node_fs42.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
     try {
-      (0, import_node_fs41.chmodSync)(secPath, 384);
+      (0, import_node_fs42.chmodSync)(secPath, 384);
     } catch {
     }
     process.stdout.write(
@@ -30379,7 +30815,7 @@ Next: open ${secPath} and replace the placeholder${plural} with your real key${p
 }
 
 // src/prompts/scaffold.ts
-var import_node_fs42 = require("node:fs");
+var import_node_fs43 = require("node:fs");
 var import_node_path33 = require("node:path");
 function renderScaffold(id) {
   const body = BUILTIN_PROMPTS[id];
@@ -30402,11 +30838,11 @@ function scaffoldPrompts(opts = {}) {
   const skipped = [];
   for (const id of allPromptIds()) {
     const path = (0, import_node_path33.join)(dir, `${id}.md`);
-    if ((0, import_node_fs42.existsSync)(path) && !opts.force) {
+    if ((0, import_node_fs43.existsSync)(path) && !opts.force) {
       skipped.push(id);
       continue;
     }
-    (0, import_node_fs42.writeFileSync)(path, renderScaffold(id));
+    (0, import_node_fs43.writeFileSync)(path, renderScaffold(id));
     wrote.push(id);
   }
   return { dir, wrote, skipped };

@@ -11,15 +11,32 @@
 import type { Pingable } from "../types/common";
 import type { ComponentName } from "../config/schema";
 
-/** The kind of agentic task — drives default model, tool posture, and which backend handles it. */
-export type AgentTaskKind =
-  | "triage" // RouterRouter's minimal dumb-vs-smart gate
-  | "rank" // router stage-2 categorization
-  | "file-relevance" // "read this file/span, decide if it matters, cite lines"
-  | "pre-write-guidance" // architectural guidance before a write
-  | "review" // a tenet review of a proposed approach or written code
-  | "housekeeping" // git / documentation upkeep
-  | "general";
+/**
+ * The kind of agentic task — drives default model, tool posture, and which backend handles it. The
+ * array is the single source of truth: config/schema.ts builds its Zod validator from it (so a typo'd
+ * task_backends key is a config error), and the type is derived from it here.
+ *   triage             — RouterRouter's minimal dumb-vs-smart gate
+ *   rank               — router stage-2 categorization
+ *   file-relevance     — "read this file/span, decide if it matters, cite lines"
+ *   pre-write-guidance — architectural guidance before a write
+ *   review             — a tenet review of a proposed approach or written code
+ *   housekeeping       — git / documentation upkeep
+ *   general            — anything else
+ */
+export const AGENT_TASK_KINDS = [
+  "triage",
+  "rank",
+  "file-relevance",
+  "pre-write-guidance",
+  "review",
+  "housekeeping",
+  "general",
+] as const;
+export type AgentTaskKind = (typeof AGENT_TASK_KINDS)[number];
+
+/** The two interchangeable backends behind the seam. Source of truth for the config validator + registry. */
+export const AGENT_BACKEND_KEYS = ["anthropic-cli", "agent-engine"] as const;
+export type AgentBackendKey = (typeof AGENT_BACKEND_KEYS)[number];
 
 /** A minimal JSON Schema object; validated with Zod at the call site, kept structural here. */
 export type JsonSchema = Record<string, unknown>;

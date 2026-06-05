@@ -3,9 +3,9 @@
 // degrade gracefully when no backend is loaded. Backends are passed in already-built (the config→
 // backend wiring lives in buildContext, like the provider registry), keeping this layer pure and
 // trivially testable. anthropic-cli is the default; agent-engine is opt-in per task.
-import type { AgentBackend, AgentTaskKind } from "./backend";
+import type { AgentBackend, AgentTaskKind, AgentBackendKey } from "./backend";
 
-export type AgentBackendKey = "anthropic-cli" | "agent-engine";
+export type { AgentBackendKey }; // re-exported for back-compat with importers of this module
 
 export interface AgentRegistry {
   /** The backend configured for a task kind (its default-backend fallback when unmapped). */
