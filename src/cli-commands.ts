@@ -12,6 +12,7 @@ export const COMMANDS: CommandDoc[] = [
   { name: "provision", usage: "provision [--repair]", summary: "Install/start backends (graphify, OpenViking)" },
   { name: "uninstall", usage: "uninstall [--purge]", summary: "Remove shims and config (optionally Python tools)" },
   { name: "init", usage: "init [--force]", summary: "Scaffold config + a secrets file with key placeholders (no npm needed)" },
+  { name: "prompts", usage: "prompts [--force]", summary: "Scaffold editable per-component system prompts into ~/.corpocode/prompts" },
   { name: "hook", usage: "hook <name> [--platform <id>]", summary: "Dispatch a hook (invoked by installed shims)" },
   { name: "doctor", usage: "doctor", summary: "Run health checks and print repair hints" },
   { name: "stats", usage: "stats [--json] [--days N]", summary: "Report cost, savings, latency, and error rates" },

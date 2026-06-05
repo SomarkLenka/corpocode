@@ -71,6 +71,7 @@ function makeCtx(opts: {
     env: opts.env,
     logger: { enabled: false, log: () => {} },
     registry: { forComponent: () => provider, all: () => [provider] },
+    prompts: { resolve: (id: string) => id },
     context,
     memory: {
       id: "native",

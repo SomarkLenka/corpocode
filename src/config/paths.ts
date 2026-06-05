@@ -72,6 +72,21 @@ export function memoryDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
   return join(projectStateDir(cwd, env), "memory");
 }
 
+/**
+ * Editable per-component system prompts. Resolution is local-over-global: a `prompts/<id>.md` in the
+ * project's `./.corpocode` (here) wins over the same file under the global `~/.corpocode` (globalPromptsDir),
+ * which in turn wins over the built-in default compiled into the binary. Lets a user tune any prompt
+ * per-project or globally without touching code.
+ */
+export function promptsDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(projectStateDir(cwd, env), "prompts");
+}
+
+/** Global (home-dir) prompt overrides — `~/.corpocode/prompts`. Superseded by the project-local dir. */
+export function globalPromptsDir(env?: NodeJS.ProcessEnv): string {
+  return join(corpocodeHome(env), "prompts");
+}
+
 export function memoryFile(cwd?: string, env?: NodeJS.ProcessEnv): string {
   return join(memoryDir(cwd, env), "memory.json");
 }

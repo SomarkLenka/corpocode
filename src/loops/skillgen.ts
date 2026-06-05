@@ -11,6 +11,7 @@ import { z } from "zod";
 import { ensureDir } from "../config/paths";
 import type { Provider } from "../providers/types";
 import type { MemoryStore, Scope } from "../backends/memory/types";
+import { resolvePrompt } from "../prompts/resolve";
 
 /** ~/.claude/memdir/corpocode-candidates (honoring CLAUDE_CONFIG_DIR), where memos await review. */
 export function candidatesDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -27,13 +28,6 @@ export interface SkillCandidate {
 const zCandidates = z.object({
   candidates: z.array(z.object({ name: z.string(), description: z.string(), body: z.string() })),
 });
-
-const DISTILL_SYSTEM =
-  "You turn an agent's recorded mistakes and approaches into reusable skill candidates. Cluster the " +
-  "memories by recurring theme; for each strong, generalizable theme propose one skill as " +
-  "{ name, description, body }: a short kebab-case name, a one-line description of when to use it, and " +
-  "a body of concrete guidance. Only propose a skill when a theme recurs or is clearly reusable — " +
-  "prefer fewer, higher-quality candidates. Respond as JSON: { candidates: [...] }.";
 
 /** Filesystem-safe kebab slug for a proposed skill name; "" if nothing usable remains. */
 export function slugify(name: string): string {
@@ -78,7 +72,7 @@ export async function generateSkillCandidates(deps: SkillgenDeps): Promise<Skill
   let candidates: SkillCandidate[];
   try {
     const out = await deps.provider.chat({
-      system: DISTILL_SYSTEM,
+      system: resolvePrompt("skillgen", {}, { env: deps.env }),
       messages: [{ role: "user", content: corpus }],
       responseFormat: "json",
       maxTokens: 1200,

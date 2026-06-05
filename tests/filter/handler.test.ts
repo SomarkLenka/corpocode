@@ -36,6 +36,7 @@ function makeCtx(
     env: {},
     logger: { enabled: true, log: (r: Record<string, unknown>) => records.push(r) },
     registry: { forComponent: () => provider, all: () => [provider], availableFor: () => llmAvailable },
+    prompts: { resolve: (id: string) => id },
     memory: {
       id: "native",
       recall: async () => [],

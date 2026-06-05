@@ -15,6 +15,7 @@ import { buildMemoryStore } from "../backends/memory/registry";
 import type { MemoryStore } from "../backends/memory/types";
 import { createSessionReader } from "../session/reader";
 import type { SessionReader } from "../session/types";
+import { createPromptResolver, type PromptResolver } from "../prompts/resolve";
 import type { PlatformId } from "./platform-output";
 import { loadPluginContributions, EMPTY_CONTRIBUTIONS, type PluginContributions } from "../plugins/registry";
 
@@ -30,6 +31,7 @@ export interface HookContext {
   context: ContextStore;
   memory: MemoryStore;
   sessionReader: SessionReader;
+  prompts: PromptResolver; // resolves editable per-component system prompts (local→global→built-in)
   plugins: PluginContributions; // discovered corpocode-template-*/corpocode-tenet-* contributions
 }
 
@@ -63,7 +65,8 @@ export function buildContext(config: CorpoConfig, opts: BuildContextOptions = {}
   const context = buildContextStore(config);
   // Memory and the session cache are project-local too (under <repoRoot>/.corpocode), so repoRoot flows in.
   const memory = buildMemoryStore(config, { project, env, repoRoot });
-  const sessionReader = createSessionReader({ provider: registry.forComponent("router"), env, cwd: repoRoot });
+  const prompts = createPromptResolver({ cwd: repoRoot, env });
+  const sessionReader = createSessionReader({ provider: registry.forComponent("router"), env, cwd: repoRoot, prompts });
   const plugins = opts.plugins ?? discoverContributions();
-  return { config, env, repoRoot, project, platform, logger, registry, graph, context, memory, sessionReader, plugins };
+  return { config, env, repoRoot, project, platform, logger, registry, graph, context, memory, sessionReader, prompts, plugins };
 }

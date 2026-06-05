@@ -87,11 +87,15 @@ export async function handleUserPromptSubmit(
   }
 
   const provider = ctx.registry.forComponent("router");
-  const rank = await stageTwo(provider, {
-    prompt: envelope.prompt,
-    thought,
-    candidates: stage1.candidates,
-  });
+  const rank = await stageTwo(
+    provider,
+    {
+      prompt: envelope.prompt,
+      thought,
+      candidates: stage1.candidates,
+    },
+    ctx.prompts,
+  );
 
   const effortChoice: ModelEffortChoice = selectModelEffort(rank.decision.complexity, ctx.config);
   const effort: Effort = effortChoice.effort;

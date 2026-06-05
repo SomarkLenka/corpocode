@@ -19,11 +19,6 @@ import { writeMemdir } from "./memdir";
 import { maybePromote, tracedFiles } from "../git/hook";
 import { runDocGeneration } from "../docs/stop";
 
-const DIGEST_PROMPT =
-  "Summarize the following older slice of a coding session into a compact digest that preserves the " +
-  "decisions made, problems solved, files touched, and any open threads. Be concise and factual; no " +
-  "preamble.";
-
 function readTranscript(path: string, sessionId: string): Transcript {
   let text = "";
   try {
@@ -46,7 +41,7 @@ async function makeDigest(ctx: HookContext, messages: TranscriptMessage[]): Prom
   const body = messages.map((m) => `${m.role}: ${m.content}`).join("\n").slice(0, 12000);
   try {
     const out = await ctx.registry.forComponent("compactor").chat({
-      system: DIGEST_PROMPT,
+      system: ctx.prompts.resolve("compactor"),
       maxTokens: 600,
       messages: [{ role: "user", content: body }],
     });

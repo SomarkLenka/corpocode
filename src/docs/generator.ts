@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { z } from "zod";
 import type { Provider } from "../providers/types";
 import type { KnowledgeGraph } from "../backends/graph/types";
+import { resolvePrompt } from "../prompts/resolve";
 import { extractSignature as defaultExtractSignature } from "./symbols";
 import type { DocGenerator, DocRecord, WhatCodeDoes } from "./types";
 
@@ -75,7 +76,7 @@ export function createDocGenerator(deps: DocGeneratorDeps): DocGeneratorImpl {
   async function facet<T>(instruction: string, symbol: string, code: string, schema: z.ZodType<T>, fallback: T): Promise<T> {
     try {
       const out = await provider.chat({
-        system: `${instruction} Focus only on the symbol \`${symbol}\`. Respond as JSON.`,
+        system: resolvePrompt("docs-facet", { instruction, symbol }),
         messages: [{ role: "user", content: code }],
         responseFormat: "json",
         maxTokens: FACET_TOKENS,
@@ -121,10 +122,7 @@ export function createDocGenerator(deps: DocGeneratorDeps): DocGeneratorImpl {
     const code = codeContext(file);
     try {
       const out = await provider.chat({
-        system:
-          "Write a concise documentation comment for the named symbol. Return only the comment text " +
-          "(no code, no fences), explaining what it does and any non-obvious why. Under 6 lines. " +
-          `Symbol: \`${symbol}\`.`,
+        system: resolvePrompt("docs-inline", { symbol }),
         messages: [{ role: "user", content: code }],
         maxTokens: 200,
       });

@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { CorpoConfig, Effort } from "../config/schema";
 import type { Provider } from "../providers/types";
 import { applyEffort } from "../providers/effort";
+import { resolvePrompt } from "../prompts/resolve";
 import { checksForTenets } from "../verifier/tenets";
 import { runChecks, type ReadFile } from "../verifier/worker";
 import type { MolarEditEngine, Tenet, TenetCheck, TenetFinding } from "./types";
@@ -55,10 +56,7 @@ export function createMolarEditEngine(opts: MolarEngineOptions): MolarEditEngine
       const out = await opts.provider.chat(
         applyEffort(
           {
-            system:
-              `You review a PROPOSED APPROACH (not finished code) through one lens.\n${rubric}\n\n` +
-              `Respond with ONLY JSON: {"ok":boolean,"severity":"info"|"warn"|"block","message":string,"confidence":number 0..1}. ` +
-              `ok=true means the approach is sound on this tenet.`,
+            system: resolvePrompt("review", { rubric }),
             responseFormat: "json",
             maxTokens: 300,
             timeoutMs: timeout,

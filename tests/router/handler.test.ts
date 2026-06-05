@@ -94,6 +94,7 @@ function makeCtx(opts: CtxOptions = {}) {
     platform: "claude-code",
     logger: { enabled: true, log: (r) => records.push(r as Record<string, unknown>) },
     registry: { forComponent: () => provider, all: () => [provider], availableFor: () => true },
+    prompts: { resolve: (id: string) => id },
     graph,
     context: {} as unknown as ContextStore,
     memory,

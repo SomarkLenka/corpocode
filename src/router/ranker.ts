@@ -6,6 +6,7 @@ import type { Provider } from "../providers/types";
 import type { ScoredFile } from "../backends/graph/types";
 import type { ThoughtState } from "../session/types";
 import { routerDecisionJsonSchema, routerDecisionSchema, type RouterDecision } from "./output-schema";
+import { resolvePrompt, type PromptResolver } from "../prompts/resolve";
 
 export interface RankInput {
   prompt: string;
@@ -21,24 +22,21 @@ export interface RankResult {
   invokedModel: boolean;
 }
 
-function buildSystemPrompt(input: RankInput, candidatePaths: string[]): string {
-  return [
-    "You are a routing classifier for a coding agent. Classify the user's current moment and pick",
-    "which candidate files matter. Respond with ONLY a JSON object with these fields:",
-    "type (code-edit|code-gen|exploration|docs|config|other), complexity (trivial|medium|hard),",
-    "breakpoint (boolean), delegate_to (string, optional), dispatch_retrieval (boolean),",
-    "effort (minimal|medium|high), context_files_to_preload (string[], a SUBSET of the candidates).",
-    "",
-    "Line of thought:",
-    `  intent: ${input.thought.intent || "(unknown)"}`,
-    input.thought.approach ? `  approach: ${input.thought.approach}` : "",
-    input.thought.entities.length ? `  entities: ${input.thought.entities.join(", ")}` : "",
-    "",
-    "Candidate files (only choose context_files_to_preload from these):",
-    ...(candidatePaths.length ? candidatePaths.map((p) => `  - ${p}`) : ["  (none)"]),
-  ]
-    .filter((line) => line !== "")
-    .join("\n");
+// Builds the router system prompt by filling the editable "router" template's {{placeholders}} with the
+// distilled line-of-thought block and the bulleted candidate list. The static instructions live in the
+// template (registry default or a user override); only the runtime data is computed here.
+function buildSystemPrompt(input: RankInput, candidatePaths: string[], prompts?: PromptResolver): string {
+  const lineOfThought =
+    [
+      `  intent: ${input.thought.intent || "(unknown)"}`,
+      input.thought.approach ? `  approach: ${input.thought.approach}` : "",
+      input.thought.entities.length ? `  entities: ${input.thought.entities.join(", ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n") || "  (none)";
+  const candidates = candidatePaths.length ? candidatePaths.map((p) => `  - ${p}`).join("\n") : "  (none)";
+  const vars = { lineOfThought, candidates };
+  return prompts ? prompts.resolve("router", vars) : resolvePrompt("router", vars);
 }
 
 /** The graceful fallback decision when the model can't be reached or returns invalid output. */
@@ -53,11 +51,11 @@ export function defaultDecision(candidates: ScoredFile[]): RouterDecision {
   };
 }
 
-export async function stageTwo(provider: Provider, input: RankInput): Promise<RankResult> {
+export async function stageTwo(provider: Provider, input: RankInput, prompts?: PromptResolver): Promise<RankResult> {
   const candidatePaths = input.candidates.map((c) => c.path);
   try {
     const out = await provider.chat({
-      system: buildSystemPrompt(input, candidatePaths),
+      system: buildSystemPrompt(input, candidatePaths, prompts),
       responseFormat: "json",
       jsonSchema: routerDecisionJsonSchema,
       maxTokens: 400,
