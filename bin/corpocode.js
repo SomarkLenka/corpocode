@@ -24919,6 +24919,7 @@ function createOllamaProvider(opts) {
 }
 
 // src/providers/registry.ts
+var nonEmpty = (v2) => typeof v2 === "string" && v2.trim().length > 0;
 function buildProvider(cfg, apiKey) {
   const base = { model: cfg.model, apiKey, host: cfg.host, baseUrl: cfg.baseUrl };
   switch (cfg.kind) {
@@ -24956,9 +24957,23 @@ function buildRegistry(config, opts = {}) {
     cache.set(key, provider);
     return provider;
   };
+  const isProviderLoaded = (cfg) => {
+    switch (cfg.kind) {
+      case "ollama":
+        return nonEmpty(cfg.host) || nonEmpty(cfg.baseUrl);
+      case "anthropic-cli":
+        return nonEmpty(cfg.model);
+      default:
+        return Boolean(resolveApiKey({ kind: cfg.kind, apiKeyRef: cfg.apiKeyRef }, secrets, env));
+    }
+  };
   return {
     forComponent: (name) => providerForKey(config.components[name]),
-    all: () => [...new Set(Object.values(config.components))].map(providerForKey)
+    all: () => [...new Set(Object.values(config.components))].map(providerForKey),
+    availableFor: (name) => {
+      const cfg = config.providers[config.components[name]];
+      return cfg ? isProviderLoaded(cfg) : false;
+    }
   };
 }
 
@@ -27488,7 +27503,7 @@ var DEFAULT_POLICIES = {
 
 // src/filter/classify.ts
 function extractCommand(toolName, toolInput) {
-  if (toolName === "Bash" || toolName === "Shell") {
+  if (toolName === "Bash" || toolName === "Shell" || toolName === "PowerShell" || toolName === "pwsh") {
     return typeof toolInput.command === "string" ? toolInput.command : null;
   }
   return null;
@@ -27647,23 +27662,34 @@ async function handlePreToolUse(envelope, ctx) {
     const route = await maybeRouteHeavyCoding(envelope, ctx);
     return route ? { additionalContext: tagged(TAGS.toolbox, route) } : {};
   }
-  let classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
-  if (classification.decision === "ask") {
-    const effort = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env)?.effort;
-    classification = await softClassify(command, ctx.registry.forComponent("filter"), effort);
+  const classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
+  if (!ctx.registry.availableFor("filter")) {
+    if (classification.decision === "allow") {
+      logFilter(ctx, envelope, classification.decision, classification.reason, classification.matched, true);
+      return toResponse(classification);
+    }
+    logFilter(ctx, envelope, classification.decision, "no LLM loaded \u2014 deny disabled, deferring to host", classification.matched, false);
+    return {};
   }
+  let decided = classification;
+  if (decided.decision === "ask") {
+    const effort = readLastDecision(envelope.session_id, ctx.repoRoot, ctx.env)?.effort;
+    decided = await softClassify(command, ctx.registry.forComponent("filter"), effort);
+  }
+  logFilter(ctx, envelope, decided.decision, decided.reason, decided.matched, true);
+  return toResponse(decided);
+}
+function logFilter(ctx, envelope, decision, reason, matched, enforced) {
   ctx.logger.log({
     event: "filter",
     session_id: envelope.session_id,
     component: "filter",
     tool: envelope.tool_name,
-    decision: classification.decision,
-    reason: classification.reason,
-    matched: classification.matched,
-    enforced: true
-    // Phase 2: the filter now sets the permission decision
+    decision,
+    reason,
+    matched,
+    enforced
   });
-  return toResponse(classification);
 }
 function toResponse(c2) {
   return { permissionDecision: c2.decision, permissionDecisionReason: c2.reason };
@@ -30201,7 +30227,7 @@ Next: open ${secPath} and replace the placeholder${plural} with your real key${p
 }
 
 // src/cli.ts
-var VERSION3 = "0.1.4";
+var VERSION3 = "0.2.1-alpha";
 function renderHelp() {
   const width = Math.max(...COMMANDS.map((c2) => c2.usage.length));
   const lines = COMMANDS.map((c2) => `  ${c2.usage.padEnd(width)}  ${c2.summary}`);
