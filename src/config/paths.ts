@@ -6,23 +6,16 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 
 /**
- * Root directory for all CorpoCode state. Resolved per-platform (XDG on Linux,
- * Application Support on macOS, %APPDATA% on Windows) but overridable as a whole via
- * CORPOCODE_HOME — which tests rely on to redirect state into a temp dir.
+ * Root directory for GLOBAL CorpoCode state (config + secrets). One predictable location on every OS:
+ * a `.corpocode` dotfolder in the user's home directory — e.g. `C:\Users\you\.corpocode` on Windows,
+ * `~/.corpocode` on Linux/macOS — rather than the platform-specific APPDATA / Application Support / XDG
+ * dirs. Overridable as a whole via CORPOCODE_HOME, which tests rely on to redirect state into a temp
+ * dir. Project-local state (logs, memory, sessions) lives in `./.corpocode` instead — see projectStateDir.
  */
 export function corpocodeHome(env: NodeJS.ProcessEnv = process.env): string {
   const override = env.CORPOCODE_HOME;
   if (override && override.trim()) return override;
-
-  if (process.platform === "win32") {
-    const base = env.APPDATA ?? join(homedir(), "AppData", "Roaming");
-    return join(base, "corpocode");
-  }
-  if (process.platform === "darwin") {
-    return join(homedir(), "Library", "Application Support", "corpocode");
-  }
-  const base = env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-  return join(base, "corpocode");
+  return join(homedir(), ".corpocode");
 }
 
 export function configFile(env?: NodeJS.ProcessEnv): string {

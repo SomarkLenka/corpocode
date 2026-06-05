@@ -12,10 +12,10 @@ const FULL_COMPONENTS = {
 describe("configSchema", () => {
   it("fills a complete, coherent default config from an empty object", () => {
     const cfg = configSchema.parse({});
-    expect(cfg.providers.default.kind).toBe("anthropic");
-    expect(cfg.providers.default.model).toBe("claude-haiku-4-5-20251001");
-    expect(cfg.providers.cheap_local.kind).toBe("ollama");
-    expect(cfg.components.compactor).toBe("cheap_local");
+    expect(cfg.providers.default.kind).toBe("anthropic-cli"); // keyless default — uses the `claude` CLI
+    expect(cfg.providers.default.model).toBe("claude-haiku-4-5");
+    expect(cfg.providers.cheap_local.kind).toBe("ollama"); // opt-in local alternative, unused by default
+    expect(cfg.components.compactor).toBe("default"); // all six components on the default provider now
     expect(cfg.router.heuristic_candidate_limit_files).toBe(10);
     expect(cfg.router.trivial_early_exit).toBe(true);
     expect(cfg.backends.knowledgeGraph).toBe("native"); // Phase 5: native by default

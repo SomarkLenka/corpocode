@@ -33,28 +33,34 @@ function home(): NodeJS.ProcessEnv {
 }
 
 describe("corpocode init", () => {
-  it("writes a valid default config and a secrets file with a key placeholder", () => {
+  it("writes a valid default config and a keyless secrets template (anthropic-cli needs no key)", () => {
     const env = home();
     runInitCommand([], env);
     const cfg = configSchema.parse(JSON.parse(readFileSync(configFile(env), "utf8")));
     expect(cfg.version).toBe(1);
-    expect(readFileSync(secretsFile(env), "utf8")).toContain("ANTHROPIC_API_KEY=REPLACE_WITH_YOUR_ANTHROPIC_API_KEY");
+    expect(cfg.providers.default.kind).toBe("anthropic-cli");
+    const secrets = readFileSync(secretsFile(env), "utf8");
+    expect(secrets).toContain("anthropic-cli"); // explains no key is needed
+    expect(secrets).not.toContain("REPLACE_WITH_YOUR_"); // no placeholder to fill
   });
 
   it("never overwrites an existing secrets file without --force (a real key is safe)", () => {
     const env = home();
-    runInitCommand([], env); // create the dir + placeholder secrets
+    runInitCommand([], env); // create the dir + keyless template
     writeFileSync(secretsFile(env), "ANTHROPIC_API_KEY=sk-real-key\n", { mode: 0o600 });
 
     runInitCommand([], env); // again, no --force
     expect(readFileSync(secretsFile(env), "utf8")).toContain("sk-real-key"); // preserved
 
-    runInitCommand(["--force"], env); // --force resets to the placeholder
-    expect(readFileSync(secretsFile(env), "utf8")).toContain("REPLACE_WITH_YOUR_ANTHROPIC_API_KEY");
+    runInitCommand(["--force"], env); // --force resets to the keyless template
+    const reset = readFileSync(secretsFile(env), "utf8");
+    expect(reset).not.toContain("sk-real-key");
+    expect(reset).toContain("anthropic-cli");
   });
 
-  it("derives the key names from the default config's keyed providers", () => {
-    expect(defaultKeyNames()).toContain("ANTHROPIC_API_KEY"); // anthropic default
+  it("derives no key names from the keyless default, but still renders placeholders for keyed providers", () => {
+    expect(defaultKeyNames()).toEqual([]); // anthropic-cli + ollama are both keyless
+    expect(renderSecretsTemplate([])).toContain("anthropic-cli"); // keyless guidance
     expect(renderSecretsTemplate(["ANTHROPIC_API_KEY"])).toContain("ANTHROPIC_API_KEY=REPLACE_WITH_YOUR_ANTHROPIC_API_KEY");
   });
 

@@ -113,7 +113,7 @@ bin/corpocode.js                 # esbuild output
 ## 4. Configuration
 
 ### Paths
-- Config: `~/.corpocode/config.json`. Resolve cross-platform in `config/paths.ts`: `XDG_CONFIG_HOME` (Linux), `~/Library/Application Support` (macOS), `%APPDATA%` (Windows).
+- Config: `~/.corpocode/config.json`. Global state (config + secrets) lives in a `.corpocode` dotfolder in the user's home directory on every OS (e.g. `C:\Users\you\.corpocode` on Windows), resolved in `config/paths.ts`; `CORPOCODE_HOME` overrides it. Project-local state (logs, memory, sessions) lives in `./.corpocode`.
 - Secrets: `~/.corpocode/secrets` (chmod 600). `config.json` references keys by name; never inline secrets.
 - Logs: `~/.corpocode/logs/corpocode.ndjson`.
 - Memory: `~/.corpocode/memory/<project>.json` (+ sibling embeddings file).

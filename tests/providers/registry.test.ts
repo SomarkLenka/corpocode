@@ -7,13 +7,13 @@ const config = configSchema.parse({});
 describe("provider registry", () => {
   it("resolves the configured provider per component", () => {
     const reg = buildRegistry(config, { env: {}, secrets: {} });
-    expect(reg.forComponent("router").id).toBe("anthropic");
-    expect(reg.forComponent("compactor").id).toBe("ollama");
+    expect(reg.forComponent("router").id).toBe("anthropic-cli");
+    expect(reg.forComponent("compactor").id).toBe("anthropic-cli"); // all six on the default provider now
   });
 
   it("lists the distinct providers in use", () => {
     const reg = buildRegistry(config, { env: {}, secrets: {} });
-    expect(reg.all().map((p) => p.id).sort()).toEqual(["anthropic", "ollama"]);
+    expect(reg.all().map((p) => p.id).sort()).toEqual(["anthropic-cli"]); // only `default` is referenced
   });
 
   it("caches one instance per provider key", () => {

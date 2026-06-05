@@ -25,14 +25,24 @@ export function defaultKeyNames(): string[] {
   return [...names];
 }
 
-/** Render the placeholder secrets file body (comments are ignored by the secrets parser). */
+/** Render the secrets file body (comments are ignored by the secrets parser). With no keyed providers
+ *  — the default `anthropic-cli` needs none — it writes guidance instead of a placeholder. */
 export function renderSecretsTemplate(keys: string[]): string {
-  return [
+  const header = [
     "# CorpoCode secrets. Replace each placeholder with your real key — or set the matching",
     "# environment variable instead (an env var takes precedence over this file).",
-    ...keys.map((k) => `${k}=${placeholderFor(k)}`),
-    "",
-  ].join("\n");
+  ];
+  if (keys.length === 0) {
+    return [
+      ...header,
+      "#",
+      "# The default provider (anthropic-cli) needs NO key — it uses your installed `claude` CLI login.",
+      "# Add a key here only if you point a component at a keyed provider, e.g.:",
+      "#   ANTHROPIC_API_KEY=...   OPENAI_API_KEY=...   GEMINI_API_KEY=...   OPENROUTER_API_KEY=...",
+      "",
+    ].join("\n");
+  }
+  return [...header, ...keys.map((k) => `${k}=${placeholderFor(k)}`), ""].join("\n");
 }
 
 export function runInitCommand(argv: string[], env: NodeJS.ProcessEnv = process.env): void {
@@ -60,7 +70,11 @@ export function runInitCommand(argv: string[], env: NodeJS.ProcessEnv = process.
     } catch {
       // POSIX modes don't apply on Windows
     }
-    process.stdout.write(`wrote secrets with placeholder(s): ${secPath}\n`);
+    process.stdout.write(
+      keys.length === 0
+        ? `wrote secrets template (no key needed for the default anthropic-cli provider): ${secPath}\n`
+        : `wrote secrets with placeholder(s): ${secPath}\n`,
+    );
   }
 
   // Gate the user's/plugins' skills & agents (strip "when to use" from the main model's context, keep
@@ -84,6 +98,13 @@ export function runInitCommand(argv: string[], env: NodeJS.ProcessEnv = process.
     }
   }
 
+  if (keys.length === 0) {
+    process.stdout.write(
+      "\nThe default provider (anthropic-cli) uses your installed `claude` CLI login — no API key needed. " +
+        "Then run `corpocode doctor` to verify.\n",
+    );
+    return;
+  }
   const plural = keys.length === 1 ? "" : "s";
   process.stdout.write(
     `\nNext: open ${secPath} and replace the placeholder${plural} with your real key${plural}:\n` +
