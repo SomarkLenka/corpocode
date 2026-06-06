@@ -8,6 +8,12 @@
 // format. Unknown keys are stripped (Zod's default), not rejected, so a newer config read by
 // an older binary degrades gracefully rather than failing (the In-flight tenet).
 import { z } from "zod";
+import { AGENT_TASK_KINDS, AGENT_BACKEND_KEYS } from "../agents/backend";
+
+/** Zod validators for the agent seam's task kinds + backend keys, built from their single source of
+ *  truth in agents/backend.ts so the config and the code can never drift. */
+export const agentTaskKindSchema = z.enum(AGENT_TASK_KINDS);
+export const agentBackendKeySchema = z.enum(AGENT_BACKEND_KEYS);
 
 /** The canonical list of provider kinds — the single source of truth re-exported by providers/types.ts. */
 export const providerKindSchema = z.enum([
@@ -167,6 +173,21 @@ export const configSchema = z
         knowledgeGraph: z.enum(["graphify", "native"]).default("native"),
         contextStore: z.enum(["openviking", "native"]).default("native"),
         memoryStore: z.literal("native").default("native"),
+      })
+      .default({}),
+    // The IntelligentRouter's agent seam. OFF by default — the orchestration layer ships dark and is
+    // proven in isolation before any handler consumes it (Phase 4). `task_backends` maps a task kind to
+    // a backend; unmapped kinds use `default_backend`. Keys/values are validated against the seam's
+    // single source of truth, so a typo is a config error, not a confusing runtime fallback.
+    agents: z
+      .object({
+        enabled: z.boolean().default(false),
+        default_backend: agentBackendKeySchema.default("anthropic-cli"),
+        task_backends: z.record(agentTaskKindSchema, agentBackendKeySchema).default({}),
+        max_parallel: z.number().int().positive().default(3), // each agent is a full process
+        session_ttl_ms: z.number().int().positive().default(1_800_000), // 30 min before a session is evictable
+        max_sessions: z.number().int().positive().default(50), // LRU bound on persisted agent sessions
+        router_router: z.boolean().default(true), // the triage gate; false routes everything to the full router
       })
       .default({}),
     // Off by default — the foundation of the privacy posture. When enabled, only the whitelisted

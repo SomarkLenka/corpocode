@@ -138,6 +138,22 @@ export function sessionDecisionFile(sessionId: string, cwd?: string, env?: NodeJ
   return join(sessionsDir(cwd, env), `${safeSessionId(sessionId)}.decision.json`);
 }
 
+/**
+ * Directory holding the IntelligentRouter's persisted agent-session records. Project-local (beside the
+ * SessionReader's `sessions/`), so a fresh hook process can `--resume` an agent thread it opened earlier.
+ */
+export function agentSessionsDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(projectStateDir(cwd, env), "agent-sessions");
+}
+
+/**
+ * One agent-session record file, keyed by a purpose-scoped key (per-file or per-topic — already hashed
+ * by the caller). The key is sanitized again here so an unhashed key can never escape the directory.
+ */
+export function agentSessionFile(key: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(agentSessionsDir(cwd, env), `${safeSessionId(key)}.json`);
+}
+
 function safeSessionId(sessionId: string): string {
   return sessionId.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80) || "session";
 }

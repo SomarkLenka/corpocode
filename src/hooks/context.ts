@@ -18,6 +18,9 @@ import type { SessionReader } from "../session/types";
 import { createPromptResolver, type PromptResolver } from "../prompts/resolve";
 import type { PlatformId } from "./platform-output";
 import { loadPluginContributions, EMPTY_CONTRIBUTIONS, type PluginContributions } from "../plugins/registry";
+import { buildAgentRegistry, type AgentRegistry } from "../agents/registry";
+import { createAnthropicCliAgent } from "../agents/backends/anthropic-cli";
+import { createAgentEngineBackend } from "../agents/backends/agent-engine";
 
 export interface HookContext {
   config: CorpoConfig;
@@ -33,6 +36,7 @@ export interface HookContext {
   sessionReader: SessionReader;
   prompts: PromptResolver; // resolves editable per-component system prompts (local→global→built-in)
   plugins: PluginContributions; // discovered corpocode-template-*/corpocode-tenet-* contributions
+  agents?: AgentRegistry; // the IntelligentRouter's agent seam — present only when agents.enabled (ships dark)
 }
 
 export interface BuildContextOptions {
@@ -68,5 +72,19 @@ export function buildContext(config: CorpoConfig, opts: BuildContextOptions = {}
   const prompts = createPromptResolver({ cwd: repoRoot, env });
   const sessionReader = createSessionReader({ provider: registry.forComponent("router"), env, cwd: repoRoot, prompts });
   const plugins = opts.plugins ?? discoverContributions();
-  return { config, env, repoRoot, project, platform, logger, registry, graph, context, memory, sessionReader, prompts, plugins };
+  // The agent seam is built only when enabled, so the orchestration layer ships dark: with agents.enabled
+  // false (the default) ctx.agents is undefined and every caller falls back to today's behavior. Both
+  // backends are registered as cheap factory objects — anthropic-cli runs the `claude` loop, agent-engine
+  // lazily loads its (optional) package on first invoke; per-task selection comes from config.
+  const agents = config.agents.enabled
+    ? buildAgentRegistry({
+        backends: {
+          "anthropic-cli": createAnthropicCliAgent({ repoRoot }),
+          "agent-engine": createAgentEngineBackend(),
+        },
+        taskBackends: config.agents.task_backends,
+        defaultBackend: config.agents.default_backend,
+      })
+    : undefined;
+  return { config, env, repoRoot, project, platform, logger, registry, graph, context, memory, sessionReader, prompts, plugins, agents };
 }

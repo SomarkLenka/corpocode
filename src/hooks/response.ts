@@ -23,6 +23,8 @@ export const TAGS = {
   fileContext: "middle-management file-context",
   delegation: "middle-management delegation",
   toolbox: "middle-management toolbox",
+  // The IntelligentRouter's single synthesized injection (one tag for the whole orchestrated workspace).
+  intelligentRouter: "middle-management intelligent-router",
 } as const;
 
 /** Wrap injected content in a source-identifying tag. */
