@@ -182,7 +182,7 @@ handler — they are registered only so the flow log observes every hook the hos
 `buildContext()` (`context.ts`) exposes the four abstractions of [chapter 02](02-abstractions.md) — the
 provider `registry`, `graph`, `context` store, and `memory` — plus the `sessionReader`, the `prompts`
 resolver, discovered `plugins`, and the *dark* `agents` registry (built only when `config.agents.enabled`,
-so the orchestration layer of [chapter 05](05-intelligent-router.md) is absent unless explicitly switched
+so the orchestration layer of [chapter 06](06-intelligent-router.md) is absent unless explicitly switched
 on).
 
 ## Invariants a contributor must not break

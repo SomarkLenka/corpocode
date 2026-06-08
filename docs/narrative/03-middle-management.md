@@ -1,14 +1,39 @@
 # Chapter 03 — Middle-Management
 
-*The caretaker that opens every turn: it reads the transcript to understand what the main model is
-doing, classifies the moment, recalls relevant memory and graph structure, builds a budget-bounded
-context package, design-reviews the approach at a breakpoint, and injects all of it — so the expensive
-model arrives already oriented and writes less to get there.*
+*The caretaker that **guides** the developer. It opens every turn: reads the transcript to understand
+what the main model is doing, categorizes the moment, and then — rather than route to one template —
+**instantiates a team of independent, single-purpose cheap-model agents** to handle everything the model
+might need that isn't the code itself. It recalls memory and graph structure, builds a budget-bounded
+context package, design-reviews the approach at a breakpoint, picks the model and effort to match the
+difficulty, and injects all of it — so the expensive model arrives already oriented and writes less to
+get there.*
 
 > This chapter is the longest because it is the heart of the per-turn experience. Two hooks drive it:
 > `UserPromptSubmit` (orient) and `PreToolUse` (guard and focus).
 
 ---
+
+## The charter: a prompt engine, not a prompt router
+
+Middle-Management is the clearest expression of the [fan-out engine](00-overview.md#the-fan-out-engine-not-a-prompt-router).
+The point is **not** to inspect the prompt and pick a response. It is to **classify the moment the hook
+fired in** and then dispatch a team of cheap agents, each answering one small question, whose findings
+aggregate into one injection. The main model should be thinking about code; *what* to build and *how* to
+approach it is Middle-Management's job. Its charter — each item an independently-decided branch off the
+categorized moment — is:
+
+| Responsibility | How it is decided | Status |
+| --- | --- | --- |
+| **Delegate to a subagent?** | the ranker's `delegate_to` → `planDelegation` (suggest, or auto on a capable platform) | built |
+| **Load a skill?** | toolbox `classifyRelevant` picks gated skills by name | built |
+| **Is this a design breakpoint?** | the ranker's `breakpoint` flag gates the review team | built |
+| **Instantiate MOLAR-EDIT** | one cheap reviewer per active tenet — the set is `molar_edit.active_tenets` | built |
+| **What exactly to inject** | stage-1 candidates + retrieval package + file-read interception | built |
+| **Pick the model & effort** | `selectModelEffort` by difficulty — effort is live; model escalation lands via ch. 06 | built |
+| **Call an MCP on the side** | a deferred capability of the agent substrate (chapter 06) | designed |
+
+Every branch is decided *independently* from the one classification, which is why the pipeline reads as a
+sequence of small fail-open steps rather than one big decision.
 
 ## The `UserPromptSubmit` pipeline
 
@@ -35,10 +60,15 @@ isn't built yet, it degrades to a string-overlap fallback.
 stage-1 candidate set — **the ranker cannot invent a file reference.** On any failure, a
 `defaultDecision` keeps the turn moving.
 
-**4 — Effort selection.** `selectModelEffort` maps `trivial | medium | hard` to a concrete
-`{ effort, model? }` via `config.effort.difficulty_to_model`, and threads that effort into retrieval,
-review, and the filter. Recall from [chapter 02](02-abstractions.md) that effort is spent as *token
-budget*, not a vendor reasoning dial.
+**4 — Dynamic model and effort selection.** `selectModelEffort` maps `trivial | medium | hard` to a
+concrete `{ effort, model? }` via `config.effort.difficulty_to_model`. The **effort** is live: it threads
+into retrieval, review, and the filter, where — per [chapter 02](02-abstractions.md) — it is spent as
+*token budget*, not a vendor reasoning dial. A trivial moment runs the team at `minimal`, a medium one at
+`medium`, a hard one at `high`, so the team spends in proportion to the difficulty it just classified. The
+default hard tier additionally **names a stronger model** (`claude-opus-4`); that model escalation is
+emitted and logged today and is *acted on* — spawned as a subagent running that model — through the agent
+substrate ([chapter 06](06-intelligent-router.md)). Effort is money, spent where the difficulty warrants
+it: an easy turn stays cheap, a hard one gets headroom.
 
 **5 — Recall prior decisions.** `memory.recall({ kinds: ["decision", "approach"], limit: 5 })`,
 best-effort, surfaces what was already decided so the model doesn't re-litigate it.
@@ -48,14 +78,18 @@ best-effort, surfaces what was already decided so the model doesn't re-litigate 
 
 **7 — Retrieval team (conditional).** If the ranker set `dispatch_retrieval`, `dispatchRetrieval` pulls
 retrieval cues from the session reader and runs the retrieval team, returning its block only if it found
-references.
+references. This is the fan-out in miniature: a checklist of small, specific questions asked concurrently
+against the three abstractions, then merged.
 
 **8 — Design review at a breakpoint.** If the ranker flagged a `breakpoint` *and* review is enabled,
-`dispatchReview` builds a design-context string and runs the review team over the *proposed approach*.
+`dispatchReview` builds a design-context string and runs the review team over the *proposed approach* —
+one cheap reviewer per active MOLAR-EDIT tenet, aggregating only the concerns. This is where the design
+philosophy is *instantiated*: the tenets reviewed are exactly `molar_edit.active_tenets`, so a project
+can add or silence a design lens from config without touching code.
 
 **9 — Delegation and toolbox.** `planDelegation` turns a `delegate_to` into a suggestion (or, on a
 capable platform in auto mode, a directive); `pickToolboxForPrompt` classifies which gated skills/agents
-are relevant.
+are relevant — *deciding whether a subagent should take this work and which skills it should carry.*
 
 **10 — Inject.** `joinBlocks` wraps each non-null piece in its source-identifying tag —
 `recommendation`, `retrieved-context`, `design-review`, `delegation`, `toolbox` — into one
@@ -69,8 +103,8 @@ are relevant.
 
 ### File reads → the context injector
 
-For `Read`/`Glob`/`Grep`, `injectFileRead` assembles up to three pieces under a single
-`<middle-management file-context>` tag:
+For `Read`/`Glob`/`Grep`, `injectFileRead` decides *exactly what to inject* by intercepting the read and
+assembling up to three pieces under a single `<middle-management file-context>` tag:
 
 - **WARNINGS** — `memory.recall({ file, kinds: ["mistake", "rule"], limit: 3 })`: this file's past
   mistakes and rules, recalled at the exact moment the model is about to touch it.
@@ -134,6 +168,10 @@ entering a medium/hard code phase: it recommends a subagent and relevant skills,
 
 ## Why it is shaped this way
 
+- **A team, not a template.** The whole value proposition is that the *what* and *how* of a turn is
+  worked out by a swarm of cheap, specific agents rather than the one expensive model — so the moment is
+  decomposed into independent branches (delegate? skill? breakpoint? inject what?) and each is answered by
+  the smallest possible call.
 - **Two-stage routing — free heuristics before the paid ranker.** Stage 1 is pure graph/string work;
   only a non-trivial prompt reaches the single billed LLM call. Minimizing per-turn cost *is* the point of
   CorpoCode.
@@ -144,6 +182,9 @@ entering a medium/hard code phase: it recommends a subagent and relevant skills,
   turn — and each item is independently timeout-bounded.
 - **Breakpoint-gated review.** Reviewing an *approach* before a dozen files are written against a flawed
   design is far cheaper than reviewing the finished code, so review is gated to genuine design moments.
+- **Effort scales to difficulty.** Classifying the moment's difficulty and spending the team's token
+  budget (and, when hard, a stronger model) in proportion is what keeps an easy turn nearly free while
+  letting a hard one think.
 - **Editable prompts with a guaranteed fallback** let a user tune any cheap-model call per-project or
   globally without touching code, while a compiled-in default means a missing or empty file never breaks a
   call.
@@ -159,7 +200,10 @@ Everything in this cluster touches the abstractions of [chapter 02](02-abstracti
 queries), `ctx.context` (the retrieval team's `find`), and `ctx.memory` (router recall, the injector's
 warnings, the retrieval team's `mem_recall`). A `RetrievedRef.source` is exactly `graph | context |
 memory` — the three abstractions normalized for a single ranked merge. Output reaches the model only
-through `additionalContext`, wrapped in the `TAGS` from `hooks/response.ts`.
+through `additionalContext`, wrapped in the `TAGS` from `hooks/response.ts`. When the agent substrate of
+[chapter 06](06-intelligent-router.md) is enabled, these same fan-outs upgrade from cheap *model calls* to
+true *investigating agents* (and gain the deferred MCP-side-call branch) without changing the charter
+above.
 
 ## Key types
 
@@ -199,6 +243,8 @@ type FilterDecision = "deny" | "allow" | "ask";
   confidence ≥ 0.5.**
 - **The ranker's preload list is a subset of stage-1 candidates** — and the *injected* file list comes
   from the candidates, not the preload field.
+- **The review team reviews exactly `active_tenets`** — adding or silencing a design lens is config, not
+  code.
 - **Template precedence: built-ins override plugin templates**, so a plugin can *add* a moment type but
   never silently override a core one.
 - **Toolbox gating skips CorpoCode's own plugin and is idempotent** via a frontmatter marker; the catalog
