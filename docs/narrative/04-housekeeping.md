@@ -1,12 +1,26 @@
 # Chapter 04 — Housekeeping
 
-*The cheap-model crew that runs during and after the main model's work. At `PostToolUse` it verifies
-each edit against the MOLAR-EDIT tenets (and can block it) and records the write to an atomic git
-"flight recorder"; at `Stop` it compacts the transcript into tiered memory, consolidates learnings,
-curates the trace branch into a clean narrative, and documents the code the session actually changed.
-Like everything in CorpoCode, it is fail-open: nothing it does is ever allowed to break the host's turn.*
+*The cheap-model crew that **cleans up after** the developer — during and after the main model's work, in
+parallel, so cleanup never costs the expensive model a token. It documents the code that was changed from
+the real call graph, takes git off the model's hands (atomic trace history plus a curated clean branch),
+independently verifies each edit against the MOLAR-EDIT tenets (and can block one), and mines the problems
+the model hit into memory and reusable skills. Like everything in CorpoCode, it is fail-open: nothing it
+does is ever allowed to break the host's turn.*
 
 ---
+
+## The charter: clean up code, docs, and version control
+
+Housekeeping's job is everything that *should be obvious but takes the developer's time*: documentation,
+version control, verification, and capturing what was learned. Each is its own fan-out of cheap agents,
+and each runs off a hook the main model has already left:
+
+| Responsibility | Where it runs | Mechanism |
+| --- | --- | --- |
+| **Real-time documentation** | `Stop` | one cheap pass per facet, `touches` resolved from the graph; signature-gated |
+| **Full git management** | `PostToolUse` + `Stop` | atomic per-write trace commits; curated promotion to clean |
+| **Independent verification** | `PostToolUse` | one cheap reviewer per active MOLAR-EDIT tenet; can block |
+| **Mining problems into skills** | `PostToolUse` + `Stop` | violations → `mistake` memories → skill candidates |
 
 ## The `PostToolUse` pipeline: the verifier with teeth
 
@@ -27,7 +41,8 @@ Like everything in CorpoCode, it is fail-open: nothing it does is ever allowed t
 5. **The memory write-back loop.** If there are violations, it **recalls this file's prior `mistake`
    memories first** (so the "repeats" count reflects history, not what's being written now), then captures
    each new violation as a file-anchored `mistake`. This is the loop the context injector reads back
-   before the next edit to the same file: *a violation today becomes a warning tomorrow.*
+   before the next edit to the same file: *a violation today becomes a warning tomorrow* — and the raw
+   material skill mining later turns into a candidate.
 6. **Log** one `verifier_check` line per finding plus a summary.
 7. **Record the write to git** via `recordWrite` — one atomic trace commit, wrapped best-effort so a
    non-repo or any git error never affects the turn.
@@ -61,6 +76,35 @@ engine out.
 
 It returns `{}` — **the `Stop` hook never alters the host.**
 
+## Documentation: from the call graph, not the diff
+
+Documentation should be *obvious*, so Housekeeping makes it so — automatically, at `Stop`, over the
+symbols the session actually changed. The `DocGenerator` produces two products per unit, and its defining
+choice is that **the one fact a reader can't recover from the code — the blast radius — is resolved from
+the KnowledgeGraph, never guessed.**
+
+- **Inline docs + cross-references** (`inlineDocs`) — a short inline doc comment for the unit, plus the
+  references to the other functions and modules it relates to.
+- **The structured "what this code does" record** (`WhatCodeDoes`) — each facet is its own single-purpose
+  cheap pass, fanned out in parallel and assembled deterministically (the same decompose-then-aggregate
+  shape the verifier and retrieval team use; a failed facet degrades to empty rather than sinking the
+  record). The facets are exactly the things a reader needs and the code doesn't state:
+  - **`impacts`** — the systems and behaviors this unit affects.
+  - **`touches`** — its blast radius, *resolved from the graph's neighbors* (depth-1), so it is looked up,
+    not asked of the model. This is the one facet that is structural truth.
+  - **`risks`** — what can go wrong here.
+  - **`futureConsiderations`** — what a later change should keep in mind.
+  - **`input`** — its `params`, their `structure`, and `mutabilityIfChanged`: how the abstraction must
+    shift if the input shape changes.
+  - **`transformation`** — `how` it does what it does, and its `purpose` (why the unit exists).
+  - **`output`** — its `structure` and the `considerations` a caller must respect.
+
+The record is persisted as a sidecar JSON beside the source (`<file>.cc-doc.json`, a map of symbol →
+record), so docs travel with the code. A `signature` field makes the work **idempotent**: an unchanged
+symbol costs nothing to "re-document," and `refresh` re-generates only records a change has staled — the
+D tenet enforced mechanically (*a doc that no longer matches reality is a bug*). Generation is hard-capped
+(a handful of source symbols per `Stop`) so documentation never becomes the expensive thing.
+
 ## MOLAR-EDIT: nine atomic tenets
 
 The verifier and the design-review team both check work against nine tenets, each a *single*
@@ -84,7 +128,9 @@ source/UI/docs" is defined once), and a single-purpose prompt derived from the r
 out one provider call per active tenet and aggregates deterministically. This is *why* growing from two
 tenets to nine was purely additive — the registry under `tenets/` grew, the runner never changed shape.
 The same engine backs both `verify()` (post-edit, over changed files) and `review()` (at a breakpoint,
-over a proposed approach).
+over a proposed approach). The In-flight, Logging, and Observability tenets are the load-bearing ones for
+Housekeeping's charter — they are what "verify the code keeps flying" means in practice — but all nine run
+when active, and `molar_edit.active_tenets` decides the set.
 
 **Community extension.** `createMolarEditEngine` takes `extraChecks`, and the merge filters
 `[...ALL_CHECKS, ...extra]` by the active set. So a `corpocode-tenet-*` plugin package appends checks into
@@ -95,7 +141,7 @@ stops its checks, including plugin ones.
 
 A coding agent emits a torrent of edits, and you want two contradictory things from that history — an
 atomic, bisectable record *and* a curated, readable one. One branch can't be both, so CorpoCode keeps
-two:
+two, taking version control off the main model entirely:
 
 - **Trace branch** (`corpocode/trace`) — **one atomic commit per write.** It is the bisectable flight
   recorder. It is safe to do automatically because it **never touches the user's index, HEAD, or working
@@ -117,14 +163,15 @@ is precisely what licenses automatic per-write trace commits. And destructive op
 git, so no bug elsewhere can issue one. `git/hook.ts` is the thin best-effort bridge (`recordWrite`,
 `maybePromote`, `tracedFiles`); all three no-op on a non-repo.
 
-## Documentation from the call graph, not the diff
+## Mining problems into skills
 
-The doc generator's defining choice: the **blast radius** of a change (`touches`) is *resolved from the
-KnowledgeGraph's neighbors, never asked of the model* — the structural truth already exists in the graph,
-so it is looked up, not guessed. Everything else (impacts, risks, the input/transformation/output facets)
-is a cheap single-purpose pass fanned out in parallel and assembled deterministically. A `signature`
-field makes the work idempotent: an unchanged symbol costs nothing to "re-document." Generation is
-hard-capped (a handful of source symbols per `Stop`).
+The last responsibility closes a learning loop that spans both hooks. The verifier captures each
+violation as a file-anchored `mistake` memory; the compactor's `consolidate` mines `mistake`/`approach`
+memories from the whole session. Skill mining (`loops/skillgen.ts`) harvests those recurring problem→
+solution pairs into a **skill candidate** — and, true to "the user disposes," it stops at *candidate*:
+`skillify --promote` (`commands/skillify.ts`) is the explicit step that turns a candidate into an
+installed skill. So a problem the model solved once becomes a reusable skill the next session can load —
+without anything durable happening behind the user's back.
 
 ## Why it is shaped this way
 
@@ -132,11 +179,15 @@ hard-capped (a handful of source symbols per `Stop`).
   next edit to the same file can see yesterday's mistake.
 - **Block only on high-confidence `block`** — a false block wastes a turn and trains distrust, so the bar
   to halt the host is deliberately high; everything else is advice.
+- **Documentation off the graph** — the blast radius is structural truth that already exists in the
+  graph; looking it up is both cheaper and more correct than asking a model to guess it.
+- **Signature-gated docs** — an unchanged symbol costs nothing, so documentation stays cheap enough to
+  run every `Stop` and a stale record is the only thing that pays.
 - **Two git branches** — you need both a flight recorder (debugging) and a narrative (review); one branch
   can't be both.
 - **Suggest by default** — trace recording is automatic because it is isolated and safe, but a durable
   change to the user's clean history is theirs to approve. The same philosophy governs skill mining: it
-  stops at "candidate," and `skillify --promote` is the explicit user step.
+  stops at "candidate."
 - **Compaction at `Stop`** — the natural quiescent boundary: the model is idle, the transcript is
   complete, and it's a clean unit boundary for promotion. Compacting mid-turn would fight the model for
   context.
@@ -153,18 +204,17 @@ interface MolarEditEngine { activeTenets(): Tenet[]; verify(files: string[]): Pr
 const BLOCK_CONFIDENCE = 0.7;
 interface VerifierVerdict { violations: TenetFinding[]; blocked: boolean; blockFinding?: TenetFinding; stopReason?: string; }
 
+interface WhatCodeDoes {                  // each facet is one cheap pass; `touches` is resolved from the graph
+  impacts: string[]; touches: string[]; risks: string[]; futureConsiderations: string[];
+  input: { params: string; structure: string; mutabilityIfChanged: string };
+  transformation: { how: string; purpose: string };
+  output: { structure: string; considerations: string };
+}
+// DocRecord = WhatCodeDoes + { file, symbol, inlineDocs, signature, generatedAt }; signature gates re-documentation.
+
 type GitMode = "suggest" | "auto";
 interface CommitSet { files: string[]; message: string; rationale: string; }
-interface GitManager {
-  ensureBranches(name: string): Promise<BranchPair>;
-  commitWrite(file: string, opts: { sessionId: string; mode: GitMode }): Promise<void>;
-  planPromotion(repoRoot: string, since: string): Promise<CommitSet[]>;
-  promote(sets: CommitSet[], mode: GitMode): Promise<void>;
-  conflicts(repoRoot: string): Promise<string[]>;
-}
-
 interface WindowSplit { preserved: TranscriptMessage[]; compactable: TranscriptMessage[]; }
-// DocRecord.touches is resolved from the graph; DocRecord.signature gates re-documentation.
 ```
 
 ## How it connects
@@ -191,7 +241,7 @@ interface WindowSplit { preserved: TranscriptMessage[]; compactable: TranscriptM
 - **Trace recording never touches HEAD/index/worktree** — it works through a throwaway index file. This
   is the invariant that licenses automatic per-write commits.
 - **Doc generation is hard-capped and signature-gated** — at most a handful of cheap passes per `Stop`,
-  and an unchanged symbol is skipped.
+  `touches` comes from the graph, and an unchanged symbol is skipped.
 
 > **A note on file layout.** The git "trace" and "promote" behaviors are *methods on
 > `git/manager.ts`* (with low-level work in `git/plumbing.ts` and hook bridges in `git/hook.ts`), not the
@@ -200,4 +250,4 @@ interface WindowSplit { preserved: TranscriptMessage[]; compactable: TranscriptM
 
 ---
 
-*Continue to [chapter 05 — the IntelligentRouter](05-intelligent-router.md).*
+*Continue to [chapter 05 — Upper-Management](05-upper-management.md).*

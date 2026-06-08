@@ -1,4 +1,4 @@
-# Chapter 06 — Platform & Operations
+# Chapter 07 — Platform & Operations
 
 *How CorpoCode gets itself into a coding-agent platform and stays operable: it installs the hook
 plumbing per platform, ships as one self-contained bundle through two distribution channels, exposes

@@ -1,6 +1,7 @@
-# Chapter 05 — The IntelligentRouter
+# Chapter 06 — The IntelligentRouter
 
-*CorpoCode's private workspace: on a hook, triage whether the moment is worth investigating, gather
+*The agent substrate the three caretakers fan out through, and CorpoCode's private workspace: on a hook,
+triage whether the moment is worth investigating, gather
 deterministic candidates, fan out low-cost agents per a pattern-emitted plan, judge their output, and
 synthesize exactly one tagged injection — so the main model receives a **conclusion**, not a pile of
 files to open.*
@@ -20,7 +21,10 @@ IntelligentRouter is the place where CorpoCode does the reading itself: it can s
 agents to actually open `auth/session.ts`, decide whether the bug is there, and inject *"the bug is at
 `auth/session.ts:140-158` because the session TTL is compared before the clock skew is applied"* — a
 conclusion the expensive model can act on directly. Every bit of investigation the router absorbs is
-repaid as fewer tokens and less wandering for the main model.
+repaid as fewer tokens and less wandering for the main model. This is the engine that turns each
+caretaker's fan-out from a team of one-shot *model calls* into a team of true *agents* — the realization
+of Middle-Management's team-of-agents charter ([chapter 03](03-middle-management.md)) and the army
+[Upper-Management](05-upper-management.md) will command.
 
 ## The governing principle: infrastructure first, behaviors deferred
 
@@ -216,5 +220,5 @@ other caretaker, wrapped in the `intelligentRouter` tag. The deferred handler ad
 
 ---
 
-*Continue to [chapter 06 — platform & operations](06-platform-and-ops.md), or back to
-[chapter 04 — Housekeeping](04-housekeeping.md).*
+*Continue to [chapter 07 — platform & operations](07-platform-and-ops.md), or back to
+[chapter 05 — Upper-Management](05-upper-management.md).*
