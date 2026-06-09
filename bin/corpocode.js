@@ -13866,7 +13866,7 @@ var init_AssistantStream = __esm({
         }));
         return runner;
       }
-      async _createToolAssistantStream(run, threadId, runId, params, options) {
+      async _createToolAssistantStream(run2, threadId, runId, params, options) {
         const signal = options?.signal;
         if (signal) {
           if (signal.aborted)
@@ -13874,7 +13874,7 @@ var init_AssistantStream = __esm({
           signal.addEventListener("abort", () => this.controller.abort());
         }
         const body = { ...params, stream: true };
-        const stream = await run.submitToolOutputs(threadId, runId, body, {
+        const stream = await run2.submitToolOutputs(threadId, runId, body, {
           ...options,
           signal: this.controller.signal
         });
@@ -13947,7 +13947,7 @@ var init_AssistantStream = __esm({
         }
         return this._addRun(__classPrivateFieldGet13(this, _AssistantStream_instances, "m", _AssistantStream_endRequest).call(this));
       }
-      async _createAssistantStream(run, threadId, params, options) {
+      async _createAssistantStream(run2, threadId, params, options) {
         const signal = options?.signal;
         if (signal) {
           if (signal.aborted)
@@ -13955,7 +13955,7 @@ var init_AssistantStream = __esm({
           signal.addEventListener("abort", () => this.controller.abort());
         }
         const body = { ...params, stream: true };
-        const stream = await run.create(threadId, body, { ...options, signal: this.controller.signal });
+        const stream = await run2.create(threadId, body, { ...options, signal: this.controller.signal });
         this._connected();
         for await (const event of stream) {
           __classPrivateFieldGet13(this, _AssistantStream_instances, "m", _AssistantStream_addEvent).call(this, event);
@@ -14018,8 +14018,8 @@ var init_AssistantStream = __esm({
         }
         return acc;
       }
-      _addRun(run) {
-        return run;
+      _addRun(run2) {
+        return run2;
       }
       async _threadAssistantStream(params, thread, options) {
         return await this._createThreadAssistantStream(thread, params, options);
@@ -15947,8 +15947,8 @@ var init_runs = __esm({
        * https://platform.openai.com/docs/assistants/how-it-works/runs-and-run-steps
        */
       async createAndPoll(threadId, body, options) {
-        const run = await this.create(threadId, body, options);
-        return await this.poll(threadId, run.id, options);
+        const run2 = await this.create(threadId, body, options);
+        return await this.poll(threadId, run2.id, options);
       }
       /**
        * Create a Run stream
@@ -15969,11 +15969,11 @@ var init_runs = __esm({
           headers["X-Stainless-Custom-Poll-Interval"] = options.pollIntervalMs.toString();
         }
         while (true) {
-          const { data: run, response } = await this.retrieve(threadId, runId, {
+          const { data: run2, response } = await this.retrieve(threadId, runId, {
             ...options,
             headers: { ...options?.headers, ...headers }
           }).withResponse();
-          switch (run.status) {
+          switch (run2.status) {
             //If we are in any sort of intermediate state we poll
             case "queued":
             case "in_progress":
@@ -15999,7 +15999,7 @@ var init_runs = __esm({
             case "completed":
             case "failed":
             case "expired":
-              return run;
+              return run2;
           }
         }
       }
@@ -16023,8 +16023,8 @@ var init_runs = __esm({
        * https://platform.openai.com/docs/assistants/how-it-works/runs-and-run-steps
        */
       async submitToolOutputsAndPoll(threadId, runId, body, options) {
-        const run = await this.submitToolOutputs(threadId, runId, body, options);
-        return await this.poll(threadId, run.id, options);
+        const run2 = await this.submitToolOutputs(threadId, runId, body, options);
+        return await this.poll(threadId, run2.id, options);
       }
       /**
        * Submit the tool outputs from a previous run and stream the run to a terminal
@@ -16118,8 +16118,8 @@ var init_threads = __esm({
        * https://platform.openai.com/docs/assistants/how-it-works/runs-and-run-steps
        */
       async createAndRunPoll(body, options) {
-        const run = await this.createAndRun(body, options);
-        return await this.runs.poll(run.thread_id, run.id, options);
+        const run2 = await this.createAndRun(body, options);
+        return await this.runs.poll(run2.thread_id, run2.id, options);
       }
       /**
        * Create a thread and stream the run back
@@ -23847,6 +23847,18 @@ var BUILTIN_PROMPTS = {
     "Candidate files (only choose context_files_to_preload from these):",
     "{{candidates}}"
   ].join("\n"),
+  // intelligence/patterns/bug-hunt.ts — one read-only agent per candidate file decides whether THIS file
+  // is implicated in the user's reported problem and cites the exact lines. The file path is delivered via
+  // the call's inputs.files; the user's problem statement via inputs.reasoning — so the prompt is stable
+  // (the same prefix for every file, which the cacheGuard later exploits) and carries no per-file text.
+  "bug-hunt": [
+    "You are hunting for the code implicated in a problem a developer is investigating. You are given ONE",
+    "candidate file (in inputs.files) and the developer's problem statement (in inputs.reasoning). Read",
+    "ONLY that file. Decide whether it is plausibly implicated in the problem, and if so cite the exact",
+    "line spans that matter and why. Be strict: set implicated=false unless you can point at specific",
+    "lines. Do not speculate about files you were not given. Respond with ONLY JSON:",
+    '{"implicated":boolean,"confidence":number 0..1,"lines":[{"start":number,"end":number,"why":string}]}.'
+  ].join(" "),
   // filter/classify.ts — the soft safety classifier for shell commands (the `ask` leftover).
   "filter-classify": [
     "You are a safety classifier for shell commands run inside a coding session. Decide: deny",
@@ -23945,6 +23957,7 @@ var PROMPT_META = {
   retrieval: { path: "retrieval/plan.md", source: "src/retrieval/planner.ts", effect: "what the retrieval team gathers when no template matches" },
   compactor: { path: "compactor/digest.md", source: "src/compactor/worker.ts", effect: "how an older transcript slice is summarized at Stop" },
   skillgen: { path: "skillgen/distill.md", source: "src/loops/skillgen.ts", effect: "how mined memories become skill candidates" },
+  "bug-hunt": { path: "intelligence/bug-hunt.md", source: "src/intelligence/patterns/bug-hunt.ts", effect: "how each candidate file is judged implicated and which lines it cites" },
   "filter-classify": { path: "filter/classify.md", source: "src/filter/classify.ts", effect: "how an uncertain shell command is judged deny/allow/ask" },
   "filter-inject": { path: "filter/inject.md", source: "src/filter/inject.ts", effect: "how a file read is narrowed to the relevant slice" },
   "session-reader": { path: "session/reader.md", source: "src/session/reader.ts", effect: "how the line-of-thought is distilled from the transcript" },
@@ -26591,7 +26604,7 @@ function mapSpawnError(err) {
   return { kind: "network", message, retryable: true };
 }
 function createAnthropicCliAgent(opts = {}) {
-  const run = opts.spawn ?? spawnText2;
+  const run2 = opts.spawn ?? spawnText2;
   const now = opts.now ?? (() => Date.now());
   async function invoke(call) {
     const model = call.model ?? opts.defaultModel ?? { providerKey: "default", model: DEFAULT_AGENT_MODEL };
@@ -26603,7 +26616,7 @@ function createAnthropicCliAgent(opts = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const { stdout } = await run("claude", args, stdin, controller.signal);
+      const { stdout } = await run2("claude", args, stdin, controller.signal);
       clearTimeout(timer);
       const obj = JSON.parse(stdout);
       const text = obj.result ?? "";
@@ -26643,7 +26656,7 @@ function createAnthropicCliAgent(opts = {}) {
     },
     health: async () => {
       try {
-        await run("claude", ["--version"], "", AbortSignal.timeout(5e3));
+        await run2("claude", ["--version"], "", AbortSignal.timeout(5e3));
         return { up: true };
       } catch {
         return { up: false };
@@ -26651,7 +26664,7 @@ function createAnthropicCliAgent(opts = {}) {
     },
     ping: async () => {
       try {
-        await run("claude", ["--version"], "", AbortSignal.timeout(5e3));
+        await run2("claude", ["--version"], "", AbortSignal.timeout(5e3));
         return true;
       } catch {
         return false;
@@ -27546,8 +27559,8 @@ async function runChecks(checks, opts) {
       }
     }
   }
-  const settled = await Promise.allSettled(tasks);
-  return settled.flatMap((s2) => s2.status === "fulfilled" ? [s2.value] : []);
+  const settled2 = await Promise.allSettled(tasks);
+  return settled2.flatMap((s2) => s2.status === "fulfilled" ? [s2.value] : []);
 }
 
 // src/molar/engine.ts
@@ -27616,8 +27629,8 @@ function createMolarEditEngine(opts) {
       });
     },
     async review(designContext) {
-      const settled = await Promise.allSettled(active.map((t2) => reviewOne(t2, designContext)));
-      return settled.flatMap((s2) => s2.status === "fulfilled" ? [s2.value] : []);
+      const settled2 = await Promise.allSettled(active.map((t2) => reviewOne(t2, designContext)));
+      return settled2.flatMap((s2) => s2.status === "fulfilled" ? [s2.value] : []);
     }
   };
 }
@@ -27792,6 +27805,245 @@ async function maybeRouteHeavyCoding(envelope, ctx) {
   }
 }
 
+// src/intelligence/gather.ts
+var DEFAULT_LIMIT = 8;
+async function settled(p2, fallback, logger, source) {
+  try {
+    return await p2;
+  } catch (err) {
+    logger?.log({ event: "gather_source_degraded", source, reason: err instanceof Error ? err.message : String(err) });
+    return fallback;
+  }
+}
+async function gather(intent, deps) {
+  const limit2 = deps.limit ?? DEFAULT_LIMIT;
+  const scope = { project: deps.project, workspaceCascade: true };
+  if (intent.kind === "prompt") {
+    const [files, memories2, retrieval] = await Promise.all([
+      settled(deps.graph.scoreFiles(intent.prompt, { limit: limit2 }), [], deps.logger, "graph.scoreFiles"),
+      settled(
+        deps.memory.recall({ query: intent.prompt, kinds: ["mistake", "rule"], scope, limit: limit2 }),
+        [],
+        deps.logger,
+        "memory.recall"
+      ),
+      deps.runRetrieval ? settled(deps.runRetrieval(intent), void 0, deps.logger, "runRetrieval") : Promise.resolve(void 0)
+    ]);
+    return { files, nodes: [], neighborhoods: [], memories: memories2, retrieval };
+  }
+  const file = intent.file;
+  const node = await settled(deps.graph.getNode(file), null, deps.logger, "graph.getNode");
+  const [neighborhood, memories] = await Promise.all([
+    node ? settled(deps.graph.getNeighbors(node.id), null, deps.logger, "graph.getNeighbors") : Promise.resolve(null),
+    settled(deps.memory.recall({ file, scope, limit: limit2 }), [], deps.logger, "memory.recall")
+  ]);
+  return {
+    files: node?.path ? [{ path: node.path, score: 1, nodeId: node.id }] : [],
+    nodes: node ? [node] : [],
+    neighborhoods: neighborhood ? [neighborhood] : [],
+    memories
+  };
+}
+
+// src/intelligence/engine.ts
+var DEFAULT_FANOUT = 3;
+var keepOk = (results) => results.filter((r2) => r2.result.ok);
+async function run(plan, deps) {
+  const limiter = deps.limiter ?? globalProviderLimiter;
+  const now = deps.now ?? (() => Date.now());
+  const started = now();
+  const width = Math.max(1, plan.fanoutWidth ?? DEFAULT_FANOUT);
+  const results = await mapBounded(plan.tasks, width, async (task) => {
+    try {
+      const backend = deps.forTask(task.call.taskKind);
+      const result = await limiter.run(() => backend.invoke(task.call));
+      deps.log?.({ event: "agent_item", id: task.id, task_kind: task.call.taskKind, ok: result.ok, cost_usd: result.usage.costUsd, latency_ms: result.usage.latencyMs });
+      return { id: task.id, result };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        id: task.id,
+        result: { ok: false, usage: { inputTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: 0, model: "" }, model: { providerKey: "", model: "" }, error: { kind: "model_unavailable", message, retryable: false } }
+      };
+    }
+  });
+  const judged = (plan.judge ?? keepOk)(results);
+  const usage = {
+    costUsd: results.reduce((sum, r2) => sum + r2.result.usage.costUsd, 0),
+    latencyMs: now() - started,
+    calls: results.length,
+    succeeded: results.filter((r2) => r2.result.ok).length
+  };
+  deps.log?.({ event: "orchestrate", calls: usage.calls, succeeded: usage.succeeded, surviving: judged.length, cost_usd: usage.costUsd, latency_ms: usage.latencyMs });
+  return { ok: judged.length > 0, tasks: judged, usage };
+}
+async function mapBounded(items, cap2, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i2 = next++;
+      out[i2] = await fn(items[i2]);
+    }
+  };
+  const pool = Math.min(Math.max(1, cap2), items.length || 1);
+  await Promise.all(Array.from({ length: pool }, () => worker()));
+  return out;
+}
+
+// src/intelligence/router-router.ts
+var TRIAGE_SCHEMA = {
+  type: "object",
+  required: ["dumb", "reason"],
+  properties: {
+    dumb: { type: "boolean", description: "true ONLY if absurdly simple: handleable directly with no codebase discovery" },
+    reason: { type: "string" },
+    directAction: { type: "string", description: "if dumb, the single direct action (e.g. 'git commit', 'read one file')" }
+  }
+};
+var TRIAGE_TASK = "Decide if this coding-assistant moment is absurdly simple \u2014 directly handleable by a single agent with NO codebase discovery (e.g. a greeting, a trivial Q&A, one file read, a git add/commit). Default to dumb=false. Only dumb=true when you are confident no investigation is needed.";
+function describe(intent) {
+  switch (intent.kind) {
+    case "prompt":
+      return `User prompt: ${intent.prompt}`;
+    case "pre-write":
+      return `About to write file: ${intent.file}`;
+    case "pre-read":
+      return `About to read file: ${intent.file}`;
+    case "post-write":
+      return `Just wrote file: ${intent.file}`;
+  }
+}
+async function route(intent, deps) {
+  if (deps.enabled === false) return { route: "smart", reason: "router-router disabled" };
+  const trivial = deps.isTrivial ?? isTrivialPrompt;
+  if (intent.kind === "prompt" && trivial(intent.prompt)) {
+    return { route: "dumb", reason: "deterministically trivial prompt" };
+  }
+  let backend;
+  try {
+    backend = deps.forTask("triage");
+  } catch {
+    return { route: "smart", reason: "no triage backend \u2014 defaulting to full router" };
+  }
+  const res = await backend.invoke({
+    component: "router",
+    taskKind: "triage",
+    task: TRIAGE_TASK,
+    inputs: { reasoning: describe(intent) },
+    tools: "none",
+    effort: "minimal",
+    schema: TRIAGE_SCHEMA,
+    session: "ephemeral"
+  });
+  if (!res.ok || !res.data) return { route: "smart", reason: res.error?.message ?? "triage inconclusive" };
+  if (res.data.dumb === true) {
+    return { route: "dumb", reason: res.data.reason || "triaged simple", directAction: res.data.directAction };
+  }
+  return { route: "smart", reason: res.data.reason || "triaged non-trivial" };
+}
+
+// src/intelligence/patterns/bug-hunt.ts
+var BUG_HUNT_SCHEMA = {
+  type: "object",
+  required: ["implicated", "confidence"],
+  properties: {
+    implicated: { type: "boolean", description: "true ONLY if specific lines in this file are implicated" },
+    confidence: { type: "number", description: "0..1 confidence that this file is implicated" },
+    lines: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["start", "end"],
+        properties: {
+          start: { type: "number" },
+          end: { type: "number" },
+          why: { type: "string", description: "why this span is implicated" }
+        }
+      }
+    }
+  }
+};
+var DEFAULT_BUG_HUNT_CONFIG = { fanoutWidth: 3, confidenceFloor: 0.5, maxFiles: 6 };
+var TASK_KIND = "file-relevance";
+function bugHuntJudge(floor) {
+  return (results) => results.filter((r2) => {
+    if (!r2.result.ok) return false;
+    const finding = r2.result.data;
+    return Boolean(finding?.implicated) && (finding?.confidence ?? 0) >= floor;
+  });
+}
+function planBugHunt(intent, candidates, cfg, taskPrompt) {
+  const problem = intent.kind === "prompt" ? intent.prompt : "";
+  const priorMistakes = candidates.memories.map((m2) => m2.text).filter(Boolean).join("; ");
+  const tasks = candidates.files.slice(0, cfg.maxFiles).map((file) => ({
+    id: file.path,
+    call: {
+      component: "router",
+      taskKind: TASK_KIND,
+      task: taskPrompt,
+      inputs: {
+        files: [file.path],
+        reasoning: problem,
+        ...priorMistakes ? { decisions: priorMistakes } : {}
+      },
+      tools: "read-only",
+      effort: "minimal",
+      schema: BUG_HUNT_SCHEMA,
+      session: "ephemeral"
+    }
+  }));
+  return { tasks, fanoutWidth: cfg.fanoutWidth, judge: bugHuntJudge(cfg.confidenceFloor) };
+}
+function renderFinding(task) {
+  const finding = task.result.data;
+  const conf = (finding?.confidence ?? 0).toFixed(2);
+  const spans = (finding?.lines ?? []).map(
+    (l2) => `  - lines ${l2.start}-${l2.end}${l2.why ? `: ${l2.why}` : ""}`
+  );
+  return [`## ${task.id} (confidence ${conf})`, ...spans].join("\n");
+}
+function synthesizeBugHunt(result) {
+  if (result.tasks.length === 0) return "";
+  const header = "Files likely implicated in this problem, with cited line spans (CorpoCode pre-read these \u2014 you can skip opening them and go straight to the cited lines):";
+  const body = [header, ...result.tasks.map(renderFinding)].join("\n\n");
+  return tagged(TAGS.intelligentRouter, body);
+}
+async function runBugHunt(intent, deps) {
+  const cfg = { ...DEFAULT_BUG_HUNT_CONFIG, ...deps.cfg };
+  try {
+    const decision = await route(intent, { forTask: deps.forTask, enabled: deps.routerRouter });
+    if (decision.route === "dumb") {
+      deps.logger?.log({ event: "bug_hunt", phase: "route", route: "dumb", reason: decision.reason });
+      return "";
+    }
+    const candidates = await gather(intent, {
+      graph: deps.graph,
+      memory: deps.memory,
+      project: deps.project,
+      logger: deps.logger
+    });
+    if (candidates.files.length === 0) {
+      deps.logger?.log({ event: "bug_hunt", phase: "gather", files: 0 });
+      return "";
+    }
+    const taskPrompt = deps.prompts.resolve("bug-hunt");
+    const plan = planBugHunt(intent, candidates, cfg, taskPrompt);
+    deps.logger?.log({ event: "bug_hunt", phase: "plan", candidates: candidates.files.length, tasks: plan.tasks.length });
+    const result = await run(plan, {
+      forTask: deps.forTask,
+      now: deps.now,
+      // The engine always stamps `event` on its lines; cast bridges its structural type to LogFields.
+      log: (line) => deps.logger?.log(line)
+    });
+    deps.logger?.log({ event: "bug_hunt", phase: "synthesize", surviving: result.tasks.length, cost_usd: result.usage.costUsd });
+    return synthesizeBugHunt(result);
+  } catch (err) {
+    deps.logger?.log({ event: "bug_hunt", phase: "error", reason: err instanceof Error ? err.message : String(err) });
+    return "";
+  }
+}
+
 // src/router/handler.ts
 function buildRecommendation(decision, candidates, priorDecisions) {
   const lines = [];
@@ -27916,6 +28168,7 @@ async function handleUserPromptSubmit(envelope, ctx) {
     });
   }
   const toolbox = await pickToolboxForPrompt(envelope, ctx, stage1.candidates);
+  const bugHunt = ctx.agents ? await dispatchBugHunt(envelope, ctx) : null;
   return {
     hookEventName: "UserPromptSubmit",
     additionalContext: joinBlocks([
@@ -27923,9 +28176,29 @@ async function handleUserPromptSubmit(envelope, ctx) {
       retrieved ? { tag: TAGS.retrievedContext, content: retrieved } : null,
       review ? { tag: TAGS.designReview, content: review } : null,
       delegation ? { tag: TAGS.delegation, content: delegation.text } : null,
-      toolbox ? { tag: TAGS.toolbox, content: toolbox } : null
+      toolbox ? { tag: TAGS.toolbox, content: toolbox } : null,
+      bugHunt || null
     ])
   };
+}
+async function dispatchBugHunt(envelope, ctx) {
+  if (!ctx.agents) return null;
+  const intent = {
+    kind: "prompt",
+    prompt: envelope.prompt,
+    sessionId: envelope.session_id,
+    transcriptPath: envelope.transcript_path
+  };
+  const block = await runBugHunt(intent, {
+    forTask: ctx.agents.forTask,
+    graph: ctx.graph,
+    memory: ctx.memory,
+    project: ctx.project,
+    prompts: ctx.prompts,
+    logger: ctx.logger,
+    routerRouter: ctx.config.agents.router_router
+  });
+  return block || null;
 }
 async function pickToolboxForPrompt(envelope, ctx, candidates) {
   if (!ctx.config.toolbox.enabled) return null;
@@ -28167,8 +28440,8 @@ async function handlePreToolUse(envelope, ctx) {
   }
   const command = extractCommand(envelope.tool_name, envelope.tool_input);
   if (command === null) {
-    const route = await maybeRouteHeavyCoding(envelope, ctx);
-    return route ? { additionalContext: tagged(TAGS.toolbox, route) } : {};
+    const route2 = await maybeRouteHeavyCoding(envelope, ctx);
+    return route2 ? { additionalContext: tagged(TAGS.toolbox, route2) } : {};
   }
   const classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
   if (!ctx.registry.availableFor("filter")) {
@@ -28245,9 +28518,9 @@ function assertSafe(args) {
   if (a0 === "reset" && args.includes("--hard")) throw new Error("refusing forbidden git op: hard reset");
   if (a0 === "rebase" || a0 === "filter-branch") throw new Error("refusing forbidden git op: history rewrite");
 }
-async function git(run, repoRoot, args, opts = {}) {
+async function git(run2, repoRoot, args, opts = {}) {
   assertSafe(args);
-  const res = await run("git", args, {
+  const res = await run2("git", args, {
     cwd: repoRoot,
     ...opts.input !== void 0 ? { input: opts.input } : {},
     ...opts.env ? { env: opts.env } : {}
@@ -28255,28 +28528,28 @@ async function git(run, repoRoot, args, opts = {}) {
   if (res.code !== 0) throw new GitError(`git ${args[0]} failed (code ${res.code})`, res.stderr);
   return res.stdout;
 }
-async function branchExists(run, repoRoot, branch) {
-  const res = await run("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: repoRoot });
+async function branchExists(run2, repoRoot, branch) {
+  const res = await run2("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: repoRoot });
   return res.code === 0;
 }
-async function revParse(run, repoRoot, ref) {
-  return (await git(run, repoRoot, ["rev-parse", ref])).trim();
+async function revParse(run2, repoRoot, ref) {
+  return (await git(run2, repoRoot, ["rev-parse", ref])).trim();
 }
 function relPath(repoRoot, file) {
   const rel = (0, import_node_path17.isAbsolute)(file) ? (0, import_node_path17.relative)(repoRoot, file) : file;
   return rel.replace(/\\/g, "/");
 }
-async function commitFilesToBranch(run, repoRoot, branch, files, message) {
+async function commitFilesToBranch(run2, repoRoot, branch, files, message) {
   const indexPath = (0, import_node_path17.join)(repoRoot, ".git", `corpocode-index-${branch.replace(/[^a-z0-9]/gi, "-")}`);
   const env = { GIT_INDEX_FILE: indexPath };
   try {
-    await git(run, repoRoot, ["read-tree", branch], { env });
+    await git(run2, repoRoot, ["read-tree", branch], { env });
     const rels = files.map((f2) => relPath(repoRoot, f2));
-    await git(run, repoRoot, ["add", "--", ...rels], { env });
-    const tree = (await git(run, repoRoot, ["write-tree"], { env })).trim();
-    const parent = await revParse(run, repoRoot, branch);
-    const commit = (await git(run, repoRoot, ["commit-tree", tree, "-p", parent], { env, input: message })).trim();
-    await git(run, repoRoot, ["update-ref", `refs/heads/${branch}`, commit], { env });
+    await git(run2, repoRoot, ["add", "--", ...rels], { env });
+    const tree = (await git(run2, repoRoot, ["write-tree"], { env })).trim();
+    const parent = await revParse(run2, repoRoot, branch);
+    const commit = (await git(run2, repoRoot, ["commit-tree", tree, "-p", parent], { env, input: message })).trim();
+    await git(run2, repoRoot, ["update-ref", `refs/heads/${branch}`, commit], { env });
     return commit;
   } finally {
     try {
@@ -28300,17 +28573,17 @@ ${list}
 `;
 }
 function createGitManager(opts) {
-  const run = opts.run ?? spawnRunner;
+  const run2 = opts.run ?? spawnRunner;
   const { repoRoot } = opts;
   const trace = opts.traceBranch;
   const clean = opts.cleanBranch;
   const groupBy = opts.groupBy ?? defaultGroupBy;
   const messageFor = opts.messageFor ?? defaultMessage;
   const ensure = async () => {
-    const head = await revParse(run, repoRoot, "HEAD");
+    const head = await revParse(run2, repoRoot, "HEAD");
     for (const branch of [trace, clean]) {
-      if (!await branchExists(run, repoRoot, branch)) {
-        await git(run, repoRoot, ["update-ref", `refs/heads/${branch}`, head]);
+      if (!await branchExists(run2, repoRoot, branch)) {
+        await git(run2, repoRoot, ["update-ref", `refs/heads/${branch}`, head]);
       }
     }
   };
@@ -28325,10 +28598,10 @@ function createGitManager(opts) {
 
 session ${o2.sessionId}
 `;
-      await commitFilesToBranch(run, repoRoot, trace, [file], message);
+      await commitFilesToBranch(run2, repoRoot, trace, [file], message);
     },
     async planPromotion(_repoRoot, since) {
-      const out = await git(run, repoRoot, ["diff", "--name-only", `${since}..${trace}`]);
+      const out = await git(run2, repoRoot, ["diff", "--name-only", `${since}..${trace}`]);
       const files = out.split("\n").map((s2) => s2.trim()).filter(Boolean);
       const buckets = /* @__PURE__ */ new Map();
       for (const f2 of files) {
@@ -28348,11 +28621,11 @@ session ${o2.sessionId}
       await ensure();
       for (const set of sets) {
         const abs = set.files.map((f2) => (0, import_node_path18.isAbsolute)(f2) ? f2 : (0, import_node_path18.join)(repoRoot, f2));
-        await commitFilesToBranch(run, repoRoot, clean, abs, set.message);
+        await commitFilesToBranch(run2, repoRoot, clean, abs, set.message);
       }
     },
     async conflicts(_repoRoot) {
-      const out = await git(run, repoRoot, ["diff", "--name-only", "--diff-filter=U"]);
+      const out = await git(run2, repoRoot, ["diff", "--name-only", "--diff-filter=U"]);
       return out.split("\n").map((s2) => s2.trim()).filter(Boolean);
     }
   };
@@ -29253,7 +29526,7 @@ async function dispatchHook(hookName, rawStdin, deps = {}) {
     const makeContext = deps.makeContext ?? ((c2, b2) => buildContext(c2, { env: deps.env, repoRoot: b2.cwd, logger: deps.logger, platform }));
     const ctx = makeContext(config, base);
     const serialize = (r2) => serializeForPlatform(r2, platform);
-    const route = () => {
+    const route2 = () => {
       switch (hookName) {
         case "UserPromptSubmit":
           return runTyped(hookName, userPromptSubmitSchema, parsed, handlers.UserPromptSubmit, ctx, serialize, flow);
@@ -29281,7 +29554,7 @@ async function dispatchHook(hookName, rawStdin, deps = {}) {
         }
       }
     };
-    return await withTimeout2(route(), deps.hookTimeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS);
+    return await withTimeout2(route2(), deps.hookTimeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS);
   } catch (err) {
     try {
       logger.log({
@@ -29460,7 +29733,7 @@ function packageRoot(argv = process.argv) {
 var import_node_fs31 = require("node:fs");
 var import_node_path25 = require("node:path");
 async function provisionGraphify(opts) {
-  const run = opts.run ?? spawnRunner;
+  const run2 = opts.run ?? spawnRunner;
   const exists = opts.exists ?? import_node_fs31.existsSync;
   const python = opts.pythonCmd ?? "python";
   const graphPath = (0, import_node_path25.join)(opts.repoRoot, "graphify-out", "graph.json");
@@ -29477,21 +29750,21 @@ async function provisionGraphify(opts) {
       ]
     };
   }
-  const python_ = await run(python, ["--version"]);
+  const python_ = await run2(python, ["--version"]);
   steps.push({ name: "check python", ok: python_.code === 0, detail: python_.stdout.trim() || python_.stderr.trim() });
-  const ver = await run("graphify", ["--version"]);
+  const ver = await run2("graphify", ["--version"]);
   if (ver.code === 0) {
     steps.push({ name: "graphify present", ok: true, detail: ver.stdout.trim() });
   } else {
-    const install = await run(python, ["-m", "pip", "install", "--quiet", "graphify"]);
+    const install = await run2(python, ["-m", "pip", "install", "--quiet", "graphify"]);
     steps.push({ name: "install graphify", ok: install.code === 0, detail: install.code === 0 ? "installed" : install.stderr.trim() });
   }
-  const hook = await run("graphify", ["hook", "install"], { cwd: opts.repoRoot });
+  const hook = await run2("graphify", ["hook", "install"], { cwd: opts.repoRoot });
   steps.push({ name: "register git hook", ok: hook.code === 0, detail: hook.code === 0 ? "installed" : hook.stderr.trim() });
   if (exists(graphPath)) {
     steps.push({ name: "build graph", ok: true, detail: "graph already present", skipped: true });
   } else {
-    const build = await run("graphify", ["."], { cwd: opts.repoRoot });
+    const build = await run2("graphify", ["."], { cwd: opts.repoRoot });
     steps.push({ name: "build graph", ok: build.code === 0, detail: build.code === 0 ? "built" : build.stderr.trim() });
   }
   return { component: "graphify", ok: steps.every((s2) => s2.ok), steps };
@@ -29543,7 +29816,7 @@ function generateOvConf(config, opts = {}) {
   ].join("\n");
 }
 async function provisionOpenViking(opts) {
-  const run = opts.run ?? spawnRunner;
+  const run2 = opts.run ?? spawnRunner;
   const store = opts.store ?? buildContextStore(opts.config);
   const confPath = opts.confPath ?? ovConfPath();
   const writeConf = opts.writeConf ?? ((path, content) => {
@@ -29565,9 +29838,9 @@ async function provisionOpenViking(opts) {
   }
   writeConf(confPath, generateOvConf(opts.config, { apiKey: opts.apiKey }));
   steps.push({ name: "write ov.conf", ok: true, detail: confPath });
-  const ver = await run("openviking-server", ["--version"]);
+  const ver = await run2("openviking-server", ["--version"]);
   if (ver.code !== 0) {
-    const install = await run("python", ["-m", "pip", "install", "--quiet", "openviking"]);
+    const install = await run2("python", ["-m", "pip", "install", "--quiet", "openviking"]);
     steps.push({ name: "install openviking", ok: install.code === 0, detail: install.code === 0 ? "installed" : install.stderr.trim() });
   } else {
     steps.push({ name: "openviking present", ok: true, detail: ver.stdout.trim() });
