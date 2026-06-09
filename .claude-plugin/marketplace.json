@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "corpocode",
-      "source": { "source": "url", "url": "https://github.com/SomarkLenka/corpocode.git" },
+      "source": { "source": "url", "url": "https://github.com/SomarkLenka/corpocode.git", "ref": "develop" },
       "description": "Cheap-model caretakers that read context, recommend, verify, and remember.",
       "category": "productivity"
     }
