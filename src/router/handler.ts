@@ -20,6 +20,7 @@ import { planDelegation } from "./delegation";
 import { catalogFile } from "../config/paths";
 import { loadCatalog } from "../toolbox/catalog";
 import { pickToolbox, formatToolboxBlock } from "../toolbox/route";
+import { runBugHunt } from "../intelligence/patterns/bug-hunt";
 
 function buildRecommendation(
   decision: RouterDecision,
@@ -180,6 +181,11 @@ export async function handleUserPromptSubmit(
   // (their "when to use" was stripped from the model's context). Best-effort — failure injects nothing.
   const toolbox = await pickToolboxForPrompt(envelope, ctx, stage1.candidates);
 
+  // IntelligentRouter (ships dark): the bug-hunt action-pattern is reached ONLY when ctx.agents is present
+  // (agents.enabled). With the flag off ctx.agents is undefined and this is skipped, so the response is
+  // byte-identical to today. The pattern returns its own tagged block (or "" when it finds nothing).
+  const bugHunt = ctx.agents ? await dispatchBugHunt(envelope, ctx) : null;
+
   return {
     hookEventName: "UserPromptSubmit",
     additionalContext: joinBlocks([
@@ -188,8 +194,30 @@ export async function handleUserPromptSubmit(
       review ? { tag: TAGS.designReview, content: review } : null,
       delegation ? { tag: TAGS.delegation, content: delegation.text } : null,
       toolbox ? { tag: TAGS.toolbox, content: toolbox } : null,
+      bugHunt || null,
     ]),
   };
+}
+
+/** Run the bug-hunt action-pattern for this prompt and return its tagged block, or null. Fail-open. */
+async function dispatchBugHunt(envelope: UserPromptSubmitEnvelope, ctx: HookContext): Promise<string | null> {
+  if (!ctx.agents) return null;
+  const intent = {
+    kind: "prompt" as const,
+    prompt: envelope.prompt,
+    sessionId: envelope.session_id,
+    transcriptPath: envelope.transcript_path,
+  };
+  const block = await runBugHunt(intent, {
+    forTask: ctx.agents.forTask,
+    graph: ctx.graph,
+    memory: ctx.memory,
+    project: ctx.project,
+    prompts: ctx.prompts,
+    logger: ctx.logger,
+    routerRouter: ctx.config.agents.router_router,
+  });
+  return block || null;
 }
 
 /** Classify which gated skills/agents are relevant to the prompt and render the injectable block. */
