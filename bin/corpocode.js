@@ -24910,6 +24910,9 @@ function parseClaudeCliResponse(stdout, fallbackModel) {
     model: obj.model ?? fallbackModel
   };
 }
+function buildCliArgs(model) {
+  return ["--print", "--bare", "--output-format", "json", "--model", model];
+}
 function spawnText(cmd, args, stdin, signal) {
   return new Promise((resolve2, reject) => {
     const child = (0, import_node_child_process.spawn)(cmd, args, { stdio: ["pipe", "pipe", "pipe"] });
@@ -24941,7 +24944,7 @@ function spawnText(cmd, args, stdin, signal) {
 function defaultRawChat2(opts) {
   return async (input, signal) => {
     const prompt = buildCliPrompt(jsonSystemPrompt(input), input.messages);
-    const args = ["--print", "--output-format", "json", "--model", opts.model];
+    const args = buildCliArgs(opts.model);
     try {
       const { stdout } = await spawnText("claude", args, prompt, signal);
       return parseClaudeCliResponse(stdout, opts.model);
