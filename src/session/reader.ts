@@ -4,7 +4,7 @@
 // persisted per session, so this incrementality holds across separate `corpocode hook` processes.
 import { closeSync, openSync, readFileSync, readSync, statSync, writeFileSync } from "node:fs";
 import { z } from "zod";
-import { ensureDir, sessionStateFile, sessionsDir } from "../config/paths";
+import { ensureDir, sessionStateFile, sessionDir } from "../config/paths";
 import type { Provider } from "../providers/types";
 import type { TranscriptMessage } from "../compactor/types";
 import type { RetrievalCues, SessionReader, ThoughtState } from "./types";
@@ -132,7 +132,7 @@ export function createSessionReader(opts: SessionReaderOptions): SessionReader {
 
   const saveCache = (sessionId: string, cache: CachedSession): void => {
     try {
-      ensureDir(sessionsDir(cwd, env));
+      ensureDir(sessionDir(sessionId, cwd, env));
       writeFileSync(sessionStateFile(sessionId, cwd, env), JSON.stringify(cache));
     } catch {
       // Persisting the cache is best-effort; a write failure must not break the hook.

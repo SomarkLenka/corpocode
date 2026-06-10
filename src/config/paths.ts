@@ -62,10 +62,12 @@ export function flowLogFile(cwd?: string, env?: NodeJS.ProcessEnv): string {
 /**
  * Per-session byte offset for the flow log, kept SEPARATE from the SessionReader's offset
  * (sessionStateFile) so the two consumers advance the transcript independently and never starve
- * each other of the slice they each need to read.
+ * each other of the slice they each need to read. Lives inside the session's own folder
+ * (`sessions/<session>/flow.offset`) so all of a session's ephemeral state is GC'd as one unit
+ * by `pruneOldSessions`, instead of accumulating as loose dotfiles in the logs dir.
  */
 export function flowCursorFile(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
-  return join(logsDir(cwd, env), `.flow-${safeSessionId(sessionId)}.offset`);
+  return join(sessionDir(sessionId, cwd, env), "flow.offset");
 }
 
 export function memoryDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
@@ -99,6 +101,16 @@ export function sessionsDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
   return join(projectStateDir(cwd, env), "sessions");
 }
 
+/**
+ * One session's own folder under `sessions/`, holding ALL of that session's ephemeral state — the
+ * SessionReader cache, the decision cache, and the flow-log cursor. Grouping per session (rather than
+ * scattering loose `<session>.json` / `.flow-<session>.offset` files across two dirs) means a dead
+ * session is GC'd by deleting one folder — see `pruneOldSessions`.
+ */
+export function sessionDir(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(sessionsDir(cwd, env), safeSessionId(sessionId));
+}
+
 export function cacheDir(env?: NodeJS.ProcessEnv): string {
   return join(corpocodeHome(env), "cache");
 }
@@ -126,7 +138,7 @@ export function catalogFile(env?: NodeJS.ProcessEnv): string {
  * per-hook cost flat as the transcript grows.
  */
 export function sessionStateFile(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
-  return join(sessionsDir(cwd, env), `${safeSessionId(sessionId)}.json`);
+  return join(sessionDir(sessionId, cwd, env), "reader.json");
 }
 
 /**
@@ -135,7 +147,7 @@ export function sessionStateFile(sessionId: string, cwd?: string, env?: NodeJS.P
  * reads the recalled ids to close the outcome loop. Written by the router each turn.
  */
 export function sessionDecisionFile(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
-  return join(sessionsDir(cwd, env), `${safeSessionId(sessionId)}.decision.json`);
+  return join(sessionDir(sessionId, cwd, env), "decision.json");
 }
 
 /**
