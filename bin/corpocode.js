@@ -19388,6 +19388,12 @@ function flowLogFile(cwd6, env) {
 function flowCursorFile(sessionId, cwd6, env) {
   return (0, import_node_path.join)(sessionDir(sessionId, cwd6, env), "flow.offset");
 }
+function sessionLogFile(sessionId, cwd6, env) {
+  return (0, import_node_path.join)(sessionDir(sessionId, cwd6, env), "corpocode.ndjson");
+}
+function sessionFlowLogFile(sessionId, cwd6, env) {
+  return (0, import_node_path.join)(sessionDir(sessionId, cwd6, env), "corpocode-flow.log");
+}
 function memoryDir(cwd6, env) {
   return (0, import_node_path.join)(projectStateDir(cwd6, env), "memory");
 }
@@ -23790,6 +23796,13 @@ function defaultConfig() {
 // src/log/ndjson.ts
 var import_node_fs3 = require("node:fs");
 var import_node_path2 = require("node:path");
+function appendQuietly(file, line) {
+  try {
+    ensureDir((0, import_node_path2.dirname)(file));
+    (0, import_node_fs3.appendFileSync)(file, line, "utf8");
+  } catch {
+  }
+}
 function createLogger(opts) {
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   function log(fields) {
@@ -23804,6 +23817,7 @@ function createLogger(opts) {
       }
       ensureDir((0, import_node_path2.dirname)(opts.file));
       (0, import_node_fs3.appendFileSync)(opts.file, line, "utf8");
+      if (opts.sessionFile) appendQuietly(opts.sessionFile, line);
     } catch {
     }
   }
@@ -23817,6 +23831,7 @@ function loggerFromConfig(config, opts = {}) {
   return createLogger({
     file: logFile(opts.cwd, opts.env),
     // project-local: <cwd>/.corpocode/logs/corpocode.ndjson
+    sessionFile: opts.sessionId ? sessionLogFile(opts.sessionId, opts.cwd, opts.env) : void 0,
     enabled: config.logging.enabled,
     now: opts.now
   });
@@ -24376,6 +24391,15 @@ function createFlowLogger(opts) {
     ensureDir((0, import_node_path4.dirname)(logFilePath));
     (0, import_node_fs6.appendFileSync)(logFilePath, block, "utf8");
   });
+  const writeSession = (block, sessionId) => {
+    if (opts.sink) return;
+    try {
+      const file = sessionFlowLogFile(sessionId, opts.cwd, opts.env);
+      ensureDir((0, import_node_path4.dirname)(file));
+      (0, import_node_fs6.appendFileSync)(file, block, "utf8");
+    } catch {
+    }
+  };
   const loadOffset = (sessionId) => {
     try {
       const n2 = Number.parseInt((0, import_node_fs6.readFileSync)(flowCursorFile(sessionId, opts.cwd, opts.env), "utf8").trim(), 10);
@@ -24404,7 +24428,9 @@ function createFlowLogger(opts) {
         saveOffset(base.sessionId, newOffset);
         return;
       }
-      write(buildBlock(hookName, base, raw, response, entries, note, now().toISOString()));
+      const block = buildBlock(hookName, base, raw, response, entries, note, now().toISOString());
+      write(block);
+      writeSession(block, base.sessionId);
       saveOffset(base.sessionId, newOffset);
     } catch {
     }
@@ -26794,7 +26820,7 @@ function buildContext(config, opts = {}) {
   const repoRoot = opts.repoRoot ?? (0, import_node_process3.cwd)();
   const project = projectKey(repoRoot);
   const platform = opts.platform ?? "claude-code";
-  const logger = opts.logger ?? loggerFromConfig(config, { cwd: repoRoot, env });
+  const logger = opts.logger ?? loggerFromConfig(config, { cwd: repoRoot, env, sessionId: opts.sessionId });
   const registry = buildRegistry(config, { env });
   const graph = withScoreFilesCache(buildKnowledgeGraph(config, { repoRoot }), { repoRoot, env });
   const context = buildContextStore(config);
@@ -29567,7 +29593,7 @@ async function dispatchHook(hookName, rawStdin, deps = {}) {
     const flow = deps.flow ?? flowLoggerFromConfig(config, { cwd: base.cwd, env: deps.env });
     const envPlatform = (deps.env ?? process.env).CORPOCODE_PLATFORM;
     const platform = deps.platform ?? (envPlatform && isPlatformId(envPlatform) ? envPlatform : "claude-code");
-    const makeContext = deps.makeContext ?? ((c2, b2) => buildContext(c2, { env: deps.env, repoRoot: b2.cwd, logger: deps.logger, platform }));
+    const makeContext = deps.makeContext ?? ((c2, b2) => buildContext(c2, { env: deps.env, repoRoot: b2.cwd, logger: deps.logger, platform, sessionId: b2.session_id }));
     const ctx = makeContext(config, base);
     const serialize = (r2) => serializeForPlatform(r2, platform);
     const route2 = () => {

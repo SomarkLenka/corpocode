@@ -70,6 +70,20 @@ export function flowCursorFile(sessionId: string, cwd?: string, env?: NodeJS.Pro
   return join(sessionDir(sessionId, cwd, env), "flow.offset");
 }
 
+/**
+ * This session's own slice of the NDJSON event log. Every line emitted while handling a hook for this
+ * session is teed here as well as to the global `logs/corpocode.ndjson`, so one session's activity can be
+ * read in isolation (atomic oversight) without grepping the global log. Lives in the session's folder.
+ */
+export function sessionLogFile(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(sessionDir(sessionId, cwd, env), "corpocode.ndjson");
+}
+
+/** This session's own slice of the human-readable flow log (companion to the global corpocode-flow.log). */
+export function sessionFlowLogFile(sessionId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(sessionDir(sessionId, cwd, env), "corpocode-flow.log");
+}
+
 export function memoryDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
   return join(projectStateDir(cwd, env), "memory");
 }

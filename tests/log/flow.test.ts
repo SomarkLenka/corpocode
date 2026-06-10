@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync, appendFileSync, existsSync } 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFlowLogger, flowLoggerFromConfig, nullFlowLogger } from "../../src/log/flow";
-import { flowLogFile } from "../../src/config/paths";
+import { flowLogFile, sessionFlowLogFile } from "../../src/config/paths";
 
 const FIXED = () => new Date("2026-06-03T12:00:00.000Z");
 
@@ -120,6 +120,19 @@ describe("flow logger", () => {
     expect(out).toContain("▶ UserPromptSubmit");
     expect(out).toContain("(no new transcript content)");
     expect(out).toContain("<rec>hi</rec>");
+  });
+
+  it("tees the block into the session's own flow log as well as the global one", () => {
+    writeFileSync(transcript, line("user", "analyze the filter"));
+    const flow = createFlowLogger({ enabled: true, env, now: FIXED });
+    flow.record("UserPromptSubmit", { session_id: "sess9", transcript_path: transcript }, { additionalContext: "<rec>hi</rec>" });
+
+    const global = readFileSync(flowLogFile(undefined, env), "utf8");
+    const perSession = readFileSync(sessionFlowLogFile("sess9", undefined, env), "utf8");
+    expect(global).toContain("▶ UserPromptSubmit");
+    expect(perSession).toContain("▶ UserPromptSubmit"); // same narrative, scoped to this session
+    expect(perSession).toContain("[user] analyze the filter");
+    expect(perSession).toContain("<rec>hi</rec>");
   });
 
   it("is a no-op when disabled", () => {

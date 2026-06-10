@@ -48,6 +48,28 @@ describe("ndjson logger", () => {
     expect(existsSync(file)).toBe(false);
   });
 
+  it("tees every line into the per-session file as well as the global one", () => {
+    const sessionFile = join(dir, "sessions", "s1", "corpocode.ndjson");
+    const logger = createLogger({ file, sessionFile, enabled: true });
+    logger.log({ event: "router", session_id: "s1" });
+    logger.log({ event: "toolbox", session_id: "s1" });
+
+    // Global log has both lines …
+    expect(readFileSync(file, "utf8").trim().split("\n")).toHaveLength(2);
+    // … and the per-session log is a faithful, identical copy.
+    const sessionLines = readFileSync(sessionFile, "utf8").trim().split("\n");
+    expect(sessionLines).toHaveLength(2);
+    expect(JSON.parse(sessionLines[0]!).event).toBe("router");
+    expect(JSON.parse(sessionLines[1]!).event).toBe("toolbox");
+  });
+
+  it("a per-session tee failure never costs the global write (fail-open tee)", () => {
+    // A session file path whose parent is the global FILE (not a dir) can't be created → tee fails.
+    const logger = createLogger({ file, sessionFile: join(file, "nope", "x.ndjson"), enabled: true });
+    expect(() => logger.log({ event: "router", session_id: "s1" })).not.toThrow();
+    expect(readFileSync(file, "utf8").trim().split("\n")).toHaveLength(1); // global still written
+  });
+
   it("never throws even when the sink fails", () => {
     const logger = createLogger({
       file,
