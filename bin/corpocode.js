@@ -31014,7 +31014,7 @@ function runPromptsCommand(argv, env = process.env) {
 }
 
 // src/cli.ts
-var VERSION3 = "0.2.5";
+var VERSION3 = "0.2.6";
 function renderHelp() {
   const width = Math.max(...COMMANDS.map((c2) => c2.usage.length));
   const lines = COMMANDS.map((c2) => `  ${c2.usage.padEnd(width)}  ${c2.summary}`);
