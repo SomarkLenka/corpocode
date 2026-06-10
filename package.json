@@ -1,6 +1,6 @@
 {
   "name": "corpocode",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Cheap-model caretakers that read context, recommend, verify, and remember — offloading the main model.",
   "license": "MIT",
   "author": {
