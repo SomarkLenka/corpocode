@@ -19,7 +19,7 @@
 // each content block (text / tool_use / tool_result) and keep file order, which is true chat order.
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { ensureDir, flowCursorFile, flowLogFile } from "../config/paths";
+import { ensureDir, flowCursorFile, flowLogFile, sessionFlowLogFile } from "../config/paths";
 import type { CorpoConfig } from "../config/schema";
 import type { HookResponse } from "../hooks/response";
 import { readSlice } from "../session/reader";
@@ -256,6 +256,20 @@ export function createFlowLogger(opts: FlowLoggerOptions): FlowLogger {
       appendFileSync(logFilePath, block, "utf8");
     });
 
+  /** Tee a block to this session's own flow log (best-effort, isolated): the global flow log keeps the
+   *  cross-session narrative; the per-session one gives atomic single-session oversight. Skipped under a
+   *  test sink, which owns the single write path. */
+  const writeSession = (block: string, sessionId: string): void => {
+    if (opts.sink) return;
+    try {
+      const file = sessionFlowLogFile(sessionId, opts.cwd, opts.env);
+      ensureDir(dirname(file));
+      appendFileSync(file, block, "utf8");
+    } catch {
+      // best-effort tee — never let a per-session write failure cost the global block or the hook
+    }
+  };
+
   const loadOffset = (sessionId: string): number => {
     try {
       const n = Number.parseInt(readFileSync(flowCursorFile(sessionId, opts.cwd, opts.env), "utf8").trim(), 10);
@@ -293,7 +307,9 @@ export function createFlowLogger(opts: FlowLoggerOptions): FlowLogger {
         return;
       }
 
-      write(buildBlock(hookName, base, raw, response, entries, note, now().toISOString()));
+      const block = buildBlock(hookName, base, raw, response, entries, note, now().toISOString());
+      write(block); // global flow log (sink-overridable)
+      writeSession(block, base.sessionId); // this session's own flow log
       saveOffset(base.sessionId, newOffset); // advance only after a successful write
     } catch {
       // Swallowed by design (invariant 1): a flow-log failure must never surface to the hook.

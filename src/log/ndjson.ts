@@ -9,7 +9,7 @@
 // faithfully whatever structured fields it is given.
 import { appendFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { ensureDir, logFile } from "../config/paths";
+import { ensureDir, logFile, sessionLogFile } from "../config/paths";
 import type { CorpoConfig } from "../config/schema";
 
 /** Structured fields for one log line. `ts` is stamped by the logger; everything else is the caller's. */
@@ -32,10 +32,23 @@ export interface Logger {
 export interface NdjsonLoggerOptions {
   file: string;
   enabled: boolean;
+  /** Per-session file every line is ALSO appended to, for single-session oversight. Absent ⇒ global only. */
+  sessionFile?: string;
   /** Injectable clock for deterministic tests. */
   now?: () => Date;
   /** Injectable sink, used by tests to capture lines or force a write error. */
   sink?: (line: string) => void;
+}
+
+/** Append one line to a file, fail-open. Used for the per-session tee so its failure never touches the
+ *  global write or the caller — a missing/locked session file degrades to "global only". */
+function appendQuietly(file: string, line: string): void {
+  try {
+    ensureDir(dirname(file));
+    appendFileSync(file, line, "utf8");
+  } catch {
+    // best-effort tee
+  }
 }
 
 export function createLogger(opts: NdjsonLoggerOptions): Logger {
@@ -52,6 +65,9 @@ export function createLogger(opts: NdjsonLoggerOptions): Logger {
       }
       ensureDir(dirname(opts.file));
       appendFileSync(opts.file, line, "utf8");
+      // Tee to this session's own log too (best-effort, isolated): the global log keeps the
+      // cross-session view; the per-session log gives atomic single-session oversight.
+      if (opts.sessionFile) appendQuietly(opts.sessionFile, line);
     } catch {
       // Swallowed by design (invariant 1). We cannot log the logging failure to the same
       // sink, and must not surface it to the caller.
@@ -66,13 +82,15 @@ export function nullLogger(): Logger {
   return { enabled: false, log: () => {} };
 }
 
-/** Build the process logger from config + paths. The dispatcher creates one and passes it down. */
+/** Build the process logger from config + paths. The dispatcher creates one and passes it down. When a
+ *  sessionId is known (every hook carries one), each line is also teed into that session's own log. */
 export function loggerFromConfig(
   config: Pick<CorpoConfig, "logging">,
-  opts: { cwd?: string; env?: NodeJS.ProcessEnv; now?: () => Date } = {},
+  opts: { cwd?: string; env?: NodeJS.ProcessEnv; now?: () => Date; sessionId?: string } = {},
 ): Logger {
   return createLogger({
     file: logFile(opts.cwd, opts.env), // project-local: <cwd>/.corpocode/logs/corpocode.ndjson
+    sessionFile: opts.sessionId ? sessionLogFile(opts.sessionId, opts.cwd, opts.env) : undefined,
     enabled: config.logging.enabled,
     now: opts.now,
   });

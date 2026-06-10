@@ -105,7 +105,7 @@ export async function dispatchHook(hookName: string, rawStdin: string, deps: Dis
     const makeContext =
       deps.makeContext ??
       ((c: CorpoConfig, b: BaseEnvelope) =>
-        buildContext(c, { env: deps.env, repoRoot: b.cwd, logger: deps.logger, platform }));
+        buildContext(c, { env: deps.env, repoRoot: b.cwd, logger: deps.logger, platform, sessionId: b.session_id }));
     const ctx = makeContext(config, base);
 
     const serialize = (r: HookResponse): string => serializeForPlatform(r, platform);
