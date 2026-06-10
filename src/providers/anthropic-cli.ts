@@ -34,6 +34,16 @@ export function parseClaudeCliResponse(stdout: string, fallbackModel: string): R
   };
 }
 
+/**
+ * The argv for a one-shot `claude --print` call. `--bare` (skip hooks/LSP/plugins) is the MANDATORY
+ * recursion guard: this provider is invoked from inside a `claude` hook on every caretaker call, so a
+ * spawned `claude` that re-fired CorpoCode's hooks would recurse and hang the host turn. The agent
+ * backend applies the same guard (src/agents/backends/anthropic-cli.ts). Exported for regression testing.
+ */
+export function buildCliArgs(model: string): string[] {
+  return ["--print", "--bare", "--output-format", "json", "--model", model];
+}
+
 interface SpawnResult {
   stdout: string;
 }
@@ -72,7 +82,7 @@ function spawnText(cmd: string, args: string[], stdin: string, signal: AbortSign
 function defaultRawChat(opts: AdapterOptions): RawChat {
   return async (input, signal) => {
     const prompt = buildCliPrompt(jsonSystemPrompt(input), input.messages);
-    const args = ["--print", "--output-format", "json", "--model", opts.model];
+    const args = buildCliArgs(opts.model);
     try {
       const { stdout } = await spawnText("claude", args, prompt, signal);
       return parseClaudeCliResponse(stdout, opts.model);
