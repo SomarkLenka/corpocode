@@ -19386,7 +19386,7 @@ function flowLogFile(cwd6, env) {
   return (0, import_node_path.join)(logsDir(cwd6, env), "corpocode-flow.log");
 }
 function flowCursorFile(sessionId, cwd6, env) {
-  return (0, import_node_path.join)(logsDir(cwd6, env), `.flow-${safeSessionId(sessionId)}.offset`);
+  return (0, import_node_path.join)(sessionDir(sessionId, cwd6, env), "flow.offset");
 }
 function memoryDir(cwd6, env) {
   return (0, import_node_path.join)(projectStateDir(cwd6, env), "memory");
@@ -19406,6 +19406,9 @@ function memoryEmbeddingsFile(cwd6, env) {
 function sessionsDir(cwd6, env) {
   return (0, import_node_path.join)(projectStateDir(cwd6, env), "sessions");
 }
+function sessionDir(sessionId, cwd6, env) {
+  return (0, import_node_path.join)(sessionsDir(cwd6, env), safeSessionId(sessionId));
+}
 function cacheDir(env) {
   return (0, import_node_path.join)(corpocodeHome(env), "cache");
 }
@@ -19419,10 +19422,10 @@ function catalogFile(env) {
   return (0, import_node_path.join)(corpocodeHome(env), "toolbox-catalog.json");
 }
 function sessionStateFile(sessionId, cwd6, env) {
-  return (0, import_node_path.join)(sessionsDir(cwd6, env), `${safeSessionId(sessionId)}.json`);
+  return (0, import_node_path.join)(sessionDir(sessionId, cwd6, env), "reader.json");
 }
 function sessionDecisionFile(sessionId, cwd6, env) {
-  return (0, import_node_path.join)(sessionsDir(cwd6, env), `${safeSessionId(sessionId)}.decision.json`);
+  return (0, import_node_path.join)(sessionDir(sessionId, cwd6, env), "decision.json");
 }
 function agentSessionsDir(cwd6, env) {
   return (0, import_node_path.join)(projectStateDir(cwd6, env), "agent-sessions");
@@ -24102,7 +24105,7 @@ function createSessionReader(opts) {
   };
   const saveCache = (sessionId, cache) => {
     try {
-      ensureDir(sessionsDir(cwd6, env));
+      ensureDir(sessionDir(sessionId, cwd6, env));
       (0, import_node_fs5.writeFileSync)(sessionStateFile(sessionId, cwd6, env), JSON.stringify(cache));
     } catch {
     }
@@ -26966,7 +26969,7 @@ function selectModelEffort(difficulty, config) {
 var import_node_fs19 = require("node:fs");
 function writeLastDecision(sessionId, decision, cwd6, env) {
   try {
-    ensureDir(sessionsDir(cwd6, env));
+    ensureDir(sessionDir(sessionId, cwd6, env));
     (0, import_node_fs19.writeFileSync)(sessionDecisionFile(sessionId, cwd6, env), JSON.stringify(decision));
   } catch {
   }
@@ -29074,15 +29077,53 @@ function restoreToolbox(deps) {
   return { restored };
 }
 
+// src/session/prune.ts
+var import_node_fs29 = require("node:fs");
+var import_node_path23 = require("node:path");
+var SESSION_TTL_MS = 2 * 24 * 60 * 60 * 1e3;
+function pruneOldSessions(opts = {}) {
+  const maxAgeMs = opts.maxAgeMs ?? SESSION_TTL_MS;
+  const now = opts.now ? opts.now() : Date.now();
+  const dir = sessionsDir(opts.cwd, opts.env);
+  let entries;
+  try {
+    entries = (0, import_node_fs29.readdirSync)(dir);
+  } catch {
+    return 0;
+  }
+  let removed = 0;
+  for (const name of entries) {
+    const full = (0, import_node_path23.join)(dir, name);
+    try {
+      const st2 = (0, import_node_fs29.statSync)(full);
+      if (!st2.isDirectory()) continue;
+      if (now - st2.mtimeMs > maxAgeMs) {
+        (0, import_node_fs29.rmSync)(full, { recursive: true, force: true });
+        removed++;
+      }
+    } catch {
+    }
+  }
+  return removed;
+}
+
 // src/toolbox/session-start.ts
 async function handleSessionStart(envelope, ctx) {
+  const cwd6 = envelope.cwd ?? ctx.repoRoot;
+  try {
+    const pruned = pruneOldSessions({ cwd: cwd6, env: ctx.env });
+    if (pruned > 0) {
+      ctx.logger.log({ event: "session_prune", session_id: envelope.session_id, component: "session", trigger: "sessionstart", pruned });
+    }
+  } catch {
+  }
   try {
     const tb = ctx.config.toolbox;
     if (tb.enabled && tb.gate_on_session_start) {
       const summary = gateToolbox({
         roots: defaultRoots({
           claudeHome: claudeHome(ctx.env),
-          repoRoot: envelope.cwd ?? ctx.repoRoot,
+          repoRoot: cwd6,
           includePlugins: tb.gate_plugins
         }),
         restoreDir: toolboxRestoreDir(ctx.env),
@@ -29103,7 +29144,7 @@ async function handleSessionStart(envelope, ctx) {
 }
 
 // src/agents/sessions.ts
-var import_node_fs29 = require("node:fs");
+var import_node_fs30 = require("node:fs");
 function isRecord(v2) {
   if (typeof v2 !== "object" || v2 === null) return false;
   const r2 = v2;
@@ -29114,7 +29155,7 @@ function createSessionStore(opts) {
   const file = (key) => agentSessionFile(key, opts.cwd, opts.env);
   const readRecord = (path) => {
     try {
-      const parsed = JSON.parse((0, import_node_fs29.readFileSync)(path, "utf8"));
+      const parsed = JSON.parse((0, import_node_fs30.readFileSync)(path, "utf8"));
       return isRecord(parsed) ? parsed : null;
     } catch {
       return null;
@@ -29123,7 +29164,7 @@ function createSessionStore(opts) {
   const all = () => {
     let names;
     try {
-      names = (0, import_node_fs29.readdirSync)(agentSessionsDir(opts.cwd, opts.env)).filter((n2) => n2.endsWith(".json"));
+      names = (0, import_node_fs30.readdirSync)(agentSessionsDir(opts.cwd, opts.env)).filter((n2) => n2.endsWith(".json"));
     } catch {
       return [];
     }
@@ -29136,7 +29177,7 @@ function createSessionStore(opts) {
   };
   const remove = (key) => {
     try {
-      (0, import_node_fs29.rmSync)(file(key), { force: true });
+      (0, import_node_fs30.rmSync)(file(key), { force: true });
     } catch {
     }
   };
@@ -29155,7 +29196,7 @@ function createSessionStore(opts) {
     put(record) {
       try {
         ensureDir(agentSessionsDir(opts.cwd, opts.env));
-        (0, import_node_fs29.writeFileSync)(file(record.key), JSON.stringify(record), "utf8");
+        (0, import_node_fs30.writeFileSync)(file(record.key), JSON.stringify(record), "utf8");
       } catch (err) {
         opts.logger?.log({ event: "agent_session_put_failed", key: record.key, reason: err instanceof Error ? err.message : String(err) });
       }
@@ -29335,11 +29376,11 @@ async function runHook(hookName, platform) {
 }
 
 // src/commands/install.ts
-var import_node_fs34 = require("node:fs");
+var import_node_fs35 = require("node:fs");
 
 // src/install/claude-code.ts
-var import_node_fs30 = require("node:fs");
-var import_node_path23 = require("node:path");
+var import_node_fs31 = require("node:fs");
+var import_node_path24 = require("node:path");
 
 // src/install/settings.ts
 var HOOK_SPECS = [
@@ -29386,7 +29427,7 @@ function hasCorpocodeHooks(settings) {
 var SKILLS = ["corpocode-router", "corpocode-setup"];
 function readJsonOr(path, fallback) {
   try {
-    return JSON.parse((0, import_node_fs30.readFileSync)(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse((0, import_node_fs31.readFileSync)(path, "utf8").replace(/^﻿/, ""));
   } catch {
     return fallback;
   }
@@ -29402,7 +29443,7 @@ function installClaudeCode(opts) {
   const settingsPath = claudeSettingsFile(opts.claudeHome);
   const isWin = platform === "win32";
   const ext = isWin ? "ps1" : "sh";
-  const shimPath = (name) => (0, import_node_path23.join)(hooksDir, `corpocode-${name}.${ext}`);
+  const shimPath = (name) => (0, import_node_path24.join)(hooksDir, `corpocode-${name}.${ext}`);
   const shimBody = (name) => isWin ? `# CorpoCode hook shim \u2014 pipes stdin to the dispatcher.\r
 ${binCommand} hook ${name}\r
 ` : `#!/usr/bin/env bash
@@ -29415,10 +29456,10 @@ exec ${binCommand} hook ${name}
     changes.push({ action: "write hook shim", path });
     if (!dryRun) {
       ensureDir(hooksDir);
-      (0, import_node_fs30.writeFileSync)(path, shimBody(spec.name));
+      (0, import_node_fs31.writeFileSync)(path, shimBody(spec.name));
       if (!isWin) {
         try {
-          (0, import_node_fs30.chmodSync)(path, 493);
+          (0, import_node_fs31.chmodSync)(path, 493);
         } catch {
         }
       }
@@ -29428,45 +29469,45 @@ exec ${binCommand} hook ${name}
   if (!dryRun) {
     ensureDir(opts.claudeHome);
     const settings = readJsonOr(settingsPath, {});
-    (0, import_node_fs30.writeFileSync)(settingsPath, `${JSON.stringify(registerHooks(settings, commandFor), null, 2)}
+    (0, import_node_fs31.writeFileSync)(settingsPath, `${JSON.stringify(registerHooks(settings, commandFor), null, 2)}
 `);
   }
-  const agentDst = (0, import_node_path23.join)(agentsDir, "haiku-helper.md");
+  const agentDst = (0, import_node_path24.join)(agentsDir, "haiku-helper.md");
   changes.push({ action: "install agent", path: agentDst });
   if (!dryRun) {
     ensureDir(agentsDir);
-    const src = (0, import_node_path23.join)(opts.assetsRoot, "agents", "haiku-helper.md");
-    if ((0, import_node_fs30.existsSync)(src)) (0, import_node_fs30.copyFileSync)(src, agentDst);
+    const src = (0, import_node_path24.join)(opts.assetsRoot, "agents", "haiku-helper.md");
+    if ((0, import_node_fs31.existsSync)(src)) (0, import_node_fs31.copyFileSync)(src, agentDst);
   }
   for (const skill of SKILLS) {
-    const dstDir = (0, import_node_path23.join)(skillsDir2, skill);
-    const dst = (0, import_node_path23.join)(dstDir, "SKILL.md");
+    const dstDir = (0, import_node_path24.join)(skillsDir2, skill);
+    const dst = (0, import_node_path24.join)(dstDir, "SKILL.md");
     changes.push({ action: "install skill", path: dst });
     if (!dryRun) {
       ensureDir(dstDir);
-      const src = (0, import_node_path23.join)(opts.assetsRoot, "skills", skill, "SKILL.md");
-      if ((0, import_node_fs30.existsSync)(src)) (0, import_node_fs30.copyFileSync)(src, dst);
+      const src = (0, import_node_path24.join)(opts.assetsRoot, "skills", skill, "SKILL.md");
+      if ((0, import_node_fs31.existsSync)(src)) (0, import_node_fs31.copyFileSync)(src, dst);
     }
   }
   return { changes, applied: !dryRun, settingsPath };
 }
 
 // src/install/locate.ts
-var import_node_path24 = require("node:path");
+var import_node_path25 = require("node:path");
 function packageRoot(argv = process.argv) {
   const script = argv[1];
-  if (script) return (0, import_node_path24.join)((0, import_node_path24.dirname)(script), "..");
+  if (script) return (0, import_node_path25.join)((0, import_node_path25.dirname)(script), "..");
   return process.cwd();
 }
 
 // src/install/backends/graphify.ts
-var import_node_fs31 = require("node:fs");
-var import_node_path25 = require("node:path");
+var import_node_fs32 = require("node:fs");
+var import_node_path26 = require("node:path");
 async function provisionGraphify(opts) {
   const run = opts.run ?? spawnRunner;
-  const exists = opts.exists ?? import_node_fs31.existsSync;
+  const exists = opts.exists ?? import_node_fs32.existsSync;
   const python = opts.pythonCmd ?? "python";
-  const graphPath = (0, import_node_path25.join)(opts.repoRoot, "graphify-out", "graph.json");
+  const graphPath = (0, import_node_path26.join)(opts.repoRoot, "graphify-out", "graph.json");
   const steps = [];
   if (opts.dryRun) {
     return {
@@ -29501,11 +29542,11 @@ async function provisionGraphify(opts) {
 }
 
 // src/install/backends/openviking.ts
-var import_node_fs32 = require("node:fs");
+var import_node_fs33 = require("node:fs");
 var import_node_os4 = require("node:os");
-var import_node_path26 = require("node:path");
+var import_node_path27 = require("node:path");
 function ovConfPath(env = process.env) {
-  return env.OPENVIKING_CONFIG ?? (0, import_node_path26.join)((0, import_node_os4.homedir)(), ".openviking", "ov.conf");
+  return env.OPENVIKING_CONFIG ?? (0, import_node_path27.join)((0, import_node_os4.homedir)(), ".openviking", "ov.conf");
 }
 function embeddingFor(kind3) {
   switch (kind3) {
@@ -29550,8 +29591,8 @@ async function provisionOpenViking(opts) {
   const store = opts.store ?? buildContextStore(opts.config);
   const confPath = opts.confPath ?? ovConfPath();
   const writeConf = opts.writeConf ?? ((path, content) => {
-    ensureDir((0, import_node_path26.dirname)(path));
-    (0, import_node_fs32.writeFileSync)(path, content);
+    ensureDir((0, import_node_path27.dirname)(path));
+    (0, import_node_fs33.writeFileSync)(path, content);
   });
   const steps = [];
   if (opts.dryRun) {
@@ -29615,9 +29656,9 @@ async function provision(config, opts) {
 }
 
 // src/install/platform.ts
-var import_node_fs33 = require("node:fs");
+var import_node_fs34 = require("node:fs");
 var import_node_os5 = require("node:os");
-var import_node_path27 = require("node:path");
+var import_node_path28 = require("node:path");
 function isCorpocodeGroup2(group) {
   return !!group && Array.isArray(group.hooks) && group.hooks.some((h2) => typeof h2?.command === "string" && h2.command.includes("corpocode"));
 }
@@ -29647,13 +29688,13 @@ function unregisterJsonHooks(settings) {
 function makeAdapter(cfg) {
   const home = (env) => {
     const override = cfg.homeEnvVar ? env[cfg.homeEnvVar] : void 0;
-    return override && override.trim() ? override : (0, import_node_path27.join)((0, import_node_os5.homedir)(), cfg.homeSubdir);
+    return override && override.trim() ? override : (0, import_node_path28.join)((0, import_node_os5.homedir)(), cfg.homeSubdir);
   };
   return {
     id: cfg.id,
-    detect: (env) => (0, import_node_fs33.existsSync)(home(env)),
+    detect: (env) => (0, import_node_fs34.existsSync)(home(env)),
     hookEvents: () => cfg.specs.map((s2) => s2.event),
-    paths: (env) => ({ home: home(env), settingsFile: (0, import_node_path27.join)(home(env), cfg.settingsRel), shimDir: (0, import_node_path27.join)(home(env), cfg.shimSubdir) }),
+    paths: (env) => ({ home: home(env), settingsFile: (0, import_node_path28.join)(home(env), cfg.settingsRel), shimDir: (0, import_node_path28.join)(home(env), cfg.shimSubdir) }),
     register: (settings, ctx) => registerJsonHooks(settings, cfg.specs.filter((s2) => ctx.events.includes(s2.event)), ctx.commandFor),
     unregister: (settings) => unregisterJsonHooks(settings),
     responseEnvelope: (out) => serializeForPlatform(out, cfg.id),
@@ -29662,7 +29703,7 @@ function makeAdapter(cfg) {
 }
 function readJsonOr2(path, fallback) {
   try {
-    return JSON.parse((0, import_node_fs33.readFileSync)(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse((0, import_node_fs34.readFileSync)(path, "utf8").replace(/^﻿/, ""));
   } catch {
     return fallback;
   }
@@ -29676,7 +29717,7 @@ function installPlatform(adapter, opts) {
   const changes = [];
   const isWin = os === "win32";
   const ext = isWin ? "ps1" : "sh";
-  const shimPath = (e2) => (0, import_node_path27.join)(shimDir, `corpocode-${e2}.${ext}`);
+  const shimPath = (e2) => (0, import_node_path28.join)(shimDir, `corpocode-${e2}.${ext}`);
   const shimBody = (e2) => isWin ? `# CorpoCode hook shim \u2014 pipes stdin to the dispatcher.\r
 ${binCommand} hook ${e2} --platform ${adapter.id}\r
 ` : `#!/usr/bin/env bash
@@ -29689,10 +29730,10 @@ exec ${binCommand} hook ${e2} --platform ${adapter.id}
     changes.push({ action: "write hook shim", path: p2 });
     if (!dryRun) {
       ensureDir(shimDir);
-      (0, import_node_fs33.writeFileSync)(p2, shimBody(e2));
+      (0, import_node_fs34.writeFileSync)(p2, shimBody(e2));
       if (!isWin) {
         try {
-          (0, import_node_fs33.chmodSync)(p2, 493);
+          (0, import_node_fs34.chmodSync)(p2, 493);
         } catch {
         }
       }
@@ -29702,26 +29743,26 @@ exec ${binCommand} hook ${e2} --platform ${adapter.id}
   if (!dryRun) {
     ensureDir(home);
     const updated = adapter.register(readJsonOr2(settingsFile, {}), { events, commandFor });
-    (0, import_node_fs33.writeFileSync)(settingsFile, `${JSON.stringify(updated, null, 2)}
+    (0, import_node_fs34.writeFileSync)(settingsFile, `${JSON.stringify(updated, null, 2)}
 `);
   }
   const { agents, skills } = adapter.assets();
   for (const agent of agents) {
-    const dst = (0, import_node_path27.join)(home, "agents", `${agent}.md`);
+    const dst = (0, import_node_path28.join)(home, "agents", `${agent}.md`);
     changes.push({ action: "install agent", path: dst });
     if (!dryRun) {
-      ensureDir((0, import_node_path27.join)(home, "agents"));
-      const src = (0, import_node_path27.join)(opts.assetsRoot, "agents", `${agent}.md`);
-      if ((0, import_node_fs33.existsSync)(src)) (0, import_node_fs33.copyFileSync)(src, dst);
+      ensureDir((0, import_node_path28.join)(home, "agents"));
+      const src = (0, import_node_path28.join)(opts.assetsRoot, "agents", `${agent}.md`);
+      if ((0, import_node_fs34.existsSync)(src)) (0, import_node_fs34.copyFileSync)(src, dst);
     }
   }
   for (const skill of skills) {
-    const dst = (0, import_node_path27.join)(home, "skills", skill, "SKILL.md");
+    const dst = (0, import_node_path28.join)(home, "skills", skill, "SKILL.md");
     changes.push({ action: "install skill", path: dst });
     if (!dryRun) {
-      ensureDir((0, import_node_path27.join)(home, "skills", skill));
-      const src = (0, import_node_path27.join)(opts.assetsRoot, "skills", skill, "SKILL.md");
-      if ((0, import_node_fs33.existsSync)(src)) (0, import_node_fs33.copyFileSync)(src, dst);
+      ensureDir((0, import_node_path28.join)(home, "skills", skill));
+      const src = (0, import_node_path28.join)(opts.assetsRoot, "skills", skill, "SKILL.md");
+      if ((0, import_node_fs34.existsSync)(src)) (0, import_node_fs34.copyFileSync)(src, dst);
     }
   }
   return { platform: adapter.id, changes, applied: !dryRun, settingsFile, events };
@@ -29819,7 +29860,7 @@ function detectPlatforms(env = process.env) {
 }
 
 // src/commands/install.ts
-var import_node_path28 = require("node:path");
+var import_node_path29 = require("node:path");
 function parseFlags(argv) {
   const flags = { platform: "claude-code", all: false, dryRun: false, skipBackends: false, repair: false };
   for (let i2 = 0; i2 < argv.length; i2++) {
@@ -29841,11 +29882,11 @@ function printInstall(label, changes, dryRun) {
 function ensureBaseState(dryRun) {
   if (dryRun) return;
   ensureDir(corpocodeHome());
-  if (!(0, import_node_fs34.existsSync)(configFile())) {
-    (0, import_node_fs34.writeFileSync)(configFile(), `${JSON.stringify(defaultConfig(), null, 2)}
+  if (!(0, import_node_fs35.existsSync)(configFile())) {
+    (0, import_node_fs35.writeFileSync)(configFile(), `${JSON.stringify(defaultConfig(), null, 2)}
 `);
   }
-  if (!(0, import_node_fs34.existsSync)(secretsFile())) {
+  if (!(0, import_node_fs35.existsSync)(secretsFile())) {
     saveSecrets({});
   }
 }
@@ -29921,14 +29962,14 @@ async function runUninstallCommand(argv) {
   const hooksDir = claudeHooksDir(home);
   const ext = process.platform === "win32" ? "ps1" : "sh";
   for (const spec of HOOK_SPECS) {
-    const shim = (0, import_node_path28.join)(hooksDir, `corpocode-${spec.name}.${ext}`);
-    if ((0, import_node_fs34.existsSync)(shim)) (0, import_node_fs34.rmSync)(shim, { force: true });
+    const shim = (0, import_node_path29.join)(hooksDir, `corpocode-${spec.name}.${ext}`);
+    if ((0, import_node_fs35.existsSync)(shim)) (0, import_node_fs35.rmSync)(shim, { force: true });
   }
   const settingsPath = claudeSettingsFile(home);
-  if ((0, import_node_fs34.existsSync)(settingsPath)) {
+  if ((0, import_node_fs35.existsSync)(settingsPath)) {
     try {
-      const settings = JSON.parse((0, import_node_fs34.readFileSync)(settingsPath, "utf8").replace(/^﻿/, ""));
-      (0, import_node_fs34.writeFileSync)(settingsPath, `${JSON.stringify(unregisterHooks(settings), null, 2)}
+      const settings = JSON.parse((0, import_node_fs35.readFileSync)(settingsPath, "utf8").replace(/^﻿/, ""));
+      (0, import_node_fs35.writeFileSync)(settingsPath, `${JSON.stringify(unregisterHooks(settings), null, 2)}
 `);
     } catch {
     }
@@ -29941,29 +29982,29 @@ async function runUninstallCommand(argv) {
   } catch {
   }
   if (purge) {
-    (0, import_node_fs34.rmSync)(corpocodeHome(), { recursive: true, force: true });
+    (0, import_node_fs35.rmSync)(corpocodeHome(), { recursive: true, force: true });
     process.stdout.write(`Purged ${corpocodeHome()} (config, logs, memory).
 `);
   }
 }
 
 // src/commands/doctor.ts
-var import_node_fs35 = require("node:fs");
-var import_node_path29 = require("node:path");
+var import_node_fs36 = require("node:fs");
+var import_node_path30 = require("node:path");
 var REPAIR_INSTALL = "corpocode install --repair";
 var REPAIR_PROVISION = "corpocode provision";
 function readJsonOr3(path, fallback) {
   try {
-    return JSON.parse((0, import_node_fs35.readFileSync)(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse((0, import_node_fs36.readFileSync)(path, "utf8").replace(/^﻿/, ""));
   } catch {
     return fallback;
   }
 }
 function defaultSecretsState(env) {
   const path = secretsFile(env);
-  if (!(0, import_node_fs35.existsSync)(path)) return "absent";
+  if (!(0, import_node_fs36.existsSync)(path)) return "absent";
   try {
-    (0, import_node_fs35.readFileSync)(path, "utf8");
+    (0, import_node_fs36.readFileSync)(path, "utf8");
     return "ok";
   } catch {
     return "unreadable";
@@ -29975,13 +30016,13 @@ function pluginInstalled(home) {
     if (depth > 3) return false;
     let entries;
     try {
-      entries = (0, import_node_fs35.readdirSync)(dir, { withFileTypes: true });
+      entries = (0, import_node_fs36.readdirSync)(dir, { withFileTypes: true });
     } catch {
       return false;
     }
     for (const e2 of entries) {
       if (e2.name.toLowerCase().includes("corpocode")) return true;
-      if (e2.isDirectory() && walk((0, import_node_path29.join)(dir, e2.name), depth + 1)) return true;
+      if (e2.isDirectory() && walk((0, import_node_path30.join)(dir, e2.name), depth + 1)) return true;
     }
     return false;
   };
@@ -29996,9 +30037,9 @@ function defaultMemoryWritable(cwd6, env) {
   try {
     const dir = memoryDir(cwd6, env);
     ensureDir(dir);
-    const probe = (0, import_node_path29.join)(dir, ".doctor-probe");
-    (0, import_node_fs35.writeFileSync)(probe, "ok");
-    (0, import_node_fs35.rmSync)(probe, { force: true });
+    const probe = (0, import_node_path30.join)(dir, ".doctor-probe");
+    (0, import_node_fs36.writeFileSync)(probe, "ok");
+    (0, import_node_fs36.rmSync)(probe, { force: true });
     return true;
   } catch {
     return false;
@@ -30070,7 +30111,7 @@ async function runDoctor(deps = {}) {
   const cs = config?.backends.contextStore ?? "native";
   if (kg === "graphify") {
     const graphifyOk = await (deps.graphifyVersion ?? (async () => (await spawnRunner("graphify", ["--version"])).code === 0))();
-    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs35.existsSync)((0, import_node_path29.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
+    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs36.existsSync)((0, import_node_path30.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
     if (!graphifyOk) {
       checks.push({ name: "graphify", status: "fail", detail: "graphify CLI not found on PATH", repair: REPAIR_PROVISION });
     } else if (!graphPresent) {
@@ -30079,7 +30120,7 @@ async function runDoctor(deps = {}) {
       checks.push({ name: "graphify", status: "ok", detail: "CLI present and graph built" });
     }
   } else {
-    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs35.existsSync)((0, import_node_path29.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
+    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs36.existsSync)((0, import_node_path30.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
     checks.push({
       name: "knowledge graph",
       status: "ok",
@@ -30131,7 +30172,7 @@ ${failed === 0 ? "All required checks passed." : `${failed} check(s) failed.`}
 }
 
 // src/commands/stats.ts
-var import_node_fs36 = require("node:fs");
+var import_node_fs37 = require("node:fs");
 
 // src/cost/tracker.ts
 var UNKNOWN = "unknown";
@@ -30217,7 +30258,7 @@ function computeStats(lines, opts = {}) {
 }
 function readLogLines() {
   try {
-    return (0, import_node_fs36.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs37.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -30271,12 +30312,12 @@ function runStatsCommand(argv, env) {
 var import_node_process4 = require("node:process");
 
 // src/loops/skillgen.ts
-var import_node_fs37 = require("node:fs");
+var import_node_fs38 = require("node:fs");
 var import_node_os6 = require("node:os");
-var import_node_path30 = require("node:path");
+var import_node_path31 = require("node:path");
 function candidatesDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path30.join)((0, import_node_os6.homedir)(), ".claude");
-  return (0, import_node_path30.join)(base, "memdir", "corpocode-candidates");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path31.join)((0, import_node_os6.homedir)(), ".claude");
+  return (0, import_node_path31.join)(base, "memdir", "corpocode-candidates");
 }
 var zCandidates = external_exports.object({
   candidates: external_exports.array(external_exports.object({ name: external_exports.string(), description: external_exports.string(), body: external_exports.string() }))
@@ -30315,24 +30356,24 @@ async function generateSkillCandidates(deps) {
   }
   const dir = deps.dir ?? candidatesDir(deps.env);
   ensureDir(dir);
-  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs37.writeFileSync)(p2, c2));
+  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs38.writeFileSync)(p2, c2));
   const names = [];
   for (const c2 of candidates.slice(0, deps.maxCandidates ?? 5)) {
     const slug = slugify(c2.name);
     if (!slug) continue;
-    write((0, import_node_path30.join)(dir, `${slug}.md`), renderMemo(c2, slug));
+    write((0, import_node_path31.join)(dir, `${slug}.md`), renderMemo(c2, slug));
     names.push(slug);
   }
   return { mined: mems.length, written: names.length, names };
 }
 
 // src/loops/skillify.ts
-var import_node_fs38 = require("node:fs");
+var import_node_fs39 = require("node:fs");
 var import_node_os7 = require("node:os");
-var import_node_path31 = require("node:path");
+var import_node_path32 = require("node:path");
 function skillsDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path31.join)((0, import_node_os7.homedir)(), ".claude");
-  return (0, import_node_path31.join)(base, "skills");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path32.join)((0, import_node_os7.homedir)(), ".claude");
+  return (0, import_node_path32.join)(base, "skills");
 }
 function parseFrontmatter(text) {
   const m2 = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -30352,28 +30393,28 @@ function promoteCandidates(opts = {}) {
   const to = opts.toDir ?? skillsDir(opts.env);
   let files;
   try {
-    files = (0, import_node_fs38.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
+    files = (0, import_node_fs39.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
   } catch {
     return { promoted: [], skipped: [] };
   }
   const promoted = [];
   const skipped = [];
   for (const f2 of files) {
-    const path = (0, import_node_path31.join)(from, f2);
-    const raw = (0, import_node_fs38.readFileSync)(path, "utf8");
+    const path = (0, import_node_path32.join)(from, f2);
+    const raw = (0, import_node_fs39.readFileSync)(path, "utf8");
     const { fm } = parseFrontmatter(raw);
     const slug = fm.name ? slugify(fm.name) : "";
     if (!slug || !fm.description) {
       skipped.push(f2);
       continue;
     }
-    const skillDir = (0, import_node_path31.join)(to, slug);
+    const skillDir = (0, import_node_path32.join)(to, slug);
     ensureDir(skillDir);
-    (0, import_node_fs38.writeFileSync)((0, import_node_path31.join)(skillDir, "SKILL.md"), raw);
+    (0, import_node_fs39.writeFileSync)((0, import_node_path32.join)(skillDir, "SKILL.md"), raw);
     promoted.push(slug);
     if (opts.removeAfter !== false) {
       try {
-        (0, import_node_fs38.rmSync)(path);
+        (0, import_node_fs39.rmSync)(path);
       } catch {
       }
     }
@@ -30423,7 +30464,7 @@ async function runSkillifyCommand(argv, env = process.env) {
 }
 
 // src/commands/review.ts
-var import_node_fs39 = require("node:fs");
+var import_node_fs40 = require("node:fs");
 var MIN_FIRES = 5;
 var LOW_CONFIDENCE = 0.5;
 function computeReview(lines, opts = {}) {
@@ -30503,7 +30544,7 @@ function buildProposals(tenets, verifierChecks, turns, stage2, config) {
 }
 function readLogLines2() {
   try {
-    return (0, import_node_fs39.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs40.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -30557,7 +30598,7 @@ function runReviewCommand(argv, env) {
 }
 
 // src/commands/telemetry.ts
-var import_node_fs40 = require("node:fs");
+var import_node_fs41 = require("node:fs");
 
 // src/telemetry/whitelist.ts
 var TELEMETRY_SCHEMA = "corpocode-telemetry/1";
@@ -30629,7 +30670,7 @@ function buildTelemetryPayload(lines, config) {
 var NEVER_COLLECTED = "prompts, code, file contents, file paths, transcripts, memory contents, and repository identity";
 function readRawConfig(env) {
   try {
-    const parsed = JSON.parse((0, import_node_fs40.readFileSync)(configFile(env), "utf8"));
+    const parsed = JSON.parse((0, import_node_fs41.readFileSync)(configFile(env), "utf8"));
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
@@ -30640,12 +30681,12 @@ function setTelemetryEnabled(enabled, env) {
   const tel = raw.telemetry && typeof raw.telemetry === "object" ? raw.telemetry : {};
   raw.telemetry = { ...tel, enabled };
   ensureDir(corpocodeHome(env));
-  (0, import_node_fs40.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
+  (0, import_node_fs41.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
 `);
 }
 function readLogLines3() {
   try {
-    return (0, import_node_fs40.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs41.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -30684,8 +30725,8 @@ Set telemetry.endpoint in your config to choose where it is sent. Preview anytim
 }
 
 // src/commands/docs.ts
-var import_node_fs41 = require("node:fs");
-var import_node_path32 = require("node:path");
+var import_node_fs42 = require("node:fs");
+var import_node_path33 = require("node:path");
 
 // src/docs-site/config-reference.ts
 function typeOf(value) {
@@ -30758,8 +30799,8 @@ function runDocsCommand(argv) {
   const commands = generateCommandReference();
   if (out) {
     ensureDir(out);
-    (0, import_node_fs41.writeFileSync)((0, import_node_path32.join)(out, "config-reference.md"), config);
-    (0, import_node_fs41.writeFileSync)((0, import_node_path32.join)(out, "command-reference.md"), commands);
+    (0, import_node_fs42.writeFileSync)((0, import_node_path33.join)(out, "config-reference.md"), config);
+    (0, import_node_fs42.writeFileSync)((0, import_node_path33.join)(out, "command-reference.md"), commands);
     process.stdout.write(`Wrote config-reference.md and command-reference.md to ${out}
 `);
     return;
@@ -30770,7 +30811,7 @@ ${commands}
 }
 
 // src/commands/init.ts
-var import_node_fs42 = require("node:fs");
+var import_node_fs43 = require("node:fs");
 var import_node_process5 = require("node:process");
 function placeholderFor(key) {
   return `REPLACE_WITH_YOUR_${key}`;
@@ -30804,24 +30845,24 @@ function runInitCommand(argv, env = process.env) {
   const force = argv.includes("--force");
   ensureDir(corpocodeHome(env));
   const cfgPath = configFile(env);
-  if ((0, import_node_fs42.existsSync)(cfgPath) && !force) {
+  if ((0, import_node_fs43.existsSync)(cfgPath) && !force) {
     process.stdout.write(`\xB7 config already exists, leaving it: ${cfgPath}
 `);
   } else {
-    (0, import_node_fs42.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
+    (0, import_node_fs43.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
 `);
     process.stdout.write(`wrote default config: ${cfgPath}
 `);
   }
   const keys = defaultKeyNames();
   const secPath = secretsFile(env);
-  if ((0, import_node_fs42.existsSync)(secPath) && !force) {
+  if ((0, import_node_fs43.existsSync)(secPath) && !force) {
     process.stdout.write(`\xB7 secrets already exists, not touching it: ${secPath}
 `);
   } else {
-    (0, import_node_fs42.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
+    (0, import_node_fs43.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
     try {
-      (0, import_node_fs42.chmodSync)(secPath, 384);
+      (0, import_node_fs43.chmodSync)(secPath, 384);
     } catch {
     }
     process.stdout.write(
@@ -30864,8 +30905,8 @@ Next: open ${secPath} and replace the placeholder${plural} with your real key${p
 }
 
 // src/prompts/scaffold.ts
-var import_node_fs43 = require("node:fs");
-var import_node_path33 = require("node:path");
+var import_node_fs44 = require("node:fs");
+var import_node_path34 = require("node:path");
 function renderScaffold(id) {
   const body = BUILTIN_PROMPTS[id];
   const meta = PROMPT_META[id];
@@ -30916,16 +30957,16 @@ function scaffoldPrompts(opts = {}) {
   const wrote = [];
   const skipped = [];
   for (const id of allPromptIds()) {
-    const path = (0, import_node_path33.join)(dir, promptRelPath(id));
-    if ((0, import_node_fs43.existsSync)(path) && !opts.force) {
+    const path = (0, import_node_path34.join)(dir, promptRelPath(id));
+    if ((0, import_node_fs44.existsSync)(path) && !opts.force) {
       skipped.push(id);
       continue;
     }
-    (0, import_node_fs43.mkdirSync)((0, import_node_path33.dirname)(path), { recursive: true });
-    (0, import_node_fs43.writeFileSync)(path, renderScaffold(id));
+    (0, import_node_fs44.mkdirSync)((0, import_node_path34.dirname)(path), { recursive: true });
+    (0, import_node_fs44.writeFileSync)(path, renderScaffold(id));
     wrote.push(id);
   }
-  (0, import_node_fs43.writeFileSync)((0, import_node_path33.join)(dir, "README.md"), renderReadme());
+  (0, import_node_fs44.writeFileSync)((0, import_node_path34.join)(dir, "README.md"), renderReadme());
   return { dir, wrote, skipped };
 }
 

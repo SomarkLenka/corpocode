@@ -4,7 +4,7 @@
 // the outcome loop. Written by the router each UserPromptSubmit. All reads/writes are best-effort —
 // a missing or corrupt cache degrades to "unknown", never an error.
 import { readFileSync, writeFileSync } from "node:fs";
-import { ensureDir, sessionDecisionFile, sessionsDir } from "../config/paths";
+import { ensureDir, sessionDecisionFile, sessionDir } from "../config/paths";
 
 export interface CachedDecision {
   type: string;
@@ -25,7 +25,7 @@ export function writeLastDecision(
   env?: NodeJS.ProcessEnv,
 ): void {
   try {
-    ensureDir(sessionsDir(cwd, env));
+    ensureDir(sessionDir(sessionId, cwd, env));
     writeFileSync(sessionDecisionFile(sessionId, cwd, env), JSON.stringify(decision));
   } catch {
     // best-effort: a cache write must never break the turn
