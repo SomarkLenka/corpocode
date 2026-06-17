@@ -79,13 +79,20 @@ Each unit does one thing, names itself for it, and is testable in isolation.
   hook. Buffers an incomplete trailing block (no closing boundary yet). The rule string is
   shared with `src/log/flow.ts` via a small exported constant so the two never drift.
 - **`server.ts`** — Node `http` server:
-  - `GET /` → serves the inlined single-page app.
+  - `GET /` → reads and serves `app.html` from disk (resolved relative to the project's
+    `src/monitor/` during dev; the path is computed in one place so the later inline swap is a
+    single-file change). Missing file ⇒ clear 500 with a "run from the repo / not yet built"
+    hint rather than a blank window.
   - `GET /stream` → SSE. On connect: backfill the last `--lines` from both files (parsed),
     then stream live appends. Distinct SSE event types: `flow` (a parsed flow block) and
     `event` (a parsed ndjson row), plus a `meta`/`ready` frame for initial state.
   - Binds loopback only.
-- **`app.ts`** — the page content (HTML + CSS + JS), inlined and served by `server.ts` (so the
-  bundle stays self-contained). Two views:
+- **`app.html`** — the page content (HTML + CSS + JS) as a **separate static file** that
+  `server.ts` reads from disk at runtime and serves on `GET /`. Kept out of the esbuild bundle
+  **for now** so the page can be edited and reloaded without rebuilding `bin/corpocode.js` while
+  we verify functionality. (Once verified, a follow-up will inline it into the bundle so the
+  "single self-contained bundle, no `node_modules` at runtime" property holds for releases — see
+  Deferred below.) Two views:
   - **Flow** (primary): rendered blocks, color-coded per hook name, **session filter**,
     auto-scroll that **pauses when the user scrolls up** and resumes at the bottom.
   - **Events** (secondary): raw ndjson rows in a compact table for debugging.
@@ -132,6 +139,14 @@ does **not** write into CorpoCode's own ndjson/flow logs (it is a reader, not a 
 
 Failure paths are tested as deliberately as the happy path (missing file, truncation, partial
 writes, malformed lines).
+
+## Deferred (after functionality is verified)
+
+- **Inline `app.html` into the bundle.** Replace the disk read in `server.ts` with the page
+  content compiled into `bin/corpocode.js` (e.g. an esbuild text/loader import or a generated
+  constant), restoring the self-contained-bundle property for published releases. Because the
+  path is resolved in one place, this is a localized swap. Until then, `corpocode monitor` is
+  intended to be run from a built checkout of the repo, not a published npm install.
 
 ## Open defaults (decided)
 
