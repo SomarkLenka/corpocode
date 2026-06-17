@@ -27,7 +27,9 @@ import { readSlice } from "../session/reader";
 // One transcript entry can be enormous (a pasted file, a long tool result). Cap each so a single blob
 // can't bloat the flow log past usefulness; the delta model means we never repeat content anyway.
 const MAX_ENTRY_CHARS = 8000;
-const RULE = "═".repeat(76);
+// The block-border rule. Exported so the monitor's flow parser splits on the exact same delimiter
+// this module writes — the two can never drift (Maintainability).
+export const RULE = "═".repeat(76);
 
 export interface FlowLogger {
   readonly enabled: boolean;

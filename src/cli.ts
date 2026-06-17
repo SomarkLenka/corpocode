@@ -4,6 +4,7 @@ import { runHook } from "./hooks/dispatch";
 import { runInstallCommand, runProvisionCommand, runUninstallCommand } from "./commands/install";
 import { runDoctorCommand } from "./commands/doctor";
 import { runStatsCommand } from "./commands/stats";
+import { runMonitorCommand } from "./commands/monitor";
 import { runSkillifyCommand } from "./commands/skillify";
 import { runReviewCommand } from "./commands/review";
 import { runTelemetryCommand } from "./commands/telemetry";
@@ -70,6 +71,9 @@ export async function runCli(argv: string[]): Promise<void> {
       return;
     case "stats":
       runStatsCommand(rest);
+      return;
+    case "monitor":
+      runMonitorCommand(rest);
       return;
     case "skillify":
       await runSkillifyCommand(rest);
