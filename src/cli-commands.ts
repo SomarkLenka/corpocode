@@ -16,6 +16,7 @@ export const COMMANDS: CommandDoc[] = [
   { name: "hook", usage: "hook <name> [--platform <id>]", summary: "Dispatch a hook (invoked by installed shims)" },
   { name: "doctor", usage: "doctor", summary: "Run health checks and print repair hints" },
   { name: "stats", usage: "stats [--json] [--days N]", summary: "Report cost, savings, latency, and error rates" },
+  { name: "why", usage: "why [--session <id>] [--days N] [--json]", summary: "Explain the decisions CorpoCode made in a session" },
   { name: "skillify", usage: "skillify [--promote]", summary: "Mine memories into skill candidates; --promote installs them" },
   { name: "review", usage: "review [--json] [--days N]", summary: "Audit the log; propose (never apply) config tweaks" },
   { name: "telemetry", usage: "telemetry <on|off|preview>", summary: "Opt-in aggregate telemetry; preview shows the exact payload" },

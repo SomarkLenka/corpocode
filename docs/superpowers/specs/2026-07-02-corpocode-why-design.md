@@ -1,7 +1,8 @@
 # Design — `corpocode why` decision inspector (B1)
 
 **Date:** 2026-07-02
-**Status:** Draft for review
+**Status:** Draft for review — all codebase claims re-verified against HEAD (A1 `pattern` events are now
+live in `src/intelligence/patterns/bug-hunt.ts` and match the pinned schema)
 **Scope:** A read-only CLI command that translates CorpoCode's NDJSON event log into a human-readable
 account of the silent decisions each hook made — why a file was injected, why a tool was denied, what
 the router picked, what `bug-hunt` did. It is the observability counterpart to A1: the moment the
@@ -22,9 +23,9 @@ Why — session a1b2c3d4 · 6 decisions · 2026-07-02 14:03–14:05
   14:03:11  router     Classified as code-edit / hard at high effort; dispatched retrieval, flagged a design breakpoint.
   14:03:12  retrieval  Gathered 7 refs from 3 of 4 sources.
   14:03:12  bug-hunt   Ran: fanned out 3 file-relevance agents, 2 files implicated, injected 412 tokens of cited lines.
-  14:03:45  filter     Denied `rm -rf /` (matched deny-list: destructive-recursive-delete).
-  14:03:58  injector   Sliced auth/session.ts to the relevant section before the read.
-  14:04:30  verifier   auth/session.ts — 1 of 9 tenets flagged (In-flight); advisory, not blocked.
+  14:03:45  filter     Denied `Bash` (matched destructive-recursive-delete) — recursive delete at root.
+  14:03:58  injector   Sliced auth/session.ts to the relevant section.
+  14:04:30  verifier   auth/session.ts — 1 of 9 tenets flagged (advisory).
 
 Full narrative: .corpocode/logs/corpocode-flow.log
 ```
@@ -41,28 +42,46 @@ Grounded in the read-only survey of the codebase.
 
 | Thing | Fact | File |
 |---|---|---|
-| Event log | `logFile(cwd?, env?)` → `<cwd>/.corpocode/logs/corpocode.ndjson`; one `{"ts":…, "event":…, …}` object per line | `src/config/paths.ts:50`, `src/log/ndjson.ts:47` |
+| Event log | `logFile(cwd?, env?)` → `<cwd>/.corpocode/logs/corpocode.ndjson`; one `{"ts":…, "event":…, …}` object per line. **`ts` is an ISO-8601 string** (stamped by the writer via `now().toISOString()`) — parse with `Date.parse(rec.ts)`, exactly as `stats.ts:56`/`review.ts:76` do | `src/config/paths.ts:50`, `src/log/ndjson.ts:47` |
 | `LogFields` | `{ event, session_id?, component?, cost_usd?, latency_ms?, provider?, model?, [k]:unknown }` | `src/log/ndjson.ts:16` |
 | Flow log | human-readable narrative companion at `flowLogFile()`; `why` points users to it but does NOT parse it | `src/config/paths.ts:58`, `src/log/flow.ts` |
 | CLI dispatch | hand-written `switch (command)` in `runCli`; each command has a `run…Command(argv, env?)` handler | `src/cli.ts:32` |
-| Command docs | `COMMANDS: CommandDoc[] = [{ name, usage, summary }]` — single source for `--help` | `src/cli-commands.ts:4` |
+| Command docs | `COMMANDS: CommandDoc[] = [{ name, usage, summary }]` — single source for `--help` | `src/cli-commands.ts:10` (interface at `:4`) |
 | Log-reader pattern | pure `compute…(lines, opts) → Report` + thin `run…Command(argv, env?)` wrapper; `readLogLines()` = `readFileSync(logFile()).split("\n")` in a try/catch → `[]` | `src/commands/stats.ts`, `src/commands/review.ts` |
 | Test pattern | import the pure function only, feed canned NDJSON via a `line(o)=JSON.stringify(o)` helper, inject `now`/`days` | `tests/commands/stats.test.ts`, `review.test.ts` |
 
 **The event vocabulary `why` translates** (session-scoped unless noted). Each maps to an injection source
 tag in `src/hooks/response.ts:18` where relevant:
 
-- `router` — the categorizer's decision (type, complexity, effort, breakpoint, dispatch_retrieval, candidates) — trivial early-exit variant too.
-- `delegation` — auto-delegation suggestion (`delegate_to`, `mode`).
-- `filter` — a tool `allow`/`deny`/`ask` with `reason`, `matched` pattern, `enforced`.
-- `inject` — a file read sliced / read whole / warning injected.
-- `verifier` (+ `verifier_check`) — post-edit MOLAR-EDIT tenet findings (summary + per-tenet violations).
-- `review` (+ `review_check`) — design-review tenet concerns.
-- `retrieval` (+ `retrieval_item`) — retrieval-team gather summary.
-- `toolbox` — surfaced skills/agents (`trigger`: userpromptsubmit / pretooluse / sessionstart).
-- `pattern` — **the A1 bug-hunt event** (`decision:"ran"|"skipped"`, `reason`, `files_fanned`, `survivors`, `injected_tokens`).
-- `compaction`, `git`, `docs` — Stop-hook housekeeping.
-- **Sessionless** (carry no `session_id`): `orchestrate`, `agent_item` (engine), `gather_source_degraded` (gather), `hook_error` (dispatch), `agent_session_put_failed`, `agent_sessions_evicted`. Handled specially (§4.3).
+- `router` — the categorizer's decision. **Fields are nested**: `rec.decision.{type, complexity, effort,
+  breakpoint, dispatch_retrieval}`, candidates at `rec.stage1_candidates.files`; the trivial early-exit
+  variant is signaled by `stage2_invoked: false` (with `decision: {type:"other", complexity:"trivial"}`).
+  `src/router/handler.ts:77-157`.
+- `delegation` — auto-delegation suggestion (`delegate_to`, `mode`, `platform`).
+- `filter` — a tool `decision` of `allow`/`deny`/`ask` with `tool`, `reason`, `matched` pattern,
+  `enforced` (`false` on the degraded no-LLM path).
+- `inject` — a file read: `{file, purpose_known, sliced, warnings}` (+ `exploration: true` variant).
+  **There is no `whole` field** — whole-file is `sliced: false`; `warnings` is a count, not content.
+  `src/filter/inject.ts:103-138`.
+- `verifier` (`{file, checks, violations, blocked, repeats, enforced}`, counts) + `verifier_check`
+  (per-tenet: `tenet`, `verdict`, `severity`, `confidence`, `message`, `file`).
+- `review` (`{tenets, concerns}` counts) + `review_check` (per-tenet).
+- `retrieval` (`{checklist_items, items_succeeded, refs, tokens, latency_ms}`) + `retrieval_item`.
+- `toolbox` — **fields vary by `trigger`**: `userpromptsubmit`/`pretooluse` carry `{skills, agents}`
+  counts; `sessionstart` carries `{gated, skipped}` instead. The renderer must branch on `trigger`.
+- `pattern` — **the A1 bug-hunt event, now live** (`src/intelligence/patterns/bug-hunt.ts`,
+  `src/hooks/handlers.ts:91-98`): `decision:"ran"|"skipped"`, `reason`, `files_considered`,
+  `files_fanned`, `survivors`, `injected_tokens`, `cost_usd`, `latency_ms`; the error variant adds
+  `message`; the skipped variant carries only `reason`.
+- `compaction` (success fields `{backend, preserved, compacted, captured, superseded}` **or** an error
+  variant `{error}`), `git`, `docs` (`{files, symbols}`) — housekeeping. **`git` is not Stop-only**: the
+  verifier emits `op:"commit", branch:"trace", files` on PostToolUse (`src/verifier/handler.ts:99`);
+  the compactor emits `op:"promote", branch:"clean", planned, applied, mode` at Stop.
+- **Sessionless** (carry no `session_id`): `orchestrate`, `agent_item` (engine), `gather_source_degraded`
+  (gather), `hook_error` (dispatch), `agent_session_put_failed` (`{key, reason}`),
+  `agent_sessions_evicted` (`{removed, remaining}`). Handled specially (§4.3). All other events carry
+  `session_id` explicitly (each handler passes `envelope.session_id` by hand — nothing injects it
+  centrally, which is why the engine-level events lack it).
 
 ---
 
@@ -106,7 +125,9 @@ export interface WhyReport {
 ### 4.2 Selection pipeline (inside `computeWhy`)
 
 1. Parse: skip blank lines; `JSON.parse` in try/catch, `continue` on malformed (per `stats.ts:47`).
-2. Window: if `opts.days`, drop records whose `ts` is missing/older than `now - days*86_400_000`.
+2. Window: if `opts.days`, drop records whose `ts` is missing, unparseable, or older than
+   `now - days*86_400_000`. **`ts` is an ISO string — compare via `Date.parse(rec.ts)`** (per
+   `stats.ts:56`); `opts.now` is epoch ms, matching `stats`/`review`.
 3. Target session: `opts.session` (exact or 8-char-prefix match) else the `session_id` of the max-`ts`
    record that has one. If no record has a `session_id` → `sessionId: null`, `lines: []`, a note.
 4. Collect the target's records (matching `session_id`), compute `started`/`ended` from their `ts` range.
@@ -121,6 +142,14 @@ Six event types carry no `session_id` (engine `orchestrate`/`agent_item`, `gathe
 `[started, ended]` of the target session, mark it `sessionless: true`, and set `report.note` to state the
 attribution is by timestamp, not identity. This keeps the bug-hunt story whole (`agent_item`/`orchestrate`
 sit right beside the `pattern` line that *does* have the session id) without inventing a false linkage.
+
+Two edges pinned down:
+- **Concurrent sessions can mis-attribute** — two interleaved sessions on the same repo share the
+  window; the `sessionless` flag + `note` exist precisely so the reader never mistakes best-effort for
+  identity. The real fix (thread `session_id` into the engine/gather/dispatch log calls) is deferred (§8).
+- **Untranslated sessionless records are ignored entirely** — `otherEvents` counts *in-session* records
+  only. Counting time-window strays as "this session's other events" would overstate what we know.
+
 *Alternative if you prefer:* render them in a separate "engine internals (not session-scoped)" section.
 **This is the main open decision in this spec — flagged for your review.**
 
@@ -130,33 +159,44 @@ The heart of B1 and the piece future patterns extend. A `switch` over `record.ev
 line; an unrecognized event returns `null` (counted in `otherEvents`, never silently hidden — a `--json`
 consumer still sees the raw count, and a `--verbose` later can dump them). Representative mappings:
 
-| event | prose |
-|---|---|
-| `router` (trivial) | `Trivial prompt — skipped analysis (free).` |
-| `router` (stage 2) | `Classified as {type} / {complexity} at {effort} effort` + `; dispatched retrieval` / `; flagged a design breakpoint` / `; N candidate files`. |
-| `filter` | `{Denied\|Allowed\|Asked about} \`{tool}\`` + ` (matched {matched})` + ` — {reason}`; append ` [advisory]` when `enforced:false`. |
-| `inject` | `Sliced {file} to the relevant section` / `Read {file} whole (purpose unknown)` / `Injected N warnings for {file}`. |
-| `verifier` | `{file} — {violations} of {checks} tenets flagged` + ` (BLOCKED)` when `blocked` else ` (advisory)`. |
-| `retrieval` | `Gathered {refs} refs from {items_succeeded} of {checklist_items} sources.` |
-| `toolbox` | `Surfaced {skills} skills, {agents} agents ({trigger}).` |
-| `pattern` (bug-hunt, ran) | `Ran: fanned out {files_fanned} file-relevance agents, {survivors} files implicated, injected {injected_tokens} tokens of cited lines.` (or `…; hit the {reason} path` when reason≠"ran"). |
-| `pattern` (bug-hunt, skipped) | `Skipped ({reason}).` |
-| `orchestrate` | `Agent fan-out: {succeeded}/{calls} agents ran, {surviving} survived.` |
-| `agent_item` | `Opened {id} ({ok?"ok":"failed"}).` |
-| `compaction` / `git` / `docs` | one line each (backend + counts; op + branch; files + symbols). |
-| `gather_source_degraded` | `{source} unavailable ({reason}) — degraded to empty.` |
-| `hook_error` | `{hook} hook failed open ({error}).` |
+| event | detect / fields | prose |
+|---|---|---|
+| `router` (trivial) | `stage2_invoked === false` | `Trivial prompt — skipped analysis (free).` |
+| `router` (stage 2) | nested `decision.*`; candidates at `stage1_candidates.files` | `Classified as {decision.type} / {decision.complexity} at {decision.effort} effort` + `; dispatched retrieval` (when `decision.dispatch_retrieval`) / `; flagged a design breakpoint` (when `decision.breakpoint`) / `; {stage1_candidates.files.length} candidate files`. |
+| `delegation` | `delegate_to`, `mode` | `Suggested delegating to {delegate_to} ({mode}).` |
+| `filter` | `decision`, `tool`, `matched`, `reason`, `enforced` | `{Denied\|Allowed\|Asked about} \`{tool}\`` + ` (matched {matched})` + ` — {reason}`; append ` [advisory]` when `enforced:false`. |
+| `inject` | `sliced` boolean, `purpose_known`, `warnings` count, `exploration?` | `sliced:true` → `Sliced {file} to the relevant section`; `sliced:false` → `Read {file} whole` + ` (purpose unknown)` when `!purpose_known`; append `; injected {warnings} warning(s)` when `warnings > 0`. |
+| `verifier` | counts | `{file} — {violations} of {checks} tenets flagged` + ` (BLOCKED)` when `blocked` else ` (advisory)`. |
+| `retrieval` | counts | `Gathered {refs} refs from {items_succeeded} of {checklist_items} sources.` |
+| `toolbox` | **branch on `trigger`** | `userpromptsubmit`/`pretooluse` → `Surfaced {skills} skills, {agents} agents ({trigger}).`; `sessionstart` → `Session-start toolbox: {gated} gated, {skipped} skipped.` |
+| `pattern` (bug-hunt, ran) | | `Ran: fanned out {files_fanned} file-relevance agents, {survivors} files implicated, injected {injected_tokens} tokens of cited lines.` (or `…; hit the {reason} path` when reason≠"ran"). |
+| `pattern` (bug-hunt, skipped) | | `Skipped ({reason}).` |
+| `orchestrate` | | `Agent fan-out: {succeeded}/{calls} agents ran, {surviving} survived.` |
+| `agent_item` | `id` is the task id (a file path for bug-hunt) | `{task_kind} agent on {id} — {ok?"ok":"failed"}.` |
+| `compaction` | success or `{error}` variant | success → one line (backend + counts); error variant → `Compaction failed open ({error}).` |
+| `git` | **branch on `op`** | `op:"commit"` → `Trace-committed {files}.`; `op:"promote"` → `Promoted {applied} of {planned} commits to the clean branch ({mode}).` |
+| `docs` | | `Regenerated docs: {files} files, {symbols} symbols.` |
+| `gather_source_degraded` | | `{source} unavailable ({reason}) — degraded to empty.` |
+| `hook_error` | | `{hook} hook failed open ({error}).` |
+| `agent_session_put_failed` | `{key, reason}` | `Failed to persist an agent session ({reason}).` |
+| `agent_sessions_evicted` | `{removed, remaining}` | `Evicted {removed} cached agent session(s); {remaining} remain.` |
 
-`component` on the `WhyLine` comes from `record.component` (or a derived label like `bug-hunt` for
-`pattern`). The table lives as small per-event helpers in `why.ts`, so adding a future pattern's event is
-one new case — the same extensibility the action-pattern contract has.
+`component` on the `WhyLine` comes from `record.component`, with two derived overrides so the column
+reads naturally: `pattern` → its `pattern` field value (`bug-hunt`), and `inject` → `injector` (its
+`record.component` is `filter`, which would blur tool-denies and read-slices — two different stories, as
+the §1 example shows — under one label). The table lives as small per-event helpers in `why.ts`, so
+adding a future pattern's event is one new case — the same extensibility the action-pattern contract has.
 
 ### 4.5 Rendering
 
-- **Prose:** a header (`Why — session {id8} · {N} decisions · {startedTime}–{endedTime}`), the time-ordered
-  lines (`  {HH:MM:SS}  {component,padded}  {text}`), a footer pointing to the flow log, and — when
-  `sessionsSeen > 1` — a hint (`{sessionsSeen-1} older session(s) in the log; use --session <id>`). Empty
-  log → `No CorpoCode decisions logged yet.` (and, if logging is disabled in config, say so).
+- **Prose:** a header (`Why — session {id8} · {N} decisions · {startedTime}–{endedTime}`; `{id8}` is the
+  8-char prefix, matching the flow log's `shortSession` rendering), the time-ordered lines
+  (`  {HH:MM:SS}  {component,padded}  {text}`), a footer pointing to the flow log **only when
+  `flowLogFile()` exists** (it's gated by `logging.transcript_flow` and may never have been written), and
+  — when `sessionsSeen > 1` — a hint (`{sessionsSeen-1} older session(s) in the log; use --session <id>`).
+  Empty log → `No CorpoCode decisions logged yet.`; additionally, `loadConfig({ env })` in try/catch (the
+  exact `review.ts:181` pattern) to check `logging.enabled` — when `false`, say
+  `Logging is disabled (logging.enabled: false).` instead of implying there was nothing to log.
 - **JSON:** `process.stdout.write(JSON.stringify(report, null, 2) + "\n")`.
 
 ---
@@ -169,12 +209,17 @@ helper; inject `now`/`session`/`days`; no filesystem — `readLogLines()` stays 
 1. **Default = most recent session** — two sessions in the log; `computeWhy` picks the one with the latest `ts`.
 2. **`--session` targets a specific session** (exact and 8-char-prefix match).
 3. **Translates the A1 bug-hunt `pattern` event** to the ran/skipped prose (the explicit B1↔A1 link).
-4. **Translates `router` and `filter`** (a stage-2 decision; a `deny` with `matched` + `enforced:false` → `[advisory]`).
+4. **Translates `router` and `filter`** — a stage-2 record with the real **nested** shape
+   (`decision.{type,complexity,effort,breakpoint,dispatch_retrieval}`, `stage1_candidates.files`) and the
+   trivial variant (`stage2_invoked:false`); a `deny` with `matched` + `enforced:false` → `[advisory]`.
 5. **Malformed / blank lines tolerated** (`["not json", "", line({…})]`).
-6. **`--days` window** filters out older lines (deterministic via injected `now`).
-7. **Sessionless attribution** — an `orchestrate` line inside the session's `ts` range is included and marked `sessionless`, with the `note` set.
+6. **`--days` window** filters out older lines — ISO `ts` strings against an injected epoch-ms `now`.
+7. **Sessionless attribution** — an `orchestrate` line inside the session's `ts` range is included and marked `sessionless`, with the `note` set; an untranslated sessionless record is ignored (not in `otherEvents`).
 8. **`otherEvents` counts** untranslated in-session events rather than hiding them.
-9. **Empty log** → `{ sessionId: null, lines: [], … }` clean report.
+9. **Variant coverage** — `inject` whole-file (`sliced:false, purpose_known:false`), `toolbox`
+   `sessionstart` (`gated`/`skipped` fields), and `git` `op:"commit"` vs `op:"promote"` each render their
+   own prose.
+10. **Empty log** → `{ sessionId: null, lines: [], … }` clean report.
 
 `npm run verify` (build + `tsc --noEmit` + vitest) must stay green; no existing test changes (B1 adds a
 command and touches only `cli.ts`/`cli-commands.ts` glue).
@@ -188,7 +233,9 @@ command and touches only `cli.ts`/`cli-commands.ts` glue).
 - `tests/commands/why.test.ts`.
 
 **Modified**
-- `src/cli.ts` — `import { runWhyCommand }` + `case "why": runWhyCommand(rest, ...); return;`.
+- `src/cli.ts` — `import { runWhyCommand }` + `case "why": runWhyCommand(rest); return;` — `rest` only,
+  no `env` at the call site, exactly like `stats`/`review` (the handler's `env?` defaults to
+  `process.env` internally via `loadConfig`).
 - `src/cli-commands.ts` — a `COMMANDS` entry `{ name: "why", usage: "why [--session <id>] [--days N] [--json]", summary: "explain the decisions CorpoCode made in a session" }`.
 
 **Unchanged (must not need edits)**
@@ -213,4 +260,3 @@ command and touches only `cli.ts`/`cli-commands.ts` glue).
 - Perfect session attribution for the six sessionless events (best-effort by time-window here; a future
   change could thread `session_id` into the engine/gather/dispatch log lines, which would also benefit A1).
 - A `--verbose` mode that dumps the `otherEvents` raw lines (easy follow-up once the translation table proves out).
-```
