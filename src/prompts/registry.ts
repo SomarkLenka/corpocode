@@ -21,6 +21,16 @@ export const BUILTIN_PROMPTS = {
     "{{candidates}}",
   ].join("\n"),
 
+  // intelligence/patterns/bug-hunt.ts — one read-only file-relevance agent. The file PATH and the bug
+  // description arrive via the call's structured inputs, so this instruction carries no {{placeholders}}.
+  "bug-hunt-file-relevance": [
+    "You are given ONE file path (in the inputs) and a bug description. Read the file with your",
+    "read-only tools. Decide whether this file is implicated in the bug. If it is, cite the exact line",
+    "ranges and a one-line reason for each. Be strict: default implicated=false unless the file",
+    "plausibly contains the fault. Respond with ONLY JSON:",
+    '{"implicated":boolean,"confidence":number 0..1,"lines":[{"start":int,"end":int,"why":string}]}.',
+  ].join(" "),
+
   // filter/classify.ts — the soft safety classifier for shell commands (the `ask` leftover).
   "filter-classify": [
     "You are a safety classifier for shell commands run inside a coding session. Decide: deny",

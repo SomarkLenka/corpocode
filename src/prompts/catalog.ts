@@ -15,6 +15,7 @@ export const PROMPT_META: Record<PromptId, PromptMeta> = {
   retrieval: { path: "retrieval/plan.md", source: "src/retrieval/planner.ts", effect: "what the retrieval team gathers when no template matches" },
   compactor: { path: "compactor/digest.md", source: "src/compactor/worker.ts", effect: "how an older transcript slice is summarized at Stop" },
   skillgen: { path: "skillgen/distill.md", source: "src/loops/skillgen.ts", effect: "how mined memories become skill candidates" },
+  "bug-hunt-file-relevance": { path: "intelligence/bug-hunt-file-relevance.md", source: "src/intelligence/patterns/bug-hunt.ts", effect: "how each candidate file is judged implicated and which lines are cited" },
   "filter-classify": { path: "filter/classify.md", source: "src/filter/classify.ts", effect: "how an uncertain shell command is judged deny/allow/ask" },
   "filter-inject": { path: "filter/inject.md", source: "src/filter/inject.ts", effect: "how a file read is narrowed to the relevant slice" },
   "session-reader": { path: "session/reader.md", source: "src/session/reader.ts", effect: "how the line-of-thought is distilled from the transcript" },

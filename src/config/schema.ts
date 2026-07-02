@@ -188,6 +188,18 @@ export const configSchema = z
         session_ttl_ms: z.number().int().positive().default(1_800_000), // 30 min before a session is evictable
         max_sessions: z.number().int().positive().default(50), // LRU bound on persisted agent sessions
         router_router: z.boolean().default(true), // the triage gate; false routes everything to the full router
+        // bug-hunt action-pattern (IntelligentRouter Phase 1). Only consulted when `enabled` above is on.
+        // See docs/superpowers/specs/2026-07-02-bug-hunt-action-pattern-design.md.
+        bug_hunt: z
+          .object({
+            enabled: z.boolean().default(true), // per-pattern off switch (within agents.enabled)
+            max_files: z.number().int().positive().default(3), // fan-out cap = top candidate files investigated
+            per_agent_ms: z.number().int().positive().default(10_000), // per-agent timeout (the primary bound)
+            deadline_ms: z.number().int().positive().default(30_000), // overall race backstop
+            confidence_floor: z.number().min(0).max(1).default(0.5), // judge drops survivors below this
+            max_injected_tokens: z.number().int().positive().default(800), // synthesis truncation budget
+          })
+          .default({}),
       })
       .default({}),
     // Off by default — the foundation of the privacy posture. When enabled, only the whitelisted
