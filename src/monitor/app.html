@@ -115,6 +115,10 @@
       td.ev { color: var(--accent); white-space: nowrap; }
       td.comp { color: var(--ok); white-space: nowrap; }
       td.rest { color: var(--fg); opacity: 0.85; word-break: break-all; }
+      /* Narrated rows: the `corpocode why` explanation of the event, rendered as readable prose
+         (full opacity, normal wrapping) instead of the dim raw-JSON fallback. Raw fields stay on hover. */
+      td.narr { color: var(--fg); word-break: normal; }
+      tr.narrated { cursor: help; }
       tr.err td.ev { color: var(--err); }
 
       .pausebar {
@@ -271,14 +275,26 @@
         els.eventsTable.style.display = "";
         const tr = document.createElement("tr");
         tr.dataset.session = e.session_id || "";
-        if (e.event === "hook_error" || e.error) tr.className = "err";
-        const { ts, event, component, session_id, ...rest } = e;
+        if (e.event === "hook_error" || e.error) tr.classList.add("err");
+        // `_why` is the server-attached `corpocode why` narration (see src/log/explain.ts); pull it out
+        // of the field spread so it never doubles up in the raw-JSON fallback.
+        const { ts, event, component, session_id, _why, ...rest } = e;
         tr.innerHTML = `<td class="ts"></td><td class="ev"></td><td class="comp"></td><td class="rest"></td>`;
         const cells = tr.children;
         cells[0].textContent = (ts || "").replace("T", " ").replace("Z", "");
         cells[1].textContent = event || (e.raw ? "raw" : "");
-        cells[2].textContent = component || "";
-        cells[3].textContent = e.raw !== undefined ? String(e.raw) : Object.keys(rest).length ? JSON.stringify(rest) : "";
+        const rawJson = Object.keys(rest).length ? JSON.stringify(rest) : "";
+        if (_why && _why.text) {
+          // Narrated: show the plain-language decision; keep the raw fields one hover away.
+          cells[2].textContent = _why.label || component || "";
+          cells[3].textContent = _why.text;
+          cells[3].className = "narr";
+          tr.classList.add("narrated");
+          if (rawJson) tr.title = rawJson;
+        } else {
+          cells[2].textContent = component || "";
+          cells[3].textContent = e.raw !== undefined ? String(e.raw) : rawJson;
+        }
         const sel = currentSession();
         if (sel && tr.dataset.session !== sel) tr.style.display = "none";
         els.eventsBody.appendChild(tr);

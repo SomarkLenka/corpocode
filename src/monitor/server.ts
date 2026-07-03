@@ -10,6 +10,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFileSync } from "node:fs";
 import { createTailer, createLineBuffer } from "./tail";
 import { createFlowParser, type FlowBlock } from "./flow-parse";
+import { explain, type LogRecord } from "../log/explain";
 
 export interface MonitorServerOptions {
   /** corpocode-flow.log for this project. */
@@ -36,6 +37,16 @@ function parseRow(line: string): NdjsonRow {
   } catch {
     return { raw: line }; // surface a malformed line rather than dropping it
   }
+}
+
+// Parse a raw ndjson line and attach its plain-language explanation (`_why`) when the event has one.
+// This is `corpocode why`'s narration, computed per-record so the live Events feed reads as decisions,
+// not raw JSON — the same describe() table both surfaces share (../log/explain). Untranslated or
+// malformed rows carry no `_why` and the client falls back to showing their fields verbatim.
+function eventRow(line: string): NdjsonRow {
+  const row = parseRow(line);
+  const why = explain(row as LogRecord);
+  return why ? { ...row, _why: why } : row;
 }
 
 function sse(res: ServerResponse, event: string, data: unknown): void {
@@ -88,12 +99,12 @@ function serveStream(
   const initialBlocks = flowParser.push(safeRead(flowTailer, "flow"));
   for (const b of initialBlocks.slice(-opts.lines)) sse(res, "flow", b);
   const initialLines = lineBuffer.push(safeRead(ndjsonTailer, "ndjson"));
-  for (const l of initialLines.slice(-opts.lines)) sse(res, "event", parseRow(l));
+  for (const l of initialLines.slice(-opts.lines)) sse(res, "event", eventRow(l));
   sse(res, "ready", { flow: Math.min(initialBlocks.length, opts.lines), events: Math.min(initialLines.length, opts.lines) });
 
   const timer = setInterval(() => {
     for (const b of flowParser.push(safeRead(flowTailer, "flow"))) sse(res, "flow", b);
-    for (const l of lineBuffer.push(safeRead(ndjsonTailer, "ndjson"))) sse(res, "event", parseRow(l));
+    for (const l of lineBuffer.push(safeRead(ndjsonTailer, "ndjson"))) sse(res, "event", eventRow(l));
   }, pollMs);
 
   const stop = (): void => clearInterval(timer);

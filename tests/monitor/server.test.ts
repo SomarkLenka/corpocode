@@ -106,6 +106,31 @@ describe("monitor server", () => {
     expect(acc).toContain('"event":"live"'); // live append
   });
 
+  it("attaches the `corpocode why` narration (`_why`) to translatable events", async () => {
+    const { flow, ndjson, html } = tmp();
+    const port = await listen(
+      createMonitorServer({ flowFile: flow, ndjsonFile: ndjson, htmlPath: html, lines: 200, pollMs: 20 }),
+    );
+    const streamed = collectStream(port, (acc) => acc.includes('"event":"filter"'));
+    await new Promise((r) => setTimeout(r, 60));
+    appendFileSync(ndjson, `${JSON.stringify({ event: "filter", component: "filter", decision: "deny", tool: "Bash", reason: "rm -rf" })}\n`);
+
+    const acc = await streamed;
+    expect(acc).toContain('"_why"'); // narration attached
+    expect(acc).toContain("Denied"); // the plain-language decision rode along
+  });
+
+  it("leaves untranslatable events without a `_why` field", async () => {
+    const { flow, ndjson, html } = tmp();
+    writeFileSync(ndjson, `${JSON.stringify({ event: "heartbeat", component: "misc" })}\n`);
+    const port = await listen(
+      createMonitorServer({ flowFile: flow, ndjsonFile: ndjson, htmlPath: html, lines: 200, pollMs: 20 }),
+    );
+    const acc = await collectStream(port, (acc) => acc.includes("event: ready"));
+    expect(acc).toContain('"event":"heartbeat"');
+    expect(acc).not.toContain("_why");
+  });
+
   it("streams flow blocks as they are appended", async () => {
     const { flow, ndjson, html } = tmp();
     const port = await listen(

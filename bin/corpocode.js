@@ -30336,7 +30336,8 @@ function runStatsCommand(argv, env) {
 
 // src/commands/why.ts
 var import_node_fs38 = require("node:fs");
-var SESSIONLESS_ATTRIBUTION_NOTE = "Some engine-level events carry no session id; they are attributed to this session by timestamp, not identity.";
+
+// src/log/explain.ts
 function s2(v2) {
   return v2 === void 0 || v2 === null ? "" : String(v2);
 }
@@ -30413,6 +30414,14 @@ function describe(rec) {
       return null;
   }
 }
+function explain(rec) {
+  const text = describe(rec);
+  if (text === null) return null;
+  return { label: labelFor(rec), text };
+}
+
+// src/commands/why.ts
+var SESSIONLESS_ATTRIBUTION_NOTE = "Some engine-level events carry no session id; they are attributed to this session by timestamp, not identity.";
 function toLine(rec, text, sessionless) {
   const line = { ts: rec.ts ?? "", component: labelFor(rec), event: s2(rec.event), text };
   if (sessionless) line.sessionless = true;
@@ -30670,6 +30679,11 @@ function parseRow(line) {
     return { raw: line };
   }
 }
+function eventRow(line) {
+  const row = parseRow(line);
+  const why = explain(row);
+  return why ? { ...row, _why: why } : row;
+}
 function sse(res, event, data) {
   res.write(`event: ${event}
 data: ${JSON.stringify(data)}
@@ -30711,11 +30725,11 @@ function serveStream(req, res, opts, pollMs, warn) {
   const initialBlocks = flowParser.push(safeRead(flowTailer, "flow"));
   for (const b2 of initialBlocks.slice(-opts.lines)) sse(res, "flow", b2);
   const initialLines = lineBuffer.push(safeRead(ndjsonTailer, "ndjson"));
-  for (const l2 of initialLines.slice(-opts.lines)) sse(res, "event", parseRow(l2));
+  for (const l2 of initialLines.slice(-opts.lines)) sse(res, "event", eventRow(l2));
   sse(res, "ready", { flow: Math.min(initialBlocks.length, opts.lines), events: Math.min(initialLines.length, opts.lines) });
   const timer = setInterval(() => {
     for (const b2 of flowParser.push(safeRead(flowTailer, "flow"))) sse(res, "flow", b2);
-    for (const l2 of lineBuffer.push(safeRead(ndjsonTailer, "ndjson"))) sse(res, "event", parseRow(l2));
+    for (const l2 of lineBuffer.push(safeRead(ndjsonTailer, "ndjson"))) sse(res, "event", eventRow(l2));
   }, pollMs);
   const stop = () => clearInterval(timer);
   req.on("close", stop);

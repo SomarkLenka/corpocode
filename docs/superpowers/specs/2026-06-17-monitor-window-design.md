@@ -86,6 +86,11 @@ Each unit does one thing, names itself for it, and is testable in isolation.
   - `GET /stream` → SSE. On connect: backfill the last `--lines` from both files (parsed),
     then stream live appends. Distinct SSE event types: `flow` (a parsed flow block) and
     `event` (a parsed ndjson row), plus a `meta`/`ready` frame for initial state.
+    - Each `event` row is enriched server-side with a `_why` field — the same
+      `corpocode why` narration (`{label, text}`), computed per-record through the shared
+      `src/log/explain.ts` table so the live feed and the CLI tell one story (untranslatable
+      rows carry no `_why`). Reuse, not a fork: `why.ts` and the monitor import the one
+      `describe()`/`labelFor()` table.
   - Binds loopback only.
 - **`app.html`** — the page content (HTML + CSS + JS) as a **separate static file** that
   `server.ts` reads from disk at runtime and serves on `GET /`. Kept out of the esbuild bundle
@@ -95,7 +100,9 @@ Each unit does one thing, names itself for it, and is testable in isolation.
   Deferred below.) Two views:
   - **Flow** (primary): rendered blocks, color-coded per hook name, **session filter**,
     auto-scroll that **pauses when the user scrolls up** and resumes at the bottom.
-  - **Events** (secondary): raw ndjson rows in a compact table for debugging.
+  - **Events** (secondary): each ndjson row rendered as its plain-language `corpocode why`
+    decision line (from the server's `_why`), with the raw fields one hover away; rows with no
+    narration fall back to the compact raw-JSON table for debugging.
   - **"waiting for activity…"** empty state when the logs don't exist or are empty yet.
 
 Wiring: register the command in `src/cli.ts` and add it to `src/cli-commands.ts` (`COMMANDS`)
