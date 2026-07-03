@@ -7221,15 +7221,15 @@ async function* _iterSSEMessages(response, controller) {
   const iter = ReadableStreamToAsyncIterable(response.body);
   for await (const sseChunk of iterSSEChunks(iter)) {
     for (const line of lineDecoder.decode(sseChunk)) {
-      const sse = sseDecoder.decode(line);
-      if (sse)
-        yield sse;
+      const sse2 = sseDecoder.decode(line);
+      if (sse2)
+        yield sse2;
     }
   }
   for (const line of lineDecoder.flush()) {
-    const sse = sseDecoder.decode(line);
-    if (sse)
-      yield sse;
+    const sse2 = sseDecoder.decode(line);
+    if (sse2)
+      yield sse2;
   }
 }
 async function* iterSSEChunks(iterator) {
@@ -7283,30 +7283,30 @@ var init_streaming = __esm({
           consumed = true;
           let done = false;
           try {
-            for await (const sse of _iterSSEMessages(response, controller)) {
-              if (sse.event === "completion") {
+            for await (const sse2 of _iterSSEMessages(response, controller)) {
+              if (sse2.event === "completion") {
                 try {
-                  yield JSON.parse(sse.data);
+                  yield JSON.parse(sse2.data);
                 } catch (e2) {
-                  console.error(`Could not parse message into JSON:`, sse.data);
-                  console.error(`From chunk:`, sse.raw);
+                  console.error(`Could not parse message into JSON:`, sse2.data);
+                  console.error(`From chunk:`, sse2.raw);
                   throw e2;
                 }
               }
-              if (sse.event === "message_start" || sse.event === "message_delta" || sse.event === "message_stop" || sse.event === "content_block_start" || sse.event === "content_block_delta" || sse.event === "content_block_stop") {
+              if (sse2.event === "message_start" || sse2.event === "message_delta" || sse2.event === "message_stop" || sse2.event === "content_block_start" || sse2.event === "content_block_delta" || sse2.event === "content_block_stop") {
                 try {
-                  yield JSON.parse(sse.data);
+                  yield JSON.parse(sse2.data);
                 } catch (e2) {
-                  console.error(`Could not parse message into JSON:`, sse.data);
-                  console.error(`From chunk:`, sse.raw);
+                  console.error(`Could not parse message into JSON:`, sse2.data);
+                  console.error(`From chunk:`, sse2.raw);
                   throw e2;
                 }
               }
-              if (sse.event === "ping") {
+              if (sse2.event === "ping") {
                 continue;
               }
-              if (sse.event === "error") {
-                throw APIError.generate(void 0, `SSE Error: ${sse.data}`, sse.data, createResponseHeaders(response.headers));
+              if (sse2.event === "error") {
+                throw APIError.generate(void 0, `SSE Error: ${sse2.data}`, sse2.data, createResponseHeaders(response.headers));
               }
             }
             done = true;
@@ -7435,7 +7435,7 @@ var init_streaming = __esm({
         if (!line) {
           if (!this.event && !this.data.length)
             return null;
-          const sse = {
+          const sse2 = {
             event: this.event,
             data: this.data.join("\n"),
             raw: this.chunks
@@ -7443,7 +7443,7 @@ var init_streaming = __esm({
           this.event = null;
           this.data = [];
           this.chunks = [];
-          return sse;
+          return sse2;
         }
         this.chunks.push(line);
         if (line.startsWith(":")) {
@@ -12086,15 +12086,15 @@ async function* _iterSSEMessages2(response, controller) {
   const iter = ReadableStreamToAsyncIterable2(response.body);
   for await (const sseChunk of iterSSEChunks2(iter)) {
     for (const line of lineDecoder.decode(sseChunk)) {
-      const sse = sseDecoder.decode(line);
-      if (sse)
-        yield sse;
+      const sse2 = sseDecoder.decode(line);
+      if (sse2)
+        yield sse2;
     }
   }
   for (const line of lineDecoder.flush()) {
-    const sse = sseDecoder.decode(line);
-    if (sse)
-      yield sse;
+    const sse2 = sseDecoder.decode(line);
+    if (sse2)
+      yield sse2;
   }
 }
 async function* iterSSEChunks2(iterator) {
@@ -12148,20 +12148,20 @@ var init_streaming2 = __esm({
           consumed = true;
           let done = false;
           try {
-            for await (const sse of _iterSSEMessages2(response, controller)) {
+            for await (const sse2 of _iterSSEMessages2(response, controller)) {
               if (done)
                 continue;
-              if (sse.data.startsWith("[DONE]")) {
+              if (sse2.data.startsWith("[DONE]")) {
                 done = true;
                 continue;
               }
-              if (sse.event === null || sse.event.startsWith("response.") || sse.event.startsWith("transcript.")) {
+              if (sse2.event === null || sse2.event.startsWith("response.") || sse2.event.startsWith("transcript.")) {
                 let data;
                 try {
-                  data = JSON.parse(sse.data);
+                  data = JSON.parse(sse2.data);
                 } catch (e2) {
-                  console.error(`Could not parse message into JSON:`, sse.data);
-                  console.error(`From chunk:`, sse.raw);
+                  console.error(`Could not parse message into JSON:`, sse2.data);
+                  console.error(`From chunk:`, sse2.raw);
                   throw e2;
                 }
                 if (data && data.error) {
@@ -12171,16 +12171,16 @@ var init_streaming2 = __esm({
               } else {
                 let data;
                 try {
-                  data = JSON.parse(sse.data);
+                  data = JSON.parse(sse2.data);
                 } catch (e2) {
-                  console.error(`Could not parse message into JSON:`, sse.data);
-                  console.error(`From chunk:`, sse.raw);
+                  console.error(`Could not parse message into JSON:`, sse2.data);
+                  console.error(`From chunk:`, sse2.raw);
                   throw e2;
                 }
-                if (sse.event == "error") {
+                if (sse2.event == "error") {
                   throw new APIError2(void 0, data.error, data.message, void 0);
                 }
-                yield { event: sse.event, data };
+                yield { event: sse2.event, data };
               }
             }
             done = true;
@@ -12309,7 +12309,7 @@ var init_streaming2 = __esm({
         if (!line) {
           if (!this.event && !this.data.length)
             return null;
-          const sse = {
+          const sse2 = {
             event: this.event,
             data: this.data.join("\n"),
             raw: this.chunks
@@ -12317,7 +12317,7 @@ var init_streaming2 = __esm({
           this.event = null;
           this.data = [];
           this.chunks = [];
-          return sse;
+          return sse2;
         }
         this.chunks.push(line);
         if (line.startsWith(":")) {
@@ -30336,7 +30336,8 @@ function runStatsCommand(argv, env) {
 
 // src/commands/why.ts
 var import_node_fs38 = require("node:fs");
-var SESSIONLESS_ATTRIBUTION_NOTE = "Some engine-level events carry no session id; they are attributed to this session by timestamp, not identity.";
+
+// src/log/explain.ts
 function s2(v2) {
   return v2 === void 0 || v2 === null ? "" : String(v2);
 }
@@ -30413,6 +30414,14 @@ function describe(rec) {
       return null;
   }
 }
+function explain(rec) {
+  const text = describe(rec);
+  if (text === null) return null;
+  return { label: labelFor(rec), text };
+}
+
+// src/commands/why.ts
+var SESSIONLESS_ATTRIBUTION_NOTE = "Some engine-level events carry no session id; they are attributed to this session by timestamp, not identity.";
 function toLine(rec, text, sessionless) {
   const line = { ts: rec.ts ?? "", component: labelFor(rec), event: s2(rec.event), text };
   if (sessionless) line.sessionless = true;
@@ -30556,16 +30565,266 @@ Full narrative: ${flowLogFile(void 0, env)}
 `);
 }
 
+// src/commands/monitor.ts
+var import_node_child_process7 = require("node:child_process");
+
+// src/monitor/server.ts
+var import_node_http = require("node:http");
+var import_node_fs40 = require("node:fs");
+
+// src/monitor/tail.ts
+var import_node_fs39 = require("node:fs");
+function createTailer(file) {
+  let offset = 0;
+  function read() {
+    let size;
+    try {
+      size = (0, import_node_fs39.statSync)(file).size;
+    } catch {
+      return "";
+    }
+    if (size < offset) offset = 0;
+    if (size === offset) return "";
+    const fd = (0, import_node_fs39.openSync)(file, "r");
+    try {
+      const len = size - offset;
+      const buf = Buffer.alloc(len);
+      (0, import_node_fs39.readSync)(fd, buf, 0, len, offset);
+      offset = size;
+      return buf.toString("utf8");
+    } finally {
+      (0, import_node_fs39.closeSync)(fd);
+    }
+  }
+  return {
+    read,
+    get offset() {
+      return offset;
+    }
+  };
+}
+function createLineBuffer() {
+  let pending = "";
+  return {
+    push(chunk) {
+      pending += chunk;
+      const parts = pending.split("\n");
+      pending = parts.pop() ?? "";
+      return parts.filter((l2) => l2.length > 0);
+    }
+  };
+}
+
+// src/monitor/flow-parse.ts
+var MARKER = `${RULE}
+\u25B6 `;
+var HEADER_DONE = new RegExp(`^${RULE}\\n\u25B6 [^\\n]*\\n${RULE}\\n`);
+var SEP = "  \xB7  ";
+function parseHeader(text) {
+  const m2 = text.match(new RegExp(`^${RULE}\\n\u25B6 ([^\\n]*)\\n`));
+  const headerLine = m2?.[1] ?? "";
+  const parts = headerLine.split(SEP);
+  const hookName = parts[0] ?? "";
+  const sessionPart = parts.length >= 3 ? parts[parts.length - 1] : void 0;
+  const ts = parts.length >= 3 ? parts[parts.length - 2] : void 0;
+  const detail = parts.length >= 4 ? parts.slice(1, parts.length - 2).join(SEP) : void 0;
+  const sessionId = sessionPart?.startsWith("session ") ? sessionPart.slice("session ".length) : sessionPart;
+  return { hookName, detail, ts, sessionId, text };
+}
+function startIndices(buffer) {
+  const starts = [];
+  let from = 0;
+  for (; ; ) {
+    const i2 = buffer.indexOf(MARKER, from);
+    if (i2 < 0) break;
+    starts.push(i2);
+    from = i2 + MARKER.length;
+  }
+  return starts;
+}
+function createFlowParser() {
+  let buffer = "";
+  return {
+    push(chunk) {
+      buffer += chunk;
+      const starts = startIndices(buffer);
+      if (starts.length === 0) return [];
+      const blocks = [];
+      let consumed = 0;
+      for (let i2 = 0; i2 < starts.length; i2++) {
+        const isLast = i2 === starts.length - 1;
+        const segEnd = isLast ? buffer.length : starts[i2 + 1];
+        const seg = buffer.slice(starts[i2], segEnd);
+        if (!isLast) {
+          blocks.push(parseHeader(seg));
+          consumed = segEnd;
+        } else if (HEADER_DONE.test(seg)) {
+          blocks.push(parseHeader(seg));
+          consumed = segEnd;
+        } else {
+          consumed = starts[i2];
+        }
+      }
+      buffer = buffer.slice(consumed);
+      return blocks;
+    }
+  };
+}
+
+// src/monitor/server.ts
+function parseRow(line) {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return { raw: line };
+  }
+}
+function eventRow(line) {
+  const row = parseRow(line);
+  const why = explain(row);
+  return why ? { ...row, _why: why } : row;
+}
+function sse(res, event, data) {
+  res.write(`event: ${event}
+data: ${JSON.stringify(data)}
+
+`);
+}
+function servePage(res, htmlPath, warn) {
+  let html;
+  try {
+    html = (0, import_node_fs40.readFileSync)(htmlPath, "utf8");
+  } catch {
+    warn(`monitor: could not read page at ${htmlPath}`);
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end(`Monitor page not found at ${htmlPath}.
+Run \`corpocode monitor\` from a built repo checkout.`);
+    return;
+  }
+  res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  res.end(html);
+}
+function serveStream(req, res, opts, pollMs, warn) {
+  res.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache",
+    connection: "keep-alive"
+  });
+  const flowTailer = createTailer(opts.flowFile);
+  const ndjsonTailer = createTailer(opts.ndjsonFile);
+  const flowParser = createFlowParser();
+  const lineBuffer = createLineBuffer();
+  const safeRead = (tailer, label) => {
+    try {
+      return tailer.read();
+    } catch (err) {
+      warn(`monitor: ${label} stream read failed: ${String(err)}`);
+      return "";
+    }
+  };
+  const initialBlocks = flowParser.push(safeRead(flowTailer, "flow"));
+  for (const b2 of initialBlocks.slice(-opts.lines)) sse(res, "flow", b2);
+  const initialLines = lineBuffer.push(safeRead(ndjsonTailer, "ndjson"));
+  for (const l2 of initialLines.slice(-opts.lines)) sse(res, "event", eventRow(l2));
+  sse(res, "ready", { flow: Math.min(initialBlocks.length, opts.lines), events: Math.min(initialLines.length, opts.lines) });
+  const timer = setInterval(() => {
+    for (const b2 of flowParser.push(safeRead(flowTailer, "flow"))) sse(res, "flow", b2);
+    for (const l2 of lineBuffer.push(safeRead(ndjsonTailer, "ndjson"))) sse(res, "event", eventRow(l2));
+  }, pollMs);
+  const stop = () => clearInterval(timer);
+  req.on("close", stop);
+  res.on("close", stop);
+}
+function createMonitorServer(opts) {
+  const pollMs = opts.pollMs ?? 500;
+  const warn = opts.onWarn ?? ((m2) => process.stderr.write(`${m2}
+`));
+  return (0, import_node_http.createServer)((req, res) => {
+    const path = (req.url ?? "/").split("?")[0];
+    if (path === "/") return servePage(res, opts.htmlPath, warn);
+    if (path === "/stream") return serveStream(req, res, opts, pollMs, warn);
+    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.end("not found");
+  });
+}
+
+// src/monitor/page.ts
+var import_node_path31 = require("node:path");
+function monitorPagePath() {
+  return (0, import_node_path31.join)(__dirname, "..", "src", "monitor", "app.html");
+}
+
+// src/commands/monitor.ts
+var DEFAULT_PORT = 4319;
+var HOST = "127.0.0.1";
+function parseFlags4(argv) {
+  const flags = { open: true, lines: 200 };
+  for (let i2 = 0; i2 < argv.length; i2++) {
+    const a2 = argv[i2];
+    if (a2 === "--no-open") flags.open = false;
+    else if (a2 === "--port") {
+      const n2 = Number(argv[++i2]);
+      if (Number.isInteger(n2) && n2 > 0 && n2 < 65536) flags.port = n2;
+    } else if (a2 === "--lines") {
+      const n2 = Number(argv[++i2]);
+      if (Number.isFinite(n2) && n2 > 0) flags.lines = Math.floor(n2);
+    }
+  }
+  return flags;
+}
+function openBrowser(url) {
+  const platform = process.platform;
+  const [cmd, args] = platform === "win32" ? ["cmd", ["/c", "start", "", url]] : platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
+  try {
+    (0, import_node_child_process7.spawn)(cmd, args, { stdio: "ignore", detached: true, shell: false }).unref();
+  } catch {
+  }
+}
+function ready(server, flags) {
+  const addr = server.address();
+  const port = typeof addr === "object" && addr ? addr.port : DEFAULT_PORT;
+  const url = `http://${HOST}:${port}`;
+  process.stdout.write(`corpocode monitor \u2192 ${url}  (Ctrl-C to stop)
+`);
+  if (flags.open) openBrowser(url);
+}
+function runMonitorCommand(argv, env = process.env) {
+  const flags = parseFlags4(argv);
+  const server = createMonitorServer({
+    flowFile: flowLogFile(void 0, env),
+    ndjsonFile: logFile(void 0, env),
+    htmlPath: monitorPagePath(),
+    lines: flags.lines
+  });
+  const explicitPort = flags.port !== void 0;
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE" && !explicitPort) {
+      server.listen(0, HOST, () => ready(server, flags));
+      return;
+    }
+    const detail = err.code === "EADDRINUSE" ? `port ${flags.port} is already in use` : String(err);
+    process.stderr.write(`corpocode monitor: ${detail}
+`);
+    process.exitCode = 1;
+  });
+  server.listen(flags.port ?? DEFAULT_PORT, HOST, () => ready(server, flags));
+  const shutdown = () => {
+    server.close(() => process.exit(0));
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+}
+
 // src/commands/skillify.ts
 var import_node_process4 = require("node:process");
 
 // src/loops/skillgen.ts
-var import_node_fs39 = require("node:fs");
+var import_node_fs41 = require("node:fs");
 var import_node_os6 = require("node:os");
-var import_node_path31 = require("node:path");
+var import_node_path32 = require("node:path");
 function candidatesDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path31.join)((0, import_node_os6.homedir)(), ".claude");
-  return (0, import_node_path31.join)(base, "memdir", "corpocode-candidates");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path32.join)((0, import_node_os6.homedir)(), ".claude");
+  return (0, import_node_path32.join)(base, "memdir", "corpocode-candidates");
 }
 var zCandidates = external_exports.object({
   candidates: external_exports.array(external_exports.object({ name: external_exports.string(), description: external_exports.string(), body: external_exports.string() }))
@@ -30604,24 +30863,24 @@ async function generateSkillCandidates(deps) {
   }
   const dir = deps.dir ?? candidatesDir(deps.env);
   ensureDir(dir);
-  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs39.writeFileSync)(p2, c2));
+  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs41.writeFileSync)(p2, c2));
   const names = [];
   for (const c2 of candidates.slice(0, deps.maxCandidates ?? 5)) {
     const slug = slugify(c2.name);
     if (!slug) continue;
-    write((0, import_node_path31.join)(dir, `${slug}.md`), renderMemo(c2, slug));
+    write((0, import_node_path32.join)(dir, `${slug}.md`), renderMemo(c2, slug));
     names.push(slug);
   }
   return { mined: mems.length, written: names.length, names };
 }
 
 // src/loops/skillify.ts
-var import_node_fs40 = require("node:fs");
+var import_node_fs42 = require("node:fs");
 var import_node_os7 = require("node:os");
-var import_node_path32 = require("node:path");
+var import_node_path33 = require("node:path");
 function skillsDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path32.join)((0, import_node_os7.homedir)(), ".claude");
-  return (0, import_node_path32.join)(base, "skills");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path33.join)((0, import_node_os7.homedir)(), ".claude");
+  return (0, import_node_path33.join)(base, "skills");
 }
 function parseFrontmatter(text) {
   const m2 = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -30641,28 +30900,28 @@ function promoteCandidates(opts = {}) {
   const to = opts.toDir ?? skillsDir(opts.env);
   let files;
   try {
-    files = (0, import_node_fs40.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
+    files = (0, import_node_fs42.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
   } catch {
     return { promoted: [], skipped: [] };
   }
   const promoted = [];
   const skipped = [];
   for (const f2 of files) {
-    const path = (0, import_node_path32.join)(from, f2);
-    const raw = (0, import_node_fs40.readFileSync)(path, "utf8");
+    const path = (0, import_node_path33.join)(from, f2);
+    const raw = (0, import_node_fs42.readFileSync)(path, "utf8");
     const { fm } = parseFrontmatter(raw);
     const slug = fm.name ? slugify(fm.name) : "";
     if (!slug || !fm.description) {
       skipped.push(f2);
       continue;
     }
-    const skillDir = (0, import_node_path32.join)(to, slug);
+    const skillDir = (0, import_node_path33.join)(to, slug);
     ensureDir(skillDir);
-    (0, import_node_fs40.writeFileSync)((0, import_node_path32.join)(skillDir, "SKILL.md"), raw);
+    (0, import_node_fs42.writeFileSync)((0, import_node_path33.join)(skillDir, "SKILL.md"), raw);
     promoted.push(slug);
     if (opts.removeAfter !== false) {
       try {
-        (0, import_node_fs40.rmSync)(path);
+        (0, import_node_fs42.rmSync)(path);
       } catch {
       }
     }
@@ -30712,7 +30971,7 @@ async function runSkillifyCommand(argv, env = process.env) {
 }
 
 // src/commands/review.ts
-var import_node_fs41 = require("node:fs");
+var import_node_fs43 = require("node:fs");
 var MIN_FIRES = 5;
 var LOW_CONFIDENCE = 0.5;
 function computeReview(lines, opts = {}) {
@@ -30792,12 +31051,12 @@ function buildProposals(tenets, verifierChecks, turns, stage2, config) {
 }
 function readLogLines3() {
   try {
-    return (0, import_node_fs41.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs43.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
 }
-function parseFlags4(argv) {
+function parseFlags5(argv) {
   const flags = { json: false, days: 7 };
   for (let i2 = 0; i2 < argv.length; i2++) {
     if (argv[i2] === "--json") flags.json = true;
@@ -30809,7 +31068,7 @@ function parseFlags4(argv) {
   return flags;
 }
 function runReviewCommand(argv, env) {
-  const flags = parseFlags4(argv);
+  const flags = parseFlags5(argv);
   let config;
   try {
     config = loadConfig({ env });
@@ -30846,7 +31105,7 @@ function runReviewCommand(argv, env) {
 }
 
 // src/commands/telemetry.ts
-var import_node_fs42 = require("node:fs");
+var import_node_fs44 = require("node:fs");
 
 // src/telemetry/whitelist.ts
 var TELEMETRY_SCHEMA = "corpocode-telemetry/1";
@@ -30918,7 +31177,7 @@ function buildTelemetryPayload(lines, config) {
 var NEVER_COLLECTED = "prompts, code, file contents, file paths, transcripts, memory contents, and repository identity";
 function readRawConfig(env) {
   try {
-    const parsed = JSON.parse((0, import_node_fs42.readFileSync)(configFile(env), "utf8"));
+    const parsed = JSON.parse((0, import_node_fs44.readFileSync)(configFile(env), "utf8"));
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
@@ -30929,12 +31188,12 @@ function setTelemetryEnabled(enabled, env) {
   const tel = raw.telemetry && typeof raw.telemetry === "object" ? raw.telemetry : {};
   raw.telemetry = { ...tel, enabled };
   ensureDir(corpocodeHome(env));
-  (0, import_node_fs42.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
+  (0, import_node_fs44.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
 `);
 }
 function readLogLines4() {
   try {
-    return (0, import_node_fs42.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs44.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -30973,8 +31232,8 @@ Set telemetry.endpoint in your config to choose where it is sent. Preview anytim
 }
 
 // src/commands/docs.ts
-var import_node_fs43 = require("node:fs");
-var import_node_path33 = require("node:path");
+var import_node_fs45 = require("node:fs");
+var import_node_path34 = require("node:path");
 
 // src/docs-site/config-reference.ts
 function typeOf(value) {
@@ -31021,6 +31280,7 @@ var COMMANDS = [
   { name: "doctor", usage: "doctor", summary: "Run health checks and print repair hints" },
   { name: "stats", usage: "stats [--json] [--days N]", summary: "Report cost, savings, latency, and error rates" },
   { name: "why", usage: "why [--session <id>] [--days N] [--json]", summary: "Explain the decisions CorpoCode made in a session" },
+  { name: "monitor", usage: "monitor [--port N] [--no-open] [--lines N]", summary: "Open a live window onto corpocode's actions (flow + events)" },
   { name: "skillify", usage: "skillify [--promote]", summary: "Mine memories into skill candidates; --promote installs them" },
   { name: "review", usage: "review [--json] [--days N]", summary: "Audit the log; propose (never apply) config tweaks" },
   { name: "telemetry", usage: "telemetry <on|off|preview>", summary: "Opt-in aggregate telemetry; preview shows the exact payload" },
@@ -31048,8 +31308,8 @@ function runDocsCommand(argv) {
   const commands = generateCommandReference();
   if (out) {
     ensureDir(out);
-    (0, import_node_fs43.writeFileSync)((0, import_node_path33.join)(out, "config-reference.md"), config);
-    (0, import_node_fs43.writeFileSync)((0, import_node_path33.join)(out, "command-reference.md"), commands);
+    (0, import_node_fs45.writeFileSync)((0, import_node_path34.join)(out, "config-reference.md"), config);
+    (0, import_node_fs45.writeFileSync)((0, import_node_path34.join)(out, "command-reference.md"), commands);
     process.stdout.write(`Wrote config-reference.md and command-reference.md to ${out}
 `);
     return;
@@ -31060,7 +31320,7 @@ ${commands}
 }
 
 // src/commands/init.ts
-var import_node_fs44 = require("node:fs");
+var import_node_fs46 = require("node:fs");
 var import_node_process5 = require("node:process");
 function placeholderFor(key) {
   return `REPLACE_WITH_YOUR_${key}`;
@@ -31094,24 +31354,24 @@ function runInitCommand(argv, env = process.env) {
   const force = argv.includes("--force");
   ensureDir(corpocodeHome(env));
   const cfgPath = configFile(env);
-  if ((0, import_node_fs44.existsSync)(cfgPath) && !force) {
+  if ((0, import_node_fs46.existsSync)(cfgPath) && !force) {
     process.stdout.write(`\xB7 config already exists, leaving it: ${cfgPath}
 `);
   } else {
-    (0, import_node_fs44.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
+    (0, import_node_fs46.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
 `);
     process.stdout.write(`wrote default config: ${cfgPath}
 `);
   }
   const keys = defaultKeyNames();
   const secPath = secretsFile(env);
-  if ((0, import_node_fs44.existsSync)(secPath) && !force) {
+  if ((0, import_node_fs46.existsSync)(secPath) && !force) {
     process.stdout.write(`\xB7 secrets already exists, not touching it: ${secPath}
 `);
   } else {
-    (0, import_node_fs44.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
+    (0, import_node_fs46.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
     try {
-      (0, import_node_fs44.chmodSync)(secPath, 384);
+      (0, import_node_fs46.chmodSync)(secPath, 384);
     } catch {
     }
     process.stdout.write(
@@ -31154,8 +31414,8 @@ Next: open ${secPath} and replace the placeholder${plural} with your real key${p
 }
 
 // src/prompts/scaffold.ts
-var import_node_fs45 = require("node:fs");
-var import_node_path34 = require("node:path");
+var import_node_fs47 = require("node:fs");
+var import_node_path35 = require("node:path");
 function renderScaffold(id) {
   const body = BUILTIN_PROMPTS[id];
   const meta = PROMPT_META[id];
@@ -31206,16 +31466,16 @@ function scaffoldPrompts(opts = {}) {
   const wrote = [];
   const skipped = [];
   for (const id of allPromptIds()) {
-    const path = (0, import_node_path34.join)(dir, promptRelPath(id));
-    if ((0, import_node_fs45.existsSync)(path) && !opts.force) {
+    const path = (0, import_node_path35.join)(dir, promptRelPath(id));
+    if ((0, import_node_fs47.existsSync)(path) && !opts.force) {
       skipped.push(id);
       continue;
     }
-    (0, import_node_fs45.mkdirSync)((0, import_node_path34.dirname)(path), { recursive: true });
-    (0, import_node_fs45.writeFileSync)(path, renderScaffold(id));
+    (0, import_node_fs47.mkdirSync)((0, import_node_path35.dirname)(path), { recursive: true });
+    (0, import_node_fs47.writeFileSync)(path, renderScaffold(id));
     wrote.push(id);
   }
-  (0, import_node_fs45.writeFileSync)((0, import_node_path34.join)(dir, "README.md"), renderReadme());
+  (0, import_node_fs47.writeFileSync)((0, import_node_path35.join)(dir, "README.md"), renderReadme());
   return { dir, wrote, skipped };
 }
 
@@ -31298,6 +31558,9 @@ async function runCli(argv) {
       return;
     case "why":
       runWhyCommand(rest);
+      return;
+    case "monitor":
+      runMonitorCommand(rest);
       return;
     case "skillify":
       await runSkillifyCommand(rest);
