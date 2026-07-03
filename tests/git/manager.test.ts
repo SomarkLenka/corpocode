@@ -14,6 +14,11 @@ import type { CommandRunner } from "../../src/install/run";
 const TRACE = "corpocode/trace";
 const CLEAN = "corpocode/clean";
 
+// Each real-repo test spawns dozens of git subprocesses; on Windows under parallel suite load that
+// wall-clock exceeds vitest's 5s default testTimeout (flaky), so they carry an explicit budget
+// (~3s observed in isolation; the 30s cap still surfaces a genuinely hung git subprocess).
+const GIT_TEST_OPTS = { timeout: 30_000 };
+
 const dirs: string[] = [];
 afterEach(() => {
   for (const d of dirs.splice(0)) {
@@ -62,7 +67,7 @@ function manager(repo: string) {
 }
 
 describe("GitManager — trace branch (the flight recorder)", () => {
-  it("records three writes as three atomic single-file commits, and the middle reverts cleanly on its own", async () => {
+  it("records three writes as three atomic single-file commits, and the middle reverts cleanly on its own", GIT_TEST_OPTS, async () => {
     const repo = setupRepo();
     const mgr = manager(repo);
 
@@ -102,7 +107,7 @@ describe("GitManager — trace branch (the flight recorder)", () => {
 });
 
 describe("GitManager — clean branch (the curated narrative)", () => {
-  it("promotes a two-concern section into two coherent commits while the trace keeps full granular history", async () => {
+  it("promotes a two-concern section into two coherent commits while the trace keeps full granular history", GIT_TEST_OPTS, async () => {
     const repo = setupRepo();
     const mgr = manager(repo);
 
@@ -128,7 +133,7 @@ describe("GitManager — clean branch (the curated narrative)", () => {
     expect(shas(repo, TRACE)).toHaveLength(4);
   });
 
-  it("suggest mode surfaces the plan without applying it; auto mode applies it", async () => {
+  it("suggest mode surfaces the plan without applying it; auto mode applies it", GIT_TEST_OPTS, async () => {
     const repo = setupRepo();
     const mgr = manager(repo);
     write(repo, "x.txt", "x\n");
