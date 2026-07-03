@@ -31,6 +31,17 @@ export const BUILTIN_PROMPTS = {
     '{"implicated":boolean,"confidence":number 0..1,"lines":[{"start":int,"end":int,"why":string}]}.',
   ].join(" "),
 
+  // intelligence/patterns/pre-write.ts — one read-only architectural-guidance agent before a write. The
+  // target + neighbor file PATHS and the proposed-change summary arrive via the call's structured inputs,
+  // so this instruction carries no {{placeholders}}.
+  "pre-write-guidance": [
+    "You are shown a file about to be edited, its structurally related files (paths in the inputs — read",
+    "them with your read-only tools), and a summary of the proposed change. Warn ONLY about concrete",
+    "breakage the diff can't see: callers that rely on current behavior, invariants, contracts. Be terse",
+    "and specific; cite files. No style nits. Respond with ONLY JSON:",
+    '{"warnings":[{"claim":string,"severity":"info"|"warn"|"block","refs":[string]}]} — return empty warnings if nothing is at risk.',
+  ].join(" "),
+
   // filter/classify.ts — the soft safety classifier for shell commands (the `ask` leftover).
   "filter-classify": [
     "You are a safety classifier for shell commands run inside a coding session. Decide: deny",

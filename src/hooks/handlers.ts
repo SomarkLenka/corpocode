@@ -32,6 +32,7 @@ import { handleStop } from "../compactor/worker";
 import { handleSessionStart } from "../toolbox/session-start";
 import { handleSessionEnd } from "../agents/session-end";
 import { handleBugHunt, isBugLike } from "../intelligence/patterns/bug-hunt";
+import { handlePreWrite, isWriteTool } from "../intelligence/patterns/pre-write";
 import { readLastDecision, type CachedDecision } from "../session/decision-cache";
 
 export type Handler<E> = (envelope: E, ctx: HookContext) => Promise<HookResponse>;
@@ -52,7 +53,7 @@ export interface HandlerMap {
 export function buildHandlers(): Partial<HandlerMap> {
   return {
     UserPromptSubmit: composeUserPromptSubmit(),
-    PreToolUse: handlePreToolUse,
+    PreToolUse: composePreToolUse(),
     PostToolUse: handlePostToolUse,
     Stop: handleStop,
     SessionStart: handleSessionStart,
@@ -100,6 +101,31 @@ export function composeUserPromptSubmit(deps: UserPromptSubmitComposition = {}):
     }
     const hunt = await runBugHunt(envelope, ctx, decision!);
     return mergeContext(baseRes, hunt);
+  };
+}
+
+// ── PreToolUse composition: base filter/injector + gated pre-write action-pattern ────────────────────
+// The base handler (filter/handler.ts) is left untouched; here we wrap it so the IntelligentRouter's
+// second pattern (A2) can append architectural guidance AFTER it — but only when the agent seam is
+// present (agents.enabled) and the tool call is a file write. Flag off ⇒ the base output is returned
+// verbatim (byte-identical). mergeContext needs no change: handlePreWrite stamps "PreToolUse" on its
+// non-empty response, so the fallback chain labels every merge case correctly (spec §4.7).
+
+export interface PreToolUseComposition {
+  base?: Handler<PreToolUseEnvelope>;
+  runPreWrite?: (envelope: PreToolUseEnvelope, ctx: HookContext) => Promise<HookResponse>;
+}
+
+export function composePreToolUse(deps: PreToolUseComposition = {}): Handler<PreToolUseEnvelope> {
+  const base = deps.base ?? handlePreToolUse;
+  const runPreWrite = deps.runPreWrite ?? handlePreWrite;
+  return async (envelope, ctx) => {
+    const baseRes = await base(envelope, ctx);
+    // Ships dark: no agent registry (agents.enabled off) or the pattern switched off ⇒ base output verbatim.
+    if (!ctx.agents || !ctx.config.agents.pre_write.enabled) return baseRes;
+    if (!isWriteTool(envelope.tool_name)) return baseRes; // free check — no event logged on the hot path
+    const guidance = await runPreWrite(envelope, ctx);
+    return mergeContext(baseRes, guidance);
   };
 }
 

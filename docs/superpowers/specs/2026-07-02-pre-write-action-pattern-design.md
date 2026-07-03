@@ -1,7 +1,9 @@
 # Design — `pre-write` action-pattern (IntelligentRouter A2 / Phase 3)
 
 **Date:** 2026-07-02
-**Status:** Draft for review
+**Status:** Implemented — as-specced, taking the recommended §9 decisions: `architectural-guidance` only
+(§8 `deferred-actions` stays deferred), guidance inject-only (never ask/deny), 2000-char proposed-content
+cap, one guidance agent. All codebase claims were re-verified against HEAD before implementation.
 **Scope:** The second live IntelligentRouter action-pattern. On a `Write`/`Edit`/`MultiEdit` at
 `PreToolUse`, gather the file's blast radius (graph neighbors + file memories), run one read-only
 `pre-write-guidance` agent, and inject architectural guidance ("what not to touch, how this breaks Y")
@@ -41,15 +43,18 @@ Grounded in a read-only survey of HEAD.
 | task kind | `pre-write-guidance` already in `AGENT_TASK_KINDS` — **A2 is its first consumer** | `src/agents/backend.ts:30` |
 | engine / synthesize | `run(plan, {forTask,log})`; `TAGS.intelligentRouter` injection tag (reused, per the "one tag" rule) | `src/intelligence/engine.ts:26`, `src/hooks/response.ts:27` |
 | PreToolUse handler | `handlePreToolUse(env, ctx) → HookResponse`; Write/Edit currently fall through to `{}` / a toolbox route | `src/filter/handler.ts:21-39` |
-| composition mirror | `composeUserPromptSubmit` factory + `mergeContext`; registered in `buildHandlers()` | `src/hooks/handlers.ts:70-113` |
+| composition mirror | `composeUserPromptSubmit(deps = {})` factory; registered in `buildHandlers()`. `mergeContext(base, extra)` resolves `hookEventName` as `base.hookEventName ?? extra.hookEventName ?? "UserPromptSubmit"` — a fallback chain, not a hardcode | `src/hooks/handlers.ts:70-113` |
 | write-tool detection | `Write`/`Edit`/`MultiEdit`; file path at `tool_input.file_path` | `src/toolbox/route.ts:16,75`, `src/verifier/handler.ts:17-22` |
 | config mirror | `agents.bug_hunt` slice shape | `src/config/schema.ts:193-202` |
-| pattern reference impl | the four-piece contract + `pattern` event | `src/intelligence/patterns/bug-hunt.ts` |
+| pattern reference impl | the four-piece contract + `pattern` event; prompt via `ctx.prompts.resolve(id)`. **Its `raceDeadline` and `estTokens` helpers are module-local (not exported)** — A2 hoists them (below) | `src/intelligence/patterns/bug-hunt.ts` |
 
 **New deltas A2 introduces:** a `content`/`new_string` extractor (none exists — `tool_input` is untyped
-and no handler reads proposed content today); a `composePreToolUse` wrapper; a generalized `mergeContext`
-that stamps the right `hookEventName`; `src/intelligence/patterns/pre-write.ts`; an `agents.pre_write`
-config slice; a `pre-write-guidance` prompt id; and a one-case extension to B1's `why` translation.
+and no handler reads proposed content today); a `composePreToolUse` wrapper;
+`src/intelligence/patterns/shared.ts` hoisting bug-hunt's module-local `raceDeadline` + `estTokens`
+(behavior-neutral refactor, covered by the existing bug-hunt tests);
+`src/intelligence/patterns/pre-write.ts`; an `agents.pre_write` config slice; a `pre-write-guidance`
+prompt id; and a `rec.pattern` branch inside `why.ts`'s `case "pattern"` (§5). **No `mergeContext`
+change** — see §4.7.
 
 ---
 
@@ -125,11 +130,16 @@ No style nits. Return only the schema; empty `warnings` if nothing is at risk."*
 
 ### 4.5 Synthesizer — `synthesizePreWriteGuidance(result, cfg) → string`
 
+- **Pattern-specific renderer, not the generic `synthesize()`** — same precedent as
+  `synthesizeBugHunt`: the generic helper would emit structured `data` as a raw `JSON.stringify` blob,
+  which is exactly wrong for a severity-sorted warning list (the phases doc explicitly allows a
+  pattern-specific shape).
 - Renders the surviving warnings under `TAGS.intelligentRouter` with a header
   (`Pre-write guidance for {file} — architectural risks before you write:`), highest-severity first
   (`block` > `warn` > `info`), each as `- [{severity}] {claim}` + ` (refs: {refs})` when present.
-- Truncated to `cfg.maxInjectedTokens` (default 800, `length/4` estimate), dropping lowest-severity first;
-  the top warning is always kept. Returns `""` when nothing survives → no injection.
+- Truncated to `cfg.maxInjectedTokens` (default 800, via the hoisted `estTokens` `length/4` estimate),
+  dropping lowest-severity first; the top warning is always kept. Returns `""` when nothing survives →
+  no injection.
 
 ### 4.6 Handler adapter — `handlePreWrite(envelope, ctx) → HookResponse`
 
@@ -149,10 +159,15 @@ handlePreWrite(env, ctx):
 - **Latency (synchronous, hard-bounded — same as A1).** Guidance is injected NOW (phases-doc mandate), so
   it's in the write's critical path. One agent, `per_agent_ms` (10s) primary bound, `deadline_ms` (15s —
   tighter than bug-hunt's 30s since it's a single call and blocks an edit) as the backstop race resolving
-  to empty. Fully fail-open: any throw → `{}`.
+  to empty. `raceDeadline` is the **hoisted** bug-hunt helper (`patterns/shared.ts`), not a duplicate.
+  Fully fail-open: any throw → `{}`.
+- **The non-empty response stamps `hookEventName:"PreToolUse"`** (as `filter/inject.ts:144-148` already
+  does on this surface) — this is what makes the unmodified `mergeContext` label the merged response
+  correctly (§4.7).
 - `extractPreWriteTarget`: Write → `tool_input.content`; Edit → `tool_input.new_string`; MultiEdit →
   join `tool_input.edits[].new_string`; file from `tool_input.file_path`. Mirrors `extractWrittenFile`
-  (`verifier/handler.ts:17-22`), defensively typed.
+  (`verifier/handler.ts:17-22` — **module-local there, so mirror rather than import**; A2's version
+  additionally needs the proposed content, which nothing reads today), defensively typed.
 
 ### 4.7 Composition — `src/hooks/handlers.ts`
 
@@ -163,13 +178,21 @@ composePreToolUse(deps):
   if !ctx.agents || !ctx.config.agents.pre_write.enabled: return base
   if !isWriteTool(env.tool_name): return base    // free check
   guidance = await handlePreWrite(env, ctx)
-  return mergeContext(base, guidance, "PreToolUse")
+  return mergeContext(base, guidance)
 ```
-Registered as `PreToolUse: composePreToolUse()` in `buildHandlers()`. **`mergeContext` is generalized**
-to take an optional `fallbackHook` (default `"UserPromptSubmit"`, preserving A1) so the merged response
-stamps `hookEventName: "PreToolUse"` here. If `base` already carries a `permissionDecision` (a deny/ask
-from the filter), `mergeContext` preserves it and still appends guidance — a denied command and pre-write
-guidance never collide (different tools), but the merge is correct regardless.
+Registered as `PreToolUse: composePreToolUse()` in `buildHandlers()`. **`mergeContext` needs no change.**
+Its `hookEventName` resolution is already a fallback chain (`base.hookEventName ?? extra.hookEventName ??
+"UserPromptSubmit"`), so with `handlePreWrite` stamping `"PreToolUse"` on its non-empty response (§4.6)
+every merge case labels correctly:
+- base is a toolbox route (`filter/handler.ts:38` — sets **no** `hookEventName`) + guidance → the merged
+  response takes `"PreToolUse"` from the guidance side;
+- base is an inject response (already `"PreToolUse"`) → preserved;
+- guidance is `{}` → `mergeContext` returns `base` unchanged (byte-identical, including the
+  no-`hookEventName` toolbox shape).
+
+If `base` already carries a `permissionDecision` (a deny/ask from the filter), the spread in
+`mergeContext` preserves it and still appends guidance — a denied command and pre-write guidance never
+collide (different tools), but the merge is correct regardless.
 
 ---
 
@@ -180,10 +203,13 @@ Emits the same `pattern` event pinned in A1, with `pattern:"pre-write"`, `surfac
 `empty-candidates` | `error`), `files_considered` (neighbors handed to the agent), `warnings` (count),
 `injected_tokens`, `cost_usd`, `latency_ms`.
 
-Because B1's `why` renders bug-hunt-specific fields (`files_fanned`/`survivors`) for `pattern` events, A2
-adds **one branch** to `describe()` in `src/commands/why.ts`: when `rec.pattern === "pre-write"`, render
-`Ran: pre-write guidance — {warnings} warning(s), injected {injected_tokens} tokens.` (skipped path is
-already generic). This is the intended compounding — the shared event schema, rendered per pattern.
+B1's `describe()` (`src/commands/why.ts:105-110`) branches on `rec.event` only — its `case "pattern"`
+renders the bug-hunt ran-prose (`fanned out … file-relevance agents … cited lines`) **unconditionally**,
+so a `pre-write` event would today be narrated as a bug-hunt. A2 therefore adds a `rec.pattern` branch
+*inside* that case: `"pre-write"` → `Ran: pre-write guidance — {warnings} warning(s), injected
+{injected_tokens} tokens.` The skipped path (`Skipped ({reason}).`) is already pattern-generic and needs
+nothing; the component column already derives from `rec.pattern` via `labelFor`. This is the intended
+compounding — the shared event schema, rendered per pattern.
 
 ---
 
@@ -216,7 +242,8 @@ Mirrors `bug-hunt.test.ts` (fake `HookContext` with `ctx.agents`, fake `AgentBac
 8. **Judge** — empty-warnings and shape-invalid results are dropped (→ `no-warnings`, no injection).
 9. **`extractPreWriteTarget`** — pulls `content` (Write), `new_string` (Edit), joined `edits` (MultiEdit); caps proposed content at `max_proposed_chars`.
 10. **read-only posture** — the emitted task asserts `tools:"read-only"`.
-11. **B1 link** — extend `tests/commands/why.test.ts`: a `pattern` event with `pattern:"pre-write"` renders the pre-write prose (not the bug-hunt shape).
+11. **B1 link** — extend `tests/commands/why.test.ts`: a ran `pattern` event with `pattern:"pre-write"` renders the pre-write prose, and a `pattern:"bug-hunt"` one still renders the bug-hunt prose (the new branch must not regress the existing one).
+12. **Merge labeling** — a toolbox-route base (no `hookEventName`) merged with a guidance block yields `hookEventName:"PreToolUse"`; with empty guidance the base is returned byte-identical.
 
 `npm run verify` stays green; existing `tests/{filter,verifier,hooks}` pass unchanged with the flag off.
 
@@ -230,12 +257,17 @@ capability). **Not implemented here** (see §9 scope decision).
 - At `PreToolUse`, when the pattern decides an action is better done *after* the write, append it to a
   `pending-actions` disk record keyed by **session + file**, mirroring `session/decision-cache.ts`
   (ensureDir + writeFileSync + try/catch; read + JSON.parse + null fallback) with a new
-  `pendingActionsFile(sessionId, file, cwd?, env?)` helper in `config/paths.ts` (hash the file into the
-  key before `safeSessionId`, per the `agentSessionFile` precedent). **New vs the mirror:** a
-  best-effort `unlinkSync` consume step (decision-cache has no delete).
-- Consumed at the **top of `handlePostToolUse`** — at `verifier/handler.ts:28`, *before* the
-  `verify_on_edit` and no-tenets early-returns (so a verify-off repo still drains the record), gated on
-  `ctx.agents`. Committed via the existing `recordWrite(ctx, file, sessionId)` (`git/hook.ts:38`).
+  `pendingActionsFile(key, cwd?, env?)` helper in `config/paths.ts`. **Key-building follows the
+  `agents/sessions.ts` precedent, not paths.ts**: `sessionKeyForFile` (sessions.ts:50-55) sha1-hashes
+  `${sessionId}:${relpath}` and the paths helper (`agentSessionFile`) only *sanitizes* via
+  `safeSessionId` — hashing is the caller's job. **New vs the mirror:** a best-effort `unlinkSync`
+  consume step (decision-cache has no delete).
+- Consumed at the **top of `handlePostToolUse`** — first statement of the function body
+  (`verifier/handler.ts:28`), *before* the `verify_on_edit` and no-tenets early-returns (so a verify-off
+  repo still drains the record), gated on `ctx.agents`. Note the existing `extractWrittenFile` call sits
+  *behind* the `verify_on_edit` gate, so the drain step extracts the file itself. Committed via the
+  existing `recordWrite(ctx, file, sessionId)` (`git/hook.ts:38` — no-op unless
+  `git.enabled && git.commit_per_write`).
 - Open concretions (per phases doc): which actions run inline vs deferred; the scoped-write posture for a
   write-capable deferred agent (`--add-dir` sandbox vs diff-only).
 
@@ -258,13 +290,17 @@ capability). **Not implemented here** (see §9 scope decision).
 
 **New**
 - `src/intelligence/patterns/pre-write.ts` — the four pieces + `extractPreWriteTarget` + `isWriteTool` + `GUIDANCE_SCHEMA` + `PreWriteConfig`.
+- `src/intelligence/patterns/shared.ts` — `raceDeadline` + `estTokens`, hoisted from bug-hunt.
 - `tests/intelligence/patterns/pre-write.test.ts`.
 
 **Modified**
-- `src/hooks/handlers.ts` — `composePreToolUse`; generalize `mergeContext(base, extra, fallbackHook?)`; wire `PreToolUse: composePreToolUse()`.
+- `src/intelligence/patterns/bug-hunt.ts` — import `raceDeadline`/`estTokens` from `shared.ts` instead of
+  its module-local copies (behavior-neutral; existing bug-hunt tests must pass unchanged).
+- `src/hooks/handlers.ts` — `composePreToolUse`; wire `PreToolUse: composePreToolUse()`. **`mergeContext`
+  unchanged** (§4.7).
 - `src/prompts/registry.ts` + `catalog.ts` — register `pre-write-guidance`.
 - `src/config/schema.ts` — `agents.pre_write` slice.
-- `src/commands/why.ts` (+ `tests/commands/why.test.ts`) — one `pattern` branch for `pre-write`.
+- `src/commands/why.ts` (+ `tests/commands/why.test.ts`) — the `rec.pattern` branch inside `case "pattern"` (§5).
 
 **Unchanged (must not need edits)**
 - `src/intelligence/engine.ts`, `gather.ts`, `synthesize.ts`; `src/filter/handler.ts` (composed, untouched); `src/verifier/handler.ts` (untouched in this scope).

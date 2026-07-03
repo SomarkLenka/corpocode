@@ -16,6 +16,7 @@ import type { CachedDecision } from "../../session/decision-cache";
 import { gather, type Candidates } from "../gather";
 import { run } from "../engine";
 import type { AgentTaskResult, Intent, OrchestrationPlan, OrchestrationResult } from "../types";
+import { estTokens, raceDeadline } from "./shared";
 
 /** Bug vocabulary — whole-word, case-insensitive, plus a few multi-word phrases. The gate scans the
  *  envelope prompt only (no model call). The exact list is intentionally tunable; see spec §4.1. */
@@ -109,9 +110,6 @@ export function planBugHunt(intent: Intent, candidates: Candidates, cfg: BugHunt
   };
 }
 
-/** Rough token estimate (length/4) — the same one-liner used in retrieval/aggregator and the OV adapter. */
-const estTokens = (s: string): number => Math.ceil(s.length / 4);
-
 /** Render one surviving task to a plain-text cited-lines block (structure/meaning only, never markup). */
 function renderFinding(id: string, data: BugRelevance): string {
   const lines = (data.lines ?? []).filter(
@@ -153,27 +151,6 @@ export function synthesizeBugHunt(result: OrchestrationResult, maxInjectedTokens
 // Thin and gated: builds the prompt Intent, gathers deterministic candidates, fans out the plan under a
 // hard deadline backstop, and folds survivors into one injection. Reached only when ctx.agents is present
 // AND the composed handler's gate (isBugLike) has already passed. Fully fail-open — any throw returns {}.
-
-const EMPTY_RESULT: OrchestrationResult = { ok: false, tasks: [], usage: { costUsd: 0, latencyMs: 0, calls: 0, succeeded: 0 } };
-
-/** Race a run against a hard deadline. engine.run cannot be aborted (this POC must not modify it), so on
- *  deadline we resolve to an empty result — nothing is injected and the run finishes in the background.
- *  Never rejects; a backend error already resolves to a failed task inside run(). */
-function raceDeadline(runP: Promise<OrchestrationResult>, ms: number): Promise<{ result: OrchestrationResult; timedOut: boolean }> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve({ result: EMPTY_RESULT, timedOut: true }), ms);
-    runP.then(
-      (result) => {
-        clearTimeout(timer);
-        resolve({ result, timedOut: false });
-      },
-      () => {
-        clearTimeout(timer);
-        resolve({ result: EMPTY_RESULT, timedOut: false });
-      },
-    );
-  });
-}
 
 export async function handleBugHunt(
   envelope: UserPromptSubmitEnvelope,

@@ -95,6 +95,22 @@ describe("computeWhy · translation", () => {
     expect(one({ event: "pattern", pattern: "bug-hunt", decision: "skipped", reason: "gate:not-bug-like" }).text).toContain("Skipped (gate:not-bug-like)");
   });
 
+  it("translates the A2 pre-write pattern event (ran) and labels the component 'pre-write'", () => {
+    const l = one({ event: "pattern", pattern: "pre-write", surface: "PreToolUse", decision: "ran", reason: "ran", warnings: 2, injected_tokens: 180 });
+    expect(l.component).toBe("pre-write");
+    expect(l.text).toContain("pre-write guidance");
+    expect(l.text).toContain("2 warning(s)");
+    expect(l.text).toContain("180 tokens");
+  });
+
+  it("translates a skipped pre-write with its gate reason (the pattern-generic skipped path)", () => {
+    expect(one({ event: "pattern", pattern: "pre-write", decision: "skipped", reason: "gate:no-blast-radius" }).text).toContain("Skipped (gate:no-blast-radius)");
+  });
+
+  it("notes the off-'ran' path on a pre-write event, mirroring bug-hunt", () => {
+    expect(one({ event: "pattern", pattern: "pre-write", decision: "ran", reason: "deadline", warnings: 0, injected_tokens: 0 }).text).toContain("hit the deadline path");
+  });
+
   it("renders inject whole-file, toolbox session-start, and git commit vs promote variants", () => {
     expect(one({ event: "inject", file: "x.ts", sliced: false, purpose_known: false, warnings: 0 }).text).toContain("Read x.ts whole (purpose unknown)");
     expect(one({ event: "inject", file: "x.ts", sliced: false, purpose_known: false, warnings: 0 }).component).toBe("injector");

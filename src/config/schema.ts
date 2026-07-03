@@ -200,6 +200,18 @@ export const configSchema = z
             max_injected_tokens: z.number().int().positive().default(800), // synthesis truncation budget
           })
           .default({}),
+        // pre-write action-pattern (IntelligentRouter Phase 3 / A2). Only consulted when `enabled` above
+        // is on. See docs/superpowers/specs/2026-07-02-pre-write-action-pattern-design.md.
+        pre_write: z
+          .object({
+            enabled: z.boolean().default(true), // per-pattern off switch (within agents.enabled)
+            max_files: z.number().int().positive().default(4), // neighbor blast-radius files handed to the agent
+            per_agent_ms: z.number().int().positive().default(10_000), // agent timeout (the primary bound)
+            deadline_ms: z.number().int().positive().default(15_000), // overall race backstop (tighter — it blocks a write)
+            max_injected_tokens: z.number().int().positive().default(800), // guidance truncation budget
+            max_proposed_chars: z.number().int().positive().default(2000), // cap on inline proposed content
+          })
+          .default({}),
       })
       .default({}),
     // Off by default — the foundation of the privacy posture. When enabled, only the whitelisted

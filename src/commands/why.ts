@@ -1,7 +1,8 @@
 // `corpocode why` — read the NDJSON event log and explain, in plain language, the silent decisions
 // CorpoCode made in a session: what the router picked, why a tool was denied, whether a file read was
-// sliced, and what the IntelligentRouter's bug-hunt pattern did. It is the observability counterpart to
-// the action-patterns: a pure translation of the events they already log into one line per decision.
+// sliced, and what the IntelligentRouter's action-patterns (bug-hunt, pre-write) did. It is the
+// observability counterpart to the action-patterns: a pure translation of the events they already log
+// into one line per decision.
 //
 // Mirrors src/commands/stats.ts exactly: a pure computeWhy(lines, opts) → WhyReport (the test seam) plus
 // a thin runWhyCommand wrapper doing the file read + rendering. It adds no event and changes no hook.
@@ -103,8 +104,12 @@ function describe(rec: LogRecord): string | null {
         ? `Session-start toolbox: ${s(rec.gated)} gated, ${s(rec.skipped)} skipped.`
         : `Surfaced ${s(rec.skills)} skills, ${s(rec.agents)} agents (${s(rec.trigger)}).`;
     case "pattern": {
-      if (rec.decision === "skipped") return `Skipped (${s(rec.reason)}).`;
-      let base = `Ran: fanned out ${s(rec.files_fanned)} file-relevance agents, ${s(rec.survivors)} files implicated, injected ${s(rec.injected_tokens)} tokens of cited lines`;
+      if (rec.decision === "skipped") return `Skipped (${s(rec.reason)}).`; // pattern-generic
+      // The shared `pattern` event schema, rendered per pattern (the intended compounding — spec A2 §5).
+      let base =
+        rec.pattern === "pre-write"
+          ? `Ran: pre-write guidance — ${s(rec.warnings)} warning(s), injected ${s(rec.injected_tokens)} tokens`
+          : `Ran: fanned out ${s(rec.files_fanned)} file-relevance agents, ${s(rec.survivors)} files implicated, injected ${s(rec.injected_tokens)} tokens of cited lines`;
       if (rec.reason && rec.reason !== "ran") base += `; hit the ${s(rec.reason)} path`;
       return `${base}.`;
     }
