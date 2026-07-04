@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildRegistry } from "../../src/providers/registry";
-import { configSchema } from "../../src/config/schema";
+import { componentNameSchema, configSchema } from "../../src/config/schema";
 
 const config = configSchema.parse({});
 
@@ -23,11 +23,10 @@ describe("provider registry", () => {
   });
 });
 
-/** Build a config where every component points at one provider, so availableFor("filter") tests it. */
+/** Build a config where every component points at one provider, so availableFor("filter") tests it.
+ *  Component names come from the schema's own enum so this helper can never drift from it. */
 function single(provider: Record<string, unknown>) {
-  const components = Object.fromEntries(
-    ["router", "retrieval", "compactor", "filter", "verifier", "toolbox"].map((c) => [c, "p"]),
-  );
+  const components = Object.fromEntries(componentNameSchema.options.map((c) => [c, "p"]));
   return configSchema.parse({ providers: { p: provider }, components });
 }
 

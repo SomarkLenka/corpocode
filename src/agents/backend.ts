@@ -21,6 +21,9 @@ import type { ComponentName } from "../config/schema";
  *   pre-write-guidance — architectural guidance before a write
  *   review             — a tenet review of a proposed approach or written code
  *   housekeeping       — git / documentation upkeep
+ *   interrogate        — the cockpit's directed spec conversation (persistent session, cheap model)
+ *   consequence        — one option×axis trade-off analysis feeding a cockpit poll (read-only, cheap)
+ *   implement          — a write-capable swarm implementer (orchestrator mode only; consumed from Phase 3)
  *   general            — anything else
  */
 export const AGENT_TASK_KINDS = [
@@ -30,6 +33,9 @@ export const AGENT_TASK_KINDS = [
   "pre-write-guidance",
   "review",
   "housekeeping",
+  "interrogate",
+  "consequence",
+  "implement",
   "general",
 ] as const;
 export type AgentTaskKind = (typeof AGENT_TASK_KINDS)[number];

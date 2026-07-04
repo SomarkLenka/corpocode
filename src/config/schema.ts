@@ -26,7 +26,11 @@ export const providerKindSchema = z.enum([
 ]);
 export type ProviderKind = z.infer<typeof providerKindSchema>;
 
-/** Components that resolve a provider from the registry. */
+/** Components that resolve a provider from the registry.
+ *  `um` is the cockpit's cheap interrogation/consequence work (attribution + provider selection);
+ *  `arbiter` is the orchestrator's verification verdicts — deliberately the ONLY strong-model
+ *  component in the system (there is no "executive"; the reframe decision is recorded in
+ *  docs/narrative/05-upper-management.md). */
 export const componentNameSchema = z.enum([
   "router",
   "retrieval",
@@ -34,6 +38,8 @@ export const componentNameSchema = z.enum([
   "filter",
   "verifier",
   "toolbox",
+  "um",
+  "arbiter",
 ]);
 export type ComponentName = z.infer<typeof componentNameSchema>;
 
@@ -64,6 +70,8 @@ const componentsSchema = z
     filter: z.string().default("default"),
     verifier: z.string().default("default"),
     toolbox: z.string().default("default"),
+    um: z.string().default("default"),
+    arbiter: z.string().default("default"),
   })
   .default({});
 
@@ -72,6 +80,17 @@ const effortChoiceSchema = z.object({
   model: z.string().optional(),
   effort: effortSchema,
 });
+
+/** Per-role model/effort/limits for orchestrator agents — the same resolution shape as
+ *  effortChoiceSchema: `component` → config.components → provider; explicit `model` overrides. */
+export const roleConfigSchema = z.object({
+  component: componentNameSchema.optional(),
+  model: z.string().optional(),
+  effort: effortSchema.default("medium"),
+  max_turns: z.number().int().positive().optional(),
+  timeout_ms: z.number().int().positive().optional(),
+});
+export type RoleConfig = z.infer<typeof roleConfigSchema>;
 
 export const configSchema = z
   .object({
@@ -188,6 +207,70 @@ export const configSchema = z
         session_ttl_ms: z.number().int().positive().default(1_800_000), // 30 min before a session is evictable
         max_sessions: z.number().int().positive().default(50), // LRU bound on persisted agent sessions
         router_router: z.boolean().default(true), // the triage gate; false routes everything to the full router
+      })
+      .default({}),
+    // The orchestrator mode (`corpocode start`) — the primary product; see docs/narrative/08.
+    // `enabled` is true because the CLI command is the real gate; `initialized` is the RELEASE gate:
+    // `start` refuses until `corpocode init` has run the orchestrator onboarding (arbiter model, poll
+    // granularity, budget), bypassed for local testing via CORPOCODE_DEV=1 or --dev. Budget nulls mean
+    // UNCAPPED (the local-testing default) — init writes real values. The verify block deliberately has
+    // no allow_direct_patch: the arbiter never authors code; that is not a knob.
+    orchestrator: z
+      .object({
+        enabled: z.boolean().default(true),
+        initialized: z.boolean().default(false),
+        interrogation: z
+          .object({
+            interface: z.enum(["terminal", "web", "auto"]).default("terminal"), // "web" lands Phase 2
+            granularity: z.enum(["every-fork", "major-forks", "minimal"]).default("every-fork"),
+            consequence_axes: z
+              .array(z.string())
+              .default(["performance", "maintainability", "extensibility", "failure-modes", "idiom"]),
+            fanout_width: z.number().int().positive().default(4),
+            max_polls: z.number().int().positive().default(40), // interrogation-fatigue guard
+            teach: z.boolean().default(true),
+            // Phase-5 knobs; the seam records from day one but never adapts until enabled.
+            mastery: z
+              .object({
+                enabled: z.boolean().default(false),
+                alpha: z.number().default(0.15),
+                theta_teach: z.number().default(0.4),
+                theta_assume: z.number().default(0.8),
+                debounce_k: z.number().int().positive().default(3),
+              })
+              .default({}),
+          })
+          .default({}),
+        roles: z.record(roleConfigSchema).default({
+          interrogate: { effort: "medium", timeout_ms: 60_000 },
+          consequence: { effort: "minimal", timeout_ms: 30_000 },
+          implement: { effort: "medium", max_turns: 40, timeout_ms: 600_000 },
+          arbiter: { component: "arbiter", model: "claude-fable-5", effort: "high" },
+          housekeeping: { effort: "minimal" },
+        }),
+        swarm: z
+          .object({
+            max_parallel_writers: z.number().int().positive().default(3),
+            worktrees: z.boolean().default(true), // false ⇒ single-writer serial (the Phase-3 shipping config)
+          })
+          .default({}),
+        verify: z
+          .object({
+            cadence: z.enum(["per-task", "per-wave", "final"]).default("per-wave"),
+            mode: z.enum(["gate", "verify-rescue"]).default("gate"),
+            max_redispatch: z.number().int().nonnegative().default(2),
+            rescue_max_output_tokens: z.number().int().positive().default(800),
+          })
+          .default({}),
+        budget: z
+          .object({
+            max_run_usd: z.number().positive().nullable().default(null),
+            spec_usd: z.number().positive().nullable().default(null),
+            verify_usd: z.number().positive().nullable().default(null),
+            build_usd: z.number().positive().nullable().default(null),
+          })
+          .default({}),
+        runs_ttl_days: z.number().int().positive().default(14),
       })
       .default({}),
     // Off by default — the foundation of the privacy posture. When enabled, only the whitelisted

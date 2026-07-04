@@ -4,7 +4,10 @@
 import type { Pingable } from "../../types/common";
 import type { Transcript } from "../../compactor/types";
 
-export type MemoryKind = "decision" | "mistake" | "rule" | "approach";
+// `design-flaw` is protective like `mistake`, one altitude up: a structural trap recorded by the
+// cockpit so a design never walks into it twice. `mastery` tracks the pilot's per-concept mastery
+// (global to the user — see paths.masteryFile — not per-project); neither kind decays or reverses.
+export type MemoryKind = "decision" | "mistake" | "rule" | "approach" | "design-flaw" | "mastery";
 
 export interface Scope {
   project: string; // per-project store at ~/.corpocode/memory/<project>.json
