@@ -45,6 +45,10 @@ export interface CockpitDeps {
     charge(phase: "spec", usd: number): void;
   };
   autoApprove?: boolean;
+  /** Resume a paused interrogation from its persisted spec state (artifacts-as-checkpoints). The
+   *  interrogate SESSION is not resumed — the agent re-orients from the state — but every decided
+   *  fork and completed section survives, so no pilot answer is ever asked twice. */
+  resumeState?: SpecState;
   log?: (line: Record<string, unknown>) => void;
   now?: () => number;
 }
@@ -110,7 +114,7 @@ export async function runCockpit(deps: CockpitDeps): Promise<CockpitOutcome> {
   const grounding = (deps.files ?? []).join("\n");
   const interrogate = deps.forTask("interrogate");
 
-  let state = initialState(deps.runId, deps.task);
+  let state = deps.resumeState ?? initialState(deps.runId, deps.task);
   let sessionId: string | undefined; // the persistent interrogate thread, kept in-memory for the run
   let lastAnswer: string | undefined; // consumed once — fed into exactly the next interrogate turn
   let stalls = 0; // consecutive premature "done" moves

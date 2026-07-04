@@ -13866,7 +13866,7 @@ var init_AssistantStream = __esm({
         }));
         return runner;
       }
-      async _createToolAssistantStream(run, threadId, runId, params, options) {
+      async _createToolAssistantStream(run2, threadId, runId, params, options) {
         const signal = options?.signal;
         if (signal) {
           if (signal.aborted)
@@ -13874,7 +13874,7 @@ var init_AssistantStream = __esm({
           signal.addEventListener("abort", () => this.controller.abort());
         }
         const body = { ...params, stream: true };
-        const stream = await run.submitToolOutputs(threadId, runId, body, {
+        const stream = await run2.submitToolOutputs(threadId, runId, body, {
           ...options,
           signal: this.controller.signal
         });
@@ -13947,7 +13947,7 @@ var init_AssistantStream = __esm({
         }
         return this._addRun(__classPrivateFieldGet13(this, _AssistantStream_instances, "m", _AssistantStream_endRequest).call(this));
       }
-      async _createAssistantStream(run, threadId, params, options) {
+      async _createAssistantStream(run2, threadId, params, options) {
         const signal = options?.signal;
         if (signal) {
           if (signal.aborted)
@@ -13955,7 +13955,7 @@ var init_AssistantStream = __esm({
           signal.addEventListener("abort", () => this.controller.abort());
         }
         const body = { ...params, stream: true };
-        const stream = await run.create(threadId, body, { ...options, signal: this.controller.signal });
+        const stream = await run2.create(threadId, body, { ...options, signal: this.controller.signal });
         this._connected();
         for await (const event of stream) {
           __classPrivateFieldGet13(this, _AssistantStream_instances, "m", _AssistantStream_addEvent).call(this, event);
@@ -14018,8 +14018,8 @@ var init_AssistantStream = __esm({
         }
         return acc;
       }
-      _addRun(run) {
-        return run;
+      _addRun(run2) {
+        return run2;
       }
       async _threadAssistantStream(params, thread, options) {
         return await this._createThreadAssistantStream(thread, params, options);
@@ -15947,8 +15947,8 @@ var init_runs = __esm({
        * https://platform.openai.com/docs/assistants/how-it-works/runs-and-run-steps
        */
       async createAndPoll(threadId, body, options) {
-        const run = await this.create(threadId, body, options);
-        return await this.poll(threadId, run.id, options);
+        const run2 = await this.create(threadId, body, options);
+        return await this.poll(threadId, run2.id, options);
       }
       /**
        * Create a Run stream
@@ -15969,11 +15969,11 @@ var init_runs = __esm({
           headers["X-Stainless-Custom-Poll-Interval"] = options.pollIntervalMs.toString();
         }
         while (true) {
-          const { data: run, response } = await this.retrieve(threadId, runId, {
+          const { data: run2, response } = await this.retrieve(threadId, runId, {
             ...options,
             headers: { ...options?.headers, ...headers }
           }).withResponse();
-          switch (run.status) {
+          switch (run2.status) {
             //If we are in any sort of intermediate state we poll
             case "queued":
             case "in_progress":
@@ -15999,7 +15999,7 @@ var init_runs = __esm({
             case "completed":
             case "failed":
             case "expired":
-              return run;
+              return run2;
           }
         }
       }
@@ -16023,8 +16023,8 @@ var init_runs = __esm({
        * https://platform.openai.com/docs/assistants/how-it-works/runs-and-run-steps
        */
       async submitToolOutputsAndPoll(threadId, runId, body, options) {
-        const run = await this.submitToolOutputs(threadId, runId, body, options);
-        return await this.poll(threadId, run.id, options);
+        const run2 = await this.submitToolOutputs(threadId, runId, body, options);
+        return await this.poll(threadId, run2.id, options);
       }
       /**
        * Submit the tool outputs from a previous run and stream the run to a terminal
@@ -16118,8 +16118,8 @@ var init_threads = __esm({
        * https://platform.openai.com/docs/assistants/how-it-works/runs-and-run-steps
        */
       async createAndRunPoll(body, options) {
-        const run = await this.createAndRun(body, options);
-        return await this.runs.poll(run.thread_id, run.id, options);
+        const run2 = await this.createAndRun(body, options);
+        return await this.runs.poll(run2.thread_id, run2.id, options);
       }
       /**
        * Create a thread and stream the run back
@@ -19438,6 +19438,18 @@ function agentSessionsDir(cwd6, env) {
 }
 function agentSessionFile(key, cwd6, env) {
   return (0, import_node_path.join)(agentSessionsDir(cwd6, env), `${safeSessionId(key)}.json`);
+}
+function runsDir(cwd6, env) {
+  return (0, import_node_path.join)(projectStateDir(cwd6, env), "runs");
+}
+function runDir(runId, cwd6, env) {
+  return (0, import_node_path.join)(runsDir(cwd6, env), safeSessionId(runId));
+}
+function runFile(runId, name, cwd6, env) {
+  return (0, import_node_path.join)(runDir(runId, cwd6, env), name);
+}
+function masteryFile(env) {
+  return (0, import_node_path.join)(corpocodeHome(env), "mastery.json");
 }
 function safeSessionId(sessionId) {
   return sessionId.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80) || "session";
@@ -23501,6 +23513,9 @@ var AGENT_TASK_KINDS = [
   "pre-write-guidance",
   "review",
   "housekeeping",
+  "interrogate",
+  "consequence",
+  "implement",
   "general"
 ];
 var AGENT_BACKEND_KEYS = ["anthropic-cli", "agent-engine"];
@@ -23522,7 +23537,9 @@ var componentNameSchema = external_exports.enum([
   "compactor",
   "filter",
   "verifier",
-  "toolbox"
+  "toolbox",
+  "um",
+  "arbiter"
 ]);
 var effortSchema = external_exports.enum(["minimal", "medium", "high"]);
 var difficultySchema = external_exports.enum(["trivial", "medium", "hard"]);
@@ -23543,12 +23560,21 @@ var componentsSchema = external_exports.object({
   compactor: external_exports.string().default("default"),
   filter: external_exports.string().default("default"),
   verifier: external_exports.string().default("default"),
-  toolbox: external_exports.string().default("default")
+  toolbox: external_exports.string().default("default"),
+  um: external_exports.string().default("default"),
+  arbiter: external_exports.string().default("default")
 }).default({});
 var effortChoiceSchema = external_exports.object({
   component: external_exports.string().optional(),
   model: external_exports.string().optional(),
   effort: effortSchema
+});
+var roleConfigSchema = external_exports.object({
+  component: componentNameSchema.optional(),
+  model: external_exports.string().optional(),
+  effort: effortSchema.default("medium"),
+  max_turns: external_exports.number().int().positive().optional(),
+  timeout_ms: external_exports.number().int().positive().optional()
 });
 var configSchema = external_exports.object({
   // Config schema generation. A config that predates this field defaults to 1; because each block
@@ -23643,6 +23669,59 @@ var configSchema = external_exports.object({
     // LRU bound on persisted agent sessions
     router_router: external_exports.boolean().default(true)
     // the triage gate; false routes everything to the full router
+  }).default({}),
+  // The orchestrator mode (`corpocode start`) — the primary product; see docs/narrative/08.
+  // `enabled` is true because the CLI command is the real gate; `initialized` is the RELEASE gate:
+  // `start` refuses until `corpocode init` has run the orchestrator onboarding (arbiter model, poll
+  // granularity, budget), bypassed for local testing via CORPOCODE_DEV=1 or --dev. Budget nulls mean
+  // UNCAPPED (the local-testing default) — init writes real values. The verify block deliberately has
+  // no allow_direct_patch: the arbiter never authors code; that is not a knob.
+  orchestrator: external_exports.object({
+    enabled: external_exports.boolean().default(true),
+    initialized: external_exports.boolean().default(false),
+    interrogation: external_exports.object({
+      interface: external_exports.enum(["terminal", "web", "auto"]).default("terminal"),
+      // "web" lands Phase 2
+      granularity: external_exports.enum(["every-fork", "major-forks", "minimal"]).default("every-fork"),
+      consequence_axes: external_exports.array(external_exports.string()).default(["performance", "maintainability", "extensibility", "failure-modes", "idiom"]),
+      fanout_width: external_exports.number().int().positive().default(4),
+      max_polls: external_exports.number().int().positive().default(40),
+      // interrogation-fatigue guard
+      teach: external_exports.boolean().default(true),
+      // Phase-5 knobs; the seam records from day one but never adapts until enabled.
+      mastery: external_exports.object({
+        enabled: external_exports.boolean().default(false),
+        alpha: external_exports.number().default(0.15),
+        theta_teach: external_exports.number().default(0.4),
+        theta_assume: external_exports.number().default(0.8),
+        debounce_k: external_exports.number().int().positive().default(3)
+      }).default({})
+    }).default({}),
+    roles: external_exports.record(roleConfigSchema).default({
+      interrogate: { effort: "medium", timeout_ms: 6e4 },
+      consequence: { effort: "minimal", timeout_ms: 3e4 },
+      implement: { effort: "medium", max_turns: 40, timeout_ms: 6e5 },
+      arbiter: { component: "arbiter", model: "claude-fable-5", effort: "high" },
+      housekeeping: { effort: "minimal" }
+    }),
+    swarm: external_exports.object({
+      max_parallel_writers: external_exports.number().int().positive().default(3),
+      worktrees: external_exports.boolean().default(true)
+      // false ⇒ single-writer serial (the Phase-3 shipping config)
+    }).default({}),
+    verify: external_exports.object({
+      cadence: external_exports.enum(["per-task", "per-wave", "final"]).default("per-wave"),
+      mode: external_exports.enum(["gate", "verify-rescue"]).default("gate"),
+      max_redispatch: external_exports.number().int().nonnegative().default(2),
+      rescue_max_output_tokens: external_exports.number().int().positive().default(800)
+    }).default({}),
+    budget: external_exports.object({
+      max_run_usd: external_exports.number().positive().nullable().default(null),
+      spec_usd: external_exports.number().positive().nullable().default(null),
+      verify_usd: external_exports.number().positive().nullable().default(null),
+      build_usd: external_exports.number().positive().nullable().default(null)
+    }).default({}),
+    runs_ttl_days: external_exports.number().int().positive().default(14)
   }).default({}),
   // Off by default — the foundation of the privacy posture. When enabled, only the whitelisted
   // aggregate fields in src/telemetry/whitelist.ts are ever transmitted, to `endpoint`, batched.
@@ -23848,7 +23927,123 @@ var import_node_fs5 = require("node:fs");
 var import_node_fs4 = require("node:fs");
 var import_node_path3 = require("node:path");
 
+// src/um/harvest/superpowers.ts
+var UM_INTERROGATE_V0 = `You are the Upper-Management interrogator: one directed design conversation that turns a task
+statement into a spec complete enough for AUTONOMOUS execution. Explore intent, requirements,
+and design before any implementation exists. Anything left unspecified now becomes a silent
+guess during the build \u2014 your job is to leave nothing to interpretation.
+
+TASK
+{{task}}
+
+SECTIONS STILL OPEN (drive until every one is complete)
+{{remainingSections}}
+
+CODEBASE GROUNDING (real files, memories, and prior decisions \u2014 ground every proposal here; never invent structure the codebase does not have)
+{{grounding}}
+
+PILOT'S LAST ANSWER (fold it into the spec before moving on; empty on the first turn)
+{{lastAnswer}}
+
+THE CHARTER \u2014 seven sections; each must reach complete before the spec can be approved:
+- api-spec: entities, contracts, endpoints, data shapes \u2014 the precise surface the build implements.
+- capability-expansion: what is being added and how it grafts onto the existing codebase, grounded in the files above, not imagined.
+- future-plans: the features the architecture must NOT foreclose \u2014 seams to keep open, not speculative code to write.
+- parallelization: which tasks are independent so the swarm can fan out \u2014 emit taskSeeds here, with dependsOn edges.
+- compartmentalization: service and module boundaries, each with exactly one reason to change.
+- scale-path: what must hold when the load is real, decided up front rather than retrofitted.
+- reusable-systems: the shared substrate factored out once instead of rebuilt per feature.
+
+HOW TO WORK
+- Ask ONE question at a time. If a topic needs more exploration, break it into several forks
+  across turns rather than one compound question.
+- Prefer concrete multiple-choice forks over open questions: 2-4 real options, each with a short
+  label and a description carrying its trade-off. Always name your recommended option via
+  "suggested" and make the recommendation defensible from the grounding.
+- Mark "major": true only for architecture-shaping forks (data model, boundaries, contracts,
+  dependency choices, error strategy). Naming, formatting, and local-detail forks are
+  "major": false \u2014 the granularity dial filters on this flag.
+- If the task spans multiple independent subsystems, surface a decomposition fork FIRST. Do not
+  spend questions refining details of a project that needs splitting.
+- YAGNI ruthlessly: propose cutting unnecessary features; never widen scope the pilot did not ask for.
+- Every acceptance criterion must carry a verify method; prefer deterministic commands over
+  manual checks.
+- Record only what the pilot decided or what the grounding establishes. Never invent a decision
+  the pilot has not made \u2014 an unresolved fork is asked, not assumed.
+
+RESPONSE FORMAT \u2014 respond with EXACTLY ONE JSON object per turn. No prose, no code fences,
+nothing before or after the object. Three moves exist:
+
+1. Ask the pilot a decision fork:
+{"move":"fork","fork":{"id":"<kebab-slug>","section":"<one of the 7 section ids>","concept":"<concept name>","question":"...","major":true,"suggested":"<option id>","options":[{"id":"a","label":"...","description":"..."},{"id":"b","label":"...","description":"..."}]}}
+
+2. Record decided material into a section (payload is an ADDITIVE Spec fragment \u2014 any of
+entities/contracts/constraints/futureSeams/compartments/scalePath/reusableSystems/acceptance/taskSeeds;
+set "complete": true only when the section needs nothing more):
+{"move":"content","section":"<one of the 7 section ids>","complete":false,"payload":{"entities":[],"contracts":[],"constraints":[],"futureSeams":[],"compartments":[],"scalePath":[],"reusableSystems":[],"acceptance":[],"taskSeeds":[]}}
+
+3. End the interrogation (only when every section is complete):
+{"move":"done"}
+
+"section" is always exactly one of: api-spec, capability-expansion, future-plans,
+parallelization, compartmentalization, scale-path, reusable-systems.
+A malformed response is a failed turn \u2014 emit the single JSON object and nothing else.`;
+var UM_DECOMPOSE_V0 = `You are the Upper-Management decomposer. Turn the approved spec below into a task graph the
+swarm executes with zero further human input. Assume each task's implementer is a skilled
+developer with ZERO context on this codebase and questionable taste: a task must carry
+everything they need, because they see only their own task.
+
+APPROVED SPEC
+{{spec}}
+
+TASK GRAPH RULES
+- Granular tasks: each task is the smallest unit that carries its own verify cycle and is worth
+  a fresh reviewer's gate. Fold setup, configuration, and docs into the task whose deliverable
+  needs them; split only where a reviewer could reject one task while approving its neighbor.
+- Exact file paths always: every task lists the real files it creates or modifies. Files that
+  change together belong in one task; split by responsibility, not by technical layer.
+- dependsOn is the parallelization contract: name the exact ids of prerequisite tasks and
+  nothing more \u2014 every edge you omit is a task the swarm can run in parallel, and every edge
+  you invent serializes the build. The graph must be acyclic.
+- Every task gets a DETERMINISTIC verifyCommand \u2014 an exact command (test runner, typecheck,
+  build step) whose pass/fail needs no human judgment. Derive it from the spec's acceptance
+  verify methods where one applies. Preserve any verifyCommand the spec already fixed for a
+  seed; author one only where it is absent.
+- Interfaces travel in the description: state what the task consumes from earlier tasks and
+  what later tasks rely on \u2014 exact names, signatures, and types, since neighbors cannot see
+  each other. Names and types used across tasks must match exactly.
+- Map every acceptance criterion to at least one task via acceptanceRefs; a criterion no task
+  covers is a spec-coverage failure.
+- DRY. YAGNI. Test-first where the verifyCommand is a test.
+
+NO PLACEHOLDERS \u2014 these are plan failures, never write them:
+- "TBD", "TODO", "implement later", "fill in details"
+- "add appropriate error handling" / "add validation" / "handle edge cases"
+- "similar to task N" (repeat the content \u2014 tasks are read out of order)
+- references to types, functions, or files no task defines
+
+SELF-REVIEW before responding: (1) spec coverage \u2014 every spec requirement points to a task;
+(2) placeholder scan \u2014 none of the phrases above survive; (3) type consistency \u2014 signatures and
+names referenced across tasks match exactly. Fix issues inline, then respond.
+
+RESPONSE FORMAT \u2014 respond with EXACTLY ONE JSON object, no prose, no code fences:
+{"taskSeeds":[{"id":"<kebab-slug>","title":"...","description":"...","files":["exact/path.ts"],"dependsOn":["<earlier id>"],"verifyCommand":"<exact command>","acceptanceRefs":["<acceptance id>"]}]}`;
+
 // src/prompts/registry.ts
+function axisPrompt(lens, rubric) {
+  return [
+    `You price ONE option of an unmade design decision through the ${lens} lens, before any code exists.`,
+    "Decision concept: {{concept}}",
+    "Question: {{question}}",
+    "Option under analysis: {{optionLabel}} \u2014 {{optionDescription}}",
+    "",
+    rubric,
+    "",
+    "Ground your judgment in the ACTUAL codebase (read files as needed); never invent facts. Be concrete",
+    "and specific to this option \u2014 a generic observation is worthless to the pilot.",
+    'Respond with ONLY JSON: {"summary": string (1-2 sentences), "severity": "info"|"warn"|"risk"}.'
+  ].join("\n");
+}
 var BUILTIN_PROMPTS = {
   // router/ranker.ts — stage-2 moment categorizer. {{lineOfThought}} = the distilled intent/approach/
   // entities block; {{candidates}} = the bulleted candidate-file list.
@@ -23951,8 +24146,45 @@ var BUILTIN_PROMPTS = {
   "verifier-extensibility": "Assess Extensibility (E): is new behavior placed behind an abstraction that can be swapped, with core logic separated from the concrete implementation, so an alternative can be added without editing call sites? Flag a concrete vendor or implementation hard-wired into business logic where an interface seam belongs.",
   "verifier-documentation": "Assess Documentation (D): is the WHY recorded for any non-obvious choice (the constraint, the alternative considered, the trade-off, an ADR link), do comments explain intent rather than restate the code, and does this change leave no doc stale? Flag comments that merely restate the line below, an ADR-worthy decision made with no durable record, and a doc the code now contradicts.",
   "verifier-in-flight": "Assess In-flight (I): does every external call (HTTP, DB, queue, cache) have a timeout, a bounded and jittered retry, and a defined fallback, and does the code keep flying when a dependency is down instead of crashing? Flag an await with no timeout, unbounded/unjittered retries, a cache miss that hard-fails the request, and 'crash and let the orchestrator restart' used as the recovery plan.",
-  "verifier-testing": "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main."
+  "verifier-testing": "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main.",
+  // um/loop.ts — the cockpit's interrogation conversation (harvested from obra/superpowers, vendored
+  // + version-pinned in src/um/harvest/superpowers.ts). {{task}} = the engagement; {{remainingSections}}
+  // = charter sections still open; {{grounding}} = graph/memory context; {{lastAnswer}} = the pilot's
+  // latest decision.
+  "um-interrogate": UM_INTERROGATE_V0,
+  // orchestrator decompose (consumed from Phase 2/3) — approved spec → task graph. {{spec}} = spec.json.
+  "um-decompose": UM_DECOMPOSE_V0,
+  // um/loop.ts — the consequence-axis agents: the MOLAR-EDIT review shape run PROSPECTIVELY over the
+  // option space of a decision the pilot has not yet made (one agent per option×axis). The five
+  // default axes each get a tuned rubric; `um-axis` is the fallback for user-configured axes.
+  "um-axis": axisPrompt(
+    "{{axis}}",
+    "Assess this option strictly through the {{axis}} lens: what does choosing it cost or risk on that axis, now and as the system grows?"
+  ),
+  "um-axis-performance": axisPrompt(
+    "PERFORMANCE",
+    "Assess the performance consequence: hot paths this option touches, allocation and IO amplification, latency vs throughput posture, and how its cost scales with input size and concurrency. A hazard that only appears at scale is still a hazard \u2014 name the threshold."
+  ),
+  "um-axis-maintainability": axisPrompt(
+    "MAINTAINABILITY",
+    "Assess the maintainability cost (the M tenet, pointed forward): would this option keep changes isolated to the files that need them, with honest names and no magic values \u2014 or does it invite sprawl across unrelated modules, names that will lie as scope grows, and constants nobody will remember the meaning of?"
+  ),
+  "um-axis-extensibility": axisPrompt(
+    "EXTENSIBILITY",
+    "Assess the future-extensibility tax (the E tenet, pointed forward): does this option place behavior behind a seam that can be swapped, or does it hard-wire a concrete choice into call sites? Name the plausible future change this option makes expensive or forecloses."
+  ),
+  "um-axis-failure-modes": axisPrompt(
+    "FAILURE MODES",
+    "Assess the failure modes (the In-flight tenet, pointed forward): under this option, what breaks on timeout, partial failure, malformed input, or concurrent use \u2014 and what is the blast radius when it does? An option whose failure story is 'crash and restart' is a risk."
+  ),
+  "um-axis-idiom": axisPrompt(
+    "IDIOM",
+    "Assess the idiomatic-language reading: is this option how this language, framework, and THIS codebase's existing conventions would naturally express the intent \u2014 or will every future reader stumble on it? Ground the judgment in the real conventions you find in the repo, not textbook style."
+  )
 };
+function isPromptId(id) {
+  return Object.prototype.hasOwnProperty.call(BUILTIN_PROMPTS, id);
+}
 function allPromptIds() {
   return Object.keys(BUILTIN_PROMPTS);
 }
@@ -23979,7 +24211,15 @@ var PROMPT_META = {
   "verifier-extensibility": { path: "verifier/tenets/extensibility.md", source: "src/verifier/tenets/extensibility.ts", effect: "the Extensibility (E) standard the verifier enforces" },
   "verifier-documentation": { path: "verifier/tenets/documentation.md", source: "src/verifier/tenets/documentation.ts", effect: "the Documentation (D) standard the verifier enforces" },
   "verifier-in-flight": { path: "verifier/tenets/in-flight.md", source: "src/verifier/tenets/in-flight.ts", effect: "the In-flight (I) standard the verifier enforces" },
-  "verifier-testing": { path: "verifier/tenets/testing.md", source: "src/verifier/tenets/testing.ts", effect: "the Testing (T) standard the verifier enforces" }
+  "verifier-testing": { path: "verifier/tenets/testing.md", source: "src/verifier/tenets/testing.ts", effect: "the Testing (T) standard the verifier enforces" },
+  "um-interrogate": { path: "um/interrogate.md", source: "src/um/loop.ts", effect: "how the cockpit drives the spec conversation (harvested superpowers v0)" },
+  "um-decompose": { path: "um/decompose.md", source: "src/orchestrator/decompose.ts (Phase 2/3)", effect: "how an approved spec becomes a task graph" },
+  "um-axis": { path: "um/axis/generic.md", source: "src/um/loop.ts", effect: "the fallback rubric for a user-configured consequence axis" },
+  "um-axis-performance": { path: "um/axis/performance.md", source: "src/um/loop.ts", effect: "how an option's performance consequence is priced in a poll" },
+  "um-axis-maintainability": { path: "um/axis/maintainability.md", source: "src/um/loop.ts", effect: "how an option's maintainability cost is priced in a poll" },
+  "um-axis-extensibility": { path: "um/axis/extensibility.md", source: "src/um/loop.ts", effect: "how an option's extensibility tax is priced in a poll" },
+  "um-axis-failure-modes": { path: "um/axis/failure-modes.md", source: "src/um/loop.ts", effect: "how an option's failure modes are priced in a poll" },
+  "um-axis-idiom": { path: "um/axis/idiom.md", source: "src/um/loop.ts", effect: "how an option's idiomatic fit is priced in a poll" }
 };
 function promptRelPath(id) {
   return PROMPT_META[id].path;
@@ -26623,7 +26863,7 @@ function mapSpawnError(err) {
   return { kind: "network", message, retryable: true };
 }
 function createAnthropicCliAgent(opts = {}) {
-  const run = opts.spawn ?? spawnText2;
+  const run2 = opts.spawn ?? spawnText2;
   const now = opts.now ?? (() => Date.now());
   async function invoke(call) {
     const model = call.model ?? opts.defaultModel ?? { providerKey: "default", model: DEFAULT_AGENT_MODEL };
@@ -26635,7 +26875,7 @@ function createAnthropicCliAgent(opts = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const { stdout } = await run("claude", args, stdin, controller.signal);
+      const { stdout } = await run2("claude", args, stdin, controller.signal);
       clearTimeout(timer);
       const obj2 = JSON.parse(stdout);
       const text = obj2.result ?? "";
@@ -26675,7 +26915,7 @@ function createAnthropicCliAgent(opts = {}) {
     },
     health: async () => {
       try {
-        await run("claude", ["--version"], "", AbortSignal.timeout(5e3));
+        await run2("claude", ["--version"], "", AbortSignal.timeout(5e3));
         return { up: true };
       } catch {
         return { up: false };
@@ -26683,7 +26923,7 @@ function createAnthropicCliAgent(opts = {}) {
     },
     ping: async () => {
       try {
-        await run("claude", ["--version"], "", AbortSignal.timeout(5e3));
+        await run2("claude", ["--version"], "", AbortSignal.timeout(5e3));
         return true;
       } catch {
         return false;
@@ -27578,8 +27818,8 @@ async function runChecks(checks, opts) {
       }
     }
   }
-  const settled = await Promise.allSettled(tasks);
-  return settled.flatMap((s3) => s3.status === "fulfilled" ? [s3.value] : []);
+  const settled2 = await Promise.allSettled(tasks);
+  return settled2.flatMap((s3) => s3.status === "fulfilled" ? [s3.value] : []);
 }
 
 // src/molar/engine.ts
@@ -27648,8 +27888,8 @@ function createMolarEditEngine(opts) {
       });
     },
     async review(designContext) {
-      const settled = await Promise.allSettled(active.map((t2) => reviewOne(t2, designContext)));
-      return settled.flatMap((s3) => s3.status === "fulfilled" ? [s3.value] : []);
+      const settled2 = await Promise.allSettled(active.map((t2) => reviewOne(t2, designContext)));
+      return settled2.flatMap((s3) => s3.status === "fulfilled" ? [s3.value] : []);
     }
   };
 }
@@ -28277,9 +28517,9 @@ function assertSafe(args) {
   if (a0 === "reset" && args.includes("--hard")) throw new Error("refusing forbidden git op: hard reset");
   if (a0 === "rebase" || a0 === "filter-branch") throw new Error("refusing forbidden git op: history rewrite");
 }
-async function git(run, repoRoot, args, opts = {}) {
+async function git(run2, repoRoot, args, opts = {}) {
   assertSafe(args);
-  const res = await run("git", args, {
+  const res = await run2("git", args, {
     cwd: repoRoot,
     ...opts.input !== void 0 ? { input: opts.input } : {},
     ...opts.env ? { env: opts.env } : {}
@@ -28287,28 +28527,28 @@ async function git(run, repoRoot, args, opts = {}) {
   if (res.code !== 0) throw new GitError(`git ${args[0]} failed (code ${res.code})`, res.stderr);
   return res.stdout;
 }
-async function branchExists(run, repoRoot, branch) {
-  const res = await run("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: repoRoot });
+async function branchExists(run2, repoRoot, branch) {
+  const res = await run2("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: repoRoot });
   return res.code === 0;
 }
-async function revParse(run, repoRoot, ref) {
-  return (await git(run, repoRoot, ["rev-parse", ref])).trim();
+async function revParse(run2, repoRoot, ref) {
+  return (await git(run2, repoRoot, ["rev-parse", ref])).trim();
 }
 function relPath(repoRoot, file) {
   const rel = (0, import_node_path17.isAbsolute)(file) ? (0, import_node_path17.relative)(repoRoot, file) : file;
   return rel.replace(/\\/g, "/");
 }
-async function commitFilesToBranch(run, repoRoot, branch, files, message) {
+async function commitFilesToBranch(run2, repoRoot, branch, files, message) {
   const indexPath = (0, import_node_path17.join)(repoRoot, ".git", `corpocode-index-${branch.replace(/[^a-z0-9]/gi, "-")}`);
   const env = { GIT_INDEX_FILE: indexPath };
   try {
-    await git(run, repoRoot, ["read-tree", branch], { env });
+    await git(run2, repoRoot, ["read-tree", branch], { env });
     const rels = files.map((f2) => relPath(repoRoot, f2));
-    await git(run, repoRoot, ["add", "--", ...rels], { env });
-    const tree = (await git(run, repoRoot, ["write-tree"], { env })).trim();
-    const parent = await revParse(run, repoRoot, branch);
-    const commit = (await git(run, repoRoot, ["commit-tree", tree, "-p", parent], { env, input: message })).trim();
-    await git(run, repoRoot, ["update-ref", `refs/heads/${branch}`, commit], { env });
+    await git(run2, repoRoot, ["add", "--", ...rels], { env });
+    const tree = (await git(run2, repoRoot, ["write-tree"], { env })).trim();
+    const parent = await revParse(run2, repoRoot, branch);
+    const commit = (await git(run2, repoRoot, ["commit-tree", tree, "-p", parent], { env, input: message })).trim();
+    await git(run2, repoRoot, ["update-ref", `refs/heads/${branch}`, commit], { env });
     return commit;
   } finally {
     try {
@@ -28332,17 +28572,17 @@ ${list}
 `;
 }
 function createGitManager(opts) {
-  const run = opts.run ?? spawnRunner;
+  const run2 = opts.run ?? spawnRunner;
   const { repoRoot } = opts;
   const trace = opts.traceBranch;
   const clean = opts.cleanBranch;
   const groupBy = opts.groupBy ?? defaultGroupBy;
   const messageFor = opts.messageFor ?? defaultMessage;
   const ensure = async () => {
-    const head = await revParse(run, repoRoot, "HEAD");
+    const head = await revParse(run2, repoRoot, "HEAD");
     for (const branch of [trace, clean]) {
-      if (!await branchExists(run, repoRoot, branch)) {
-        await git(run, repoRoot, ["update-ref", `refs/heads/${branch}`, head]);
+      if (!await branchExists(run2, repoRoot, branch)) {
+        await git(run2, repoRoot, ["update-ref", `refs/heads/${branch}`, head]);
       }
     }
   };
@@ -28357,10 +28597,10 @@ function createGitManager(opts) {
 
 session ${o2.sessionId}
 `;
-      await commitFilesToBranch(run, repoRoot, trace, [file], message);
+      await commitFilesToBranch(run2, repoRoot, trace, [file], message);
     },
     async planPromotion(_repoRoot, since) {
-      const out = await git(run, repoRoot, ["diff", "--name-only", `${since}..${trace}`]);
+      const out = await git(run2, repoRoot, ["diff", "--name-only", `${since}..${trace}`]);
       const files = out.split("\n").map((s3) => s3.trim()).filter(Boolean);
       const buckets = /* @__PURE__ */ new Map();
       for (const f2 of files) {
@@ -28380,11 +28620,11 @@ session ${o2.sessionId}
       await ensure();
       for (const set of sets) {
         const abs = set.files.map((f2) => (0, import_node_path18.isAbsolute)(f2) ? f2 : (0, import_node_path18.join)(repoRoot, f2));
-        await commitFilesToBranch(run, repoRoot, clean, abs, set.message);
+        await commitFilesToBranch(run2, repoRoot, clean, abs, set.message);
       }
     },
     async conflicts(_repoRoot) {
-      const out = await git(run, repoRoot, ["diff", "--name-only", "--diff-filter=U"]);
+      const out = await git(run2, repoRoot, ["diff", "--name-only", "--diff-filter=U"]);
       return out.split("\n").map((s3) => s3.trim()).filter(Boolean);
     }
   };
@@ -29530,7 +29770,7 @@ function packageRoot(argv = process.argv) {
 var import_node_fs32 = require("node:fs");
 var import_node_path26 = require("node:path");
 async function provisionGraphify(opts) {
-  const run = opts.run ?? spawnRunner;
+  const run2 = opts.run ?? spawnRunner;
   const exists = opts.exists ?? import_node_fs32.existsSync;
   const python = opts.pythonCmd ?? "python";
   const graphPath = (0, import_node_path26.join)(opts.repoRoot, "graphify-out", "graph.json");
@@ -29547,21 +29787,21 @@ async function provisionGraphify(opts) {
       ]
     };
   }
-  const python_ = await run(python, ["--version"]);
+  const python_ = await run2(python, ["--version"]);
   steps.push({ name: "check python", ok: python_.code === 0, detail: python_.stdout.trim() || python_.stderr.trim() });
-  const ver = await run("graphify", ["--version"]);
+  const ver = await run2("graphify", ["--version"]);
   if (ver.code === 0) {
     steps.push({ name: "graphify present", ok: true, detail: ver.stdout.trim() });
   } else {
-    const install = await run(python, ["-m", "pip", "install", "--quiet", "graphify"]);
+    const install = await run2(python, ["-m", "pip", "install", "--quiet", "graphify"]);
     steps.push({ name: "install graphify", ok: install.code === 0, detail: install.code === 0 ? "installed" : install.stderr.trim() });
   }
-  const hook = await run("graphify", ["hook", "install"], { cwd: opts.repoRoot });
+  const hook = await run2("graphify", ["hook", "install"], { cwd: opts.repoRoot });
   steps.push({ name: "register git hook", ok: hook.code === 0, detail: hook.code === 0 ? "installed" : hook.stderr.trim() });
   if (exists(graphPath)) {
     steps.push({ name: "build graph", ok: true, detail: "graph already present", skipped: true });
   } else {
-    const build = await run("graphify", ["."], { cwd: opts.repoRoot });
+    const build = await run2("graphify", ["."], { cwd: opts.repoRoot });
     steps.push({ name: "build graph", ok: build.code === 0, detail: build.code === 0 ? "built" : build.stderr.trim() });
   }
   return { component: "graphify", ok: steps.every((s3) => s3.ok), steps };
@@ -29613,7 +29853,7 @@ function generateOvConf(config, opts = {}) {
   ].join("\n");
 }
 async function provisionOpenViking(opts) {
-  const run = opts.run ?? spawnRunner;
+  const run2 = opts.run ?? spawnRunner;
   const store = opts.store ?? buildContextStore(opts.config);
   const confPath = opts.confPath ?? ovConfPath();
   const writeConf = opts.writeConf ?? ((path, content) => {
@@ -29635,9 +29875,9 @@ async function provisionOpenViking(opts) {
   }
   writeConf(confPath, generateOvConf(opts.config, { apiKey: opts.apiKey }));
   steps.push({ name: "write ov.conf", ok: true, detail: confPath });
-  const ver = await run("openviking-server", ["--version"]);
+  const ver = await run2("openviking-server", ["--version"]);
   if (ver.code !== 0) {
-    const install = await run("python", ["-m", "pip", "install", "--quiet", "openviking"]);
+    const install = await run2("python", ["-m", "pip", "install", "--quiet", "openviking"]);
     steps.push({ name: "install openviking", ok: install.code === 0, detail: install.code === 0 ? "installed" : install.stderr.trim() });
   } else {
     steps.push({ name: "openviking present", ok: true, detail: ver.stdout.trim() });
@@ -30014,23 +30254,1323 @@ async function runUninstallCommand(argv) {
   }
 }
 
-// src/commands/doctor.ts
+// src/commands/start.ts
+var import_node_fs39 = require("node:fs");
+
+// src/intelligence/gather.ts
+var DEFAULT_LIMIT = 8;
+async function settled(p2, fallback, logger, source) {
+  try {
+    return await p2;
+  } catch (err) {
+    logger?.log({ event: "gather_source_degraded", source, reason: err instanceof Error ? err.message : String(err) });
+    return fallback;
+  }
+}
+async function gather(intent, deps) {
+  const limit2 = deps.limit ?? DEFAULT_LIMIT;
+  const scope = { project: deps.project, workspaceCascade: true };
+  if (intent.kind === "prompt") {
+    const [files, memories2, retrieval] = await Promise.all([
+      settled(deps.graph.scoreFiles(intent.prompt, { limit: limit2 }), [], deps.logger, "graph.scoreFiles"),
+      settled(
+        deps.memory.recall({ query: intent.prompt, kinds: ["mistake", "rule"], scope, limit: limit2 }),
+        [],
+        deps.logger,
+        "memory.recall"
+      ),
+      deps.runRetrieval ? settled(deps.runRetrieval(intent), void 0, deps.logger, "runRetrieval") : Promise.resolve(void 0)
+    ]);
+    return { files, nodes: [], neighborhoods: [], memories: memories2, retrieval };
+  }
+  const file = intent.file;
+  const node = await settled(deps.graph.getNode(file), null, deps.logger, "graph.getNode");
+  const [neighborhood, memories] = await Promise.all([
+    node ? settled(deps.graph.getNeighbors(node.id), null, deps.logger, "graph.getNeighbors") : Promise.resolve(null),
+    settled(deps.memory.recall({ file, scope, limit: limit2 }), [], deps.logger, "memory.recall")
+  ]);
+  return {
+    files: node?.path ? [{ path: node.path, score: 1, nodeId: node.id }] : [],
+    nodes: node ? [node] : [],
+    neighborhoods: neighborhood ? [neighborhood] : [],
+    memories
+  };
+}
+
+// src/orchestrator/context.ts
+function buildOrchestratorAgents(config, opts) {
+  return buildAgentRegistry({
+    backends: {
+      "anthropic-cli": createAnthropicCliAgent({ repoRoot: opts.repoRoot }),
+      "agent-engine": createAgentEngineBackend()
+    },
+    taskBackends: config.agents.task_backends,
+    defaultBackend: config.agents.default_backend
+  });
+}
+function resolveRoleModel(config, role) {
+  const rc = config.orchestrator.roles[role];
+  const componentKey = rc?.component ?? "um";
+  const providerKey = config.components[componentKey] ?? "default";
+  const provider = config.providers[providerKey];
+  const model = rc?.model ?? provider?.model;
+  if (!model) return void 0;
+  return { providerKey, model };
+}
+
+// src/orchestrator/budget.ts
+function createBudgetGuard(budget) {
+  const caps = {
+    maxRunUsd: budget.max_run_usd,
+    perPhase: {
+      spec: budget.spec_usd,
+      verify: budget.verify_usd,
+      build: budget.build_usd
+    }
+  };
+  const ledger = { spec: 0, verify: 0, build: 0 };
+  return {
+    caps,
+    charge(phase, usd) {
+      if (!(usd > 0)) return;
+      ledger[phase] += usd;
+    },
+    spent(phase) {
+      if (phase) return ledger[phase];
+      return ledger.spec + ledger.verify + ledger.build;
+    },
+    wouldExceed(phase, projectedUsd = 0) {
+      const projected = projectedUsd > 0 ? projectedUsd : 0;
+      const phaseCap = caps.perPhase[phase];
+      if (phaseCap !== null && ledger[phase] + projected > phaseCap) return true;
+      const total = ledger.spec + ledger.verify + ledger.build;
+      if (caps.maxRunUsd !== null && total + projected > caps.maxRunUsd) return true;
+      return false;
+    }
+  };
+}
+
+// src/orchestrator/run.ts
 var import_node_fs36 = require("node:fs");
+var RUN_STATUSES = [
+  "interrogating",
+  "specified",
+  "planned",
+  "building",
+  "verifying",
+  "rescuing",
+  "promoting",
+  "done",
+  "failed",
+  "paused"
+];
+var runRecordSchema = external_exports.object({
+  id: external_exports.string().min(1),
+  task: external_exports.string(),
+  status: external_exports.enum(RUN_STATUSES),
+  createdAt: external_exports.number(),
+  updatedAt: external_exports.number(),
+  pausedReason: external_exports.string().optional(),
+  resumeStatus: external_exports.enum(RUN_STATUSES).optional()
+});
+var PHASE_EDGES = {
+  interrogating: ["specified"],
+  specified: ["planned"],
+  planned: ["building"],
+  building: ["verifying"],
+  verifying: ["rescuing", "promoting"],
+  rescuing: ["verifying"],
+  promoting: ["done"]
+};
+function createRun(id, task, now) {
+  return { id, task, status: "interrogating", createdAt: now, updatedAt: now };
+}
+function advance(run2, event, now) {
+  const rejected = () => ({ ...run2, updatedAt: now });
+  if (run2.status === "done" || run2.status === "failed") return rejected();
+  switch (event.type) {
+    case "fail":
+      return { ...run2, status: "failed", pausedReason: event.reason, resumeStatus: void 0, updatedAt: now };
+    case "pause": {
+      if (run2.status === "paused") return rejected();
+      return { ...run2, status: "paused", pausedReason: event.reason, resumeStatus: run2.status, updatedAt: now };
+    }
+    case "resume": {
+      if (run2.status !== "paused" || !run2.resumeStatus) return rejected();
+      return { ...run2, status: run2.resumeStatus, pausedReason: void 0, resumeStatus: void 0, updatedAt: now };
+    }
+    case "spec-approved": {
+      if (run2.status !== "interrogating") return rejected();
+      return { ...run2, status: "specified", updatedAt: now };
+    }
+    case "phase": {
+      if (run2.status === "paused") return rejected();
+      const legal = PHASE_EDGES[run2.status] ?? [];
+      if (!legal.includes(event.to)) return rejected();
+      return { ...run2, status: event.to, updatedAt: now };
+    }
+  }
+}
+function newRunId(now, random = Math.random) {
+  const d2 = new Date(now());
+  const pad = (n2, w2 = 2) => String(n2).padStart(w2, "0");
+  const stamp = `${d2.getUTCFullYear()}${pad(d2.getUTCMonth() + 1)}${pad(d2.getUTCDate())}${pad(d2.getUTCHours())}${pad(d2.getUTCMinutes())}${pad(d2.getUTCSeconds())}`;
+  const hex = Math.floor(random() * 65536).toString(16).padStart(4, "0");
+  return `run-${stamp}-${hex}`;
+}
+function saveRun(run2, cwd6, env) {
+  try {
+    ensureDir(runDir(run2.id, cwd6, env));
+    (0, import_node_fs36.writeFileSync)(runFile(run2.id, "run.json", cwd6, env), JSON.stringify(run2, null, 2), "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+function loadRun(runId, cwd6, env) {
+  try {
+    const parsed = runRecordSchema.safeParse(JSON.parse((0, import_node_fs36.readFileSync)(runFile(runId, "run.json", cwd6, env), "utf8")));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+function listRuns(cwd6, env) {
+  let names;
+  try {
+    names = (0, import_node_fs36.readdirSync)(runsDir(cwd6, env));
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const name of names) {
+    const rec = loadRun(name, cwd6, env);
+    if (rec) out.push(rec);
+  }
+  out.sort((a2, b2) => b2.createdAt - a2.createdAt || (a2.id < b2.id ? 1 : -1));
+  return out;
+}
+
+// src/intelligence/engine.ts
+var DEFAULT_FANOUT = 3;
+var keepOk = (results) => results.filter((r2) => r2.result.ok);
+async function run(plan, deps) {
+  const limiter = deps.limiter ?? globalProviderLimiter;
+  const now = deps.now ?? (() => Date.now());
+  const started = now();
+  const width = Math.max(1, plan.fanoutWidth ?? DEFAULT_FANOUT);
+  const results = await mapBounded(plan.tasks, width, async (task) => {
+    try {
+      const backend = deps.forTask(task.call.taskKind);
+      const result = await limiter.run(() => backend.invoke(task.call));
+      deps.log?.({ event: "agent_item", id: task.id, task_kind: task.call.taskKind, ok: result.ok, cost_usd: result.usage.costUsd, latency_ms: result.usage.latencyMs });
+      return { id: task.id, result };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        id: task.id,
+        result: { ok: false, usage: { inputTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: 0, model: "" }, model: { providerKey: "", model: "" }, error: { kind: "model_unavailable", message, retryable: false } }
+      };
+    }
+  });
+  const judged = (plan.judge ?? keepOk)(results);
+  const usage = {
+    costUsd: results.reduce((sum, r2) => sum + r2.result.usage.costUsd, 0),
+    latencyMs: now() - started,
+    calls: results.length,
+    succeeded: results.filter((r2) => r2.result.ok).length
+  };
+  deps.log?.({ event: "orchestrate", calls: usage.calls, succeeded: usage.succeeded, surviving: judged.length, cost_usd: usage.costUsd, latency_ms: usage.latencyMs });
+  return { ok: judged.length > 0, tasks: judged, usage };
+}
+async function mapBounded(items, cap2, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i2 = next++;
+      out[i2] = await fn(items[i2]);
+    }
+  };
+  const pool = Math.min(Math.max(1, cap2), items.length || 1);
+  await Promise.all(Array.from({ length: pool }, () => worker()));
+  return out;
+}
+
+// src/um/types.ts
+var SPEC_SECTIONS = [
+  "api-spec",
+  // entities, contracts, endpoints, data shapes
+  "capability-expansion",
+  // what grafts onto the existing codebase (grounded in the KnowledgeGraph)
+  "future-plans",
+  // seams the architecture must not foreclose
+  "parallelization",
+  // which tasks are independent, so the swarm can fan out
+  "compartmentalization",
+  // service boundaries, one reason to change each
+  "scale-path",
+  // what must hold when the load is real
+  "reusable-systems"
+  // shared substrate factored out once
+];
+
+// src/um/spec-schema.ts
+var axisFindingSchema = external_exports.object({
+  axis: external_exports.string(),
+  optionId: external_exports.string(),
+  summary: external_exports.string(),
+  severity: external_exports.enum(["info", "warn", "risk"]),
+  ok: external_exports.boolean()
+});
+var answerSchema = external_exports.object({
+  pollId: external_exports.string(),
+  optionId: external_exports.string().optional(),
+  freeText: external_exports.string().optional(),
+  source: external_exports.enum(["pilot", "delegated", "default"])
+});
+var specSectionIdSchema = external_exports.enum(SPEC_SECTIONS);
+var decisionRecordSchema = external_exports.object({
+  pollId: external_exports.string(),
+  section: specSectionIdSchema,
+  concept: external_exports.string(),
+  question: external_exports.string(),
+  options: external_exports.array(
+    external_exports.object({ id: external_exports.string(), label: external_exports.string(), findings: external_exports.array(axisFindingSchema).default([]) })
+  ),
+  answer: answerSchema,
+  at: external_exports.number()
+});
+var acceptanceSchema = external_exports.object({
+  id: external_exports.string(),
+  criterion: external_exports.string(),
+  verify: external_exports.object({
+    method: external_exports.enum(["command", "test", "manual"]),
+    command: external_exports.string().optional()
+    // required in spirit for method=command|test; validated in decompose
+  })
+});
+var taskSeedSchema = external_exports.object({
+  id: external_exports.string(),
+  title: external_exports.string(),
+  description: external_exports.string(),
+  files: external_exports.array(external_exports.string()).default([]),
+  dependsOn: external_exports.array(external_exports.string()).default([]),
+  verifyCommand: external_exports.string().optional(),
+  // authored at decompose when absent; never silently dropped
+  acceptanceRefs: external_exports.array(external_exports.string()).default([])
+});
+var specSchema = external_exports.object({
+  version: external_exports.literal(1).default(1),
+  runId: external_exports.string(),
+  task: external_exports.string(),
+  // the original task statement handed to `corpocode start`
+  entities: external_exports.array(external_exports.object({ name: external_exports.string(), description: external_exports.string(), fields: external_exports.array(external_exports.string()).default([]) })).default([]),
+  contracts: external_exports.array(
+    external_exports.object({
+      name: external_exports.string(),
+      kind: external_exports.enum(["api", "function", "event", "cli", "schema"]),
+      signature: external_exports.string(),
+      description: external_exports.string()
+    })
+  ).default([]),
+  constraints: external_exports.array(external_exports.string()).default([]),
+  futureSeams: external_exports.array(external_exports.string()).default([]),
+  compartments: external_exports.array(external_exports.object({ name: external_exports.string(), responsibility: external_exports.string(), reasonToChange: external_exports.string() })).default([]),
+  scalePath: external_exports.array(external_exports.string()).default([]),
+  reusableSystems: external_exports.array(external_exports.object({ name: external_exports.string(), purpose: external_exports.string() })).default([]),
+  acceptance: external_exports.array(acceptanceSchema).default([]),
+  taskSeeds: external_exports.array(taskSeedSchema).default([]),
+  decisions: external_exports.array(decisionRecordSchema).default([]),
+  /** The section ledger at completion — every lamp must be "complete" before the approve poll. */
+  sections: external_exports.record(specSectionIdSchema, external_exports.enum(["open", "in-progress", "complete"])).default({}),
+  approvedAt: external_exports.number().optional()
+  // set when the pilot answers the final approve poll
+});
+function renderSpecMarkdown(spec) {
+  const lines = [`# Spec \u2014 ${spec.task}`, "", `Run: ${spec.runId}`, ""];
+  const section = (title, rows) => {
+    if (!rows.length) return;
+    lines.push(`## ${title}`, "", ...rows, "");
+  };
+  section(
+    "Entities",
+    spec.entities.map((e2) => `- **${e2.name}** \u2014 ${e2.description}${e2.fields.length ? ` (${e2.fields.join(", ")})` : ""}`)
+  );
+  section(
+    "Contracts",
+    spec.contracts.map((c2) => `- **${c2.name}** (${c2.kind}): \`${c2.signature}\` \u2014 ${c2.description}`)
+  );
+  section("Constraints", spec.constraints.map((c2) => `- ${c2}`));
+  section("Future seams (must not foreclose)", spec.futureSeams.map((s3) => `- ${s3}`));
+  section(
+    "Compartments",
+    spec.compartments.map((c2) => `- **${c2.name}** \u2014 ${c2.responsibility} (changes when: ${c2.reasonToChange})`)
+  );
+  section("Path to scale", spec.scalePath.map((s3) => `- ${s3}`));
+  section("Reusable systems", spec.reusableSystems.map((r2) => `- **${r2.name}** \u2014 ${r2.purpose}`));
+  section(
+    "Acceptance",
+    spec.acceptance.map((a2) => `- [${a2.id}] ${a2.criterion} \u2014 verify: ${a2.verify.method}${a2.verify.command ? ` (\`${a2.verify.command}\`)` : ""}`)
+  );
+  section(
+    "Task seeds",
+    spec.taskSeeds.map(
+      (t2) => `- [${t2.id}] **${t2.title}** \u2014 ${t2.description}${t2.dependsOn.length ? ` (after ${t2.dependsOn.join(", ")})` : ""}`
+    )
+  );
+  section(
+    "Decisions",
+    spec.decisions.map((d2) => {
+      const chosen = d2.answer.optionId ? d2.options.find((o2) => o2.id === d2.answer.optionId)?.label ?? d2.answer.optionId : d2.answer.freeText ?? "(unanswered)";
+      return `- [${d2.section}] ${d2.question} \u2192 **${chosen}** (${d2.answer.source})`;
+    })
+  );
+  return `${lines.join("\n").trimEnd()}
+`;
+}
+
+// src/um/interrogator.ts
+var sectionPayloadSchema = external_exports.object({
+  entities: specSchema.shape.entities.removeDefault().optional(),
+  contracts: specSchema.shape.contracts.removeDefault().optional(),
+  constraints: external_exports.array(external_exports.string()).optional(),
+  futureSeams: external_exports.array(external_exports.string()).optional(),
+  compartments: specSchema.shape.compartments.removeDefault().optional(),
+  scalePath: external_exports.array(external_exports.string()).optional(),
+  reusableSystems: specSchema.shape.reusableSystems.removeDefault().optional(),
+  acceptance: external_exports.array(acceptanceSchema).optional(),
+  taskSeeds: external_exports.array(taskSeedSchema).optional()
+});
+function initialState(runId, task) {
+  const sections = Object.fromEntries(SPEC_SECTIONS.map((s3) => [s3, "open"]));
+  return { spec: specSchema.parse({ runId, task, sections }), polls: 0 };
+}
+function bumpStatus(spec, section, complete) {
+  const current = spec.sections[section];
+  const next = complete ? "complete" : current === "complete" ? "complete" : "in-progress";
+  return { ...spec.sections, [section]: next };
+}
+function recordDecision(state, record) {
+  return {
+    spec: {
+      ...state.spec,
+      decisions: [...state.spec.decisions, record],
+      sections: bumpStatus(state.spec, record.section, false)
+    },
+    polls: state.polls + 1
+  };
+}
+function mergeKeyed(existing, incoming, key) {
+  const out = [...existing];
+  if (!incoming) return out;
+  const index2 = new Map(out.map((item, i2) => [key(item), i2]));
+  for (const item of incoming) {
+    const at2 = index2.get(key(item));
+    if (at2 === void 0) {
+      index2.set(key(item), out.length);
+      out.push(item);
+    } else {
+      out[at2] = item;
+    }
+  }
+  return out;
+}
+function recordContent(state, section, payload, complete) {
+  const spec = state.spec;
+  return {
+    spec: {
+      ...spec,
+      entities: mergeKeyed(spec.entities, payload.entities, (e2) => e2.name),
+      contracts: mergeKeyed(spec.contracts, payload.contracts, (c2) => c2.name),
+      constraints: mergeKeyed(spec.constraints, payload.constraints, (s3) => s3),
+      futureSeams: mergeKeyed(spec.futureSeams, payload.futureSeams, (s3) => s3),
+      compartments: mergeKeyed(spec.compartments, payload.compartments, (c2) => c2.name),
+      scalePath: mergeKeyed(spec.scalePath, payload.scalePath, (s3) => s3),
+      reusableSystems: mergeKeyed(spec.reusableSystems, payload.reusableSystems, (r2) => r2.name),
+      acceptance: mergeKeyed(spec.acceptance, payload.acceptance, (a2) => a2.id),
+      taskSeeds: mergeKeyed(spec.taskSeeds, payload.taskSeeds, (t2) => t2.id),
+      sections: bumpStatus(spec, section, complete)
+    },
+    polls: state.polls
+  };
+}
+function nextOpenSection(state) {
+  for (const section of SPEC_SECTIONS) {
+    if (state.spec.sections[section] !== "complete") return section;
+  }
+  return null;
+}
+function isComplete(state) {
+  return nextOpenSection(state) === null;
+}
+
+// src/um/consequences.ts
+var AXIS_FINDING_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string", description: "one or two sentences: the concrete trade-off on this axis" },
+    severity: { type: "string", enum: ["info", "warn", "risk"] }
+  },
+  required: ["summary", "severity"],
+  additionalProperties: false
+};
+function consequencePlan(fork, cfg) {
+  const tasks = [];
+  for (const option of fork.options) {
+    for (const axis of cfg.axes) {
+      tasks.push({
+        id: `${option.id}::${axis}`,
+        call: {
+          component: cfg.component,
+          taskKind: "consequence",
+          task: cfg.renderPrompt(axis, option),
+          inputs: cfg.files ? { files: cfg.files } : void 0,
+          model: cfg.model,
+          effort: cfg.effort,
+          schema: AXIS_FINDING_JSON_SCHEMA,
+          tools: "read-only",
+          session: "ephemeral",
+          timeoutMs: cfg.timeoutMs
+        }
+      });
+    }
+  }
+  return { tasks, fanoutWidth: cfg.fanoutWidth, judge: (results) => results };
+}
+
+// src/um/poll-synth.ts
+var SEVERITY_RANK = { info: 0, warn: 1, risk: 2 };
+function isPayload(v2) {
+  if (typeof v2 !== "object" || v2 === null) return false;
+  const p2 = v2;
+  return typeof p2.summary === "string" && (p2.severity === "info" || p2.severity === "warn" || p2.severity === "risk");
+}
+function synthesizePoll(fork, results, opts) {
+  const byId = new Map(results.map((r2) => [r2.id, r2.result]));
+  const options = fork.options.map((option) => ({
+    id: option.id,
+    label: option.label,
+    description: option.description,
+    findings: opts.axes.map((axis) => {
+      const result = byId.get(`${option.id}::${axis}`);
+      if (result?.ok && isPayload(result.data)) {
+        return { axis, optionId: option.id, summary: result.data.summary, severity: result.data.severity, ok: true };
+      }
+      return { axis, optionId: option.id, summary: "unanalyzed", severity: "info", ok: false };
+    })
+  }));
+  const wins = new Map(options.map((o2) => [o2.id, 0]));
+  for (const axis of opts.axes) {
+    const ranks = options.map((o2) => {
+      const finding = o2.findings.find((f2) => f2.axis === axis);
+      return { id: o2.id, rank: SEVERITY_RANK[finding?.severity ?? "info"] };
+    });
+    const best = Math.min(...ranks.map((r2) => r2.rank));
+    const winners = ranks.filter((r2) => r2.rank === best);
+    if (winners.length === ranks.length) continue;
+    for (const w2 of winners) wins.set(w2.id, (wins.get(w2.id) ?? 0) + 1);
+  }
+  const most = Math.max(0, ...wins.values());
+  const leaders = options.filter((o2) => most > 0 && wins.get(o2.id) === most);
+  const recommended = leaders.length === 1 ? leaders[0] : void 0;
+  if (recommended) recommended.recommended = true;
+  return {
+    id: fork.id,
+    concept: fork.concept,
+    question: fork.question,
+    options,
+    teaching: opts.teaching,
+    allowFreeText: true,
+    allowDelegate: opts.allowDelegate,
+    defaultOptionId: recommended?.id
+  };
+}
+function renderTeaching(fork, findings) {
+  const lines = [`This decision exercises "${fork.concept}".`, fork.question, ""];
+  for (const option of fork.options) {
+    const analyzed = findings.filter((f2) => f2.optionId === option.id && f2.ok);
+    const digest = analyzed.length ? analyzed.map((f2) => `${f2.axis} (${f2.severity}): ${f2.summary}`).join(" | ") : "no analyzed consequences";
+    lines.push(`- ${option.label}: ${digest}`);
+  }
+  return { concept: fork.concept, body: lines.join("\n") };
+}
+
+// src/um/loop.ts
+var moveSchema = external_exports.discriminatedUnion("move", [
+  external_exports.object({
+    move: external_exports.literal("fork"),
+    fork: external_exports.object({
+      id: external_exports.string().min(1),
+      section: specSectionIdSchema,
+      concept: external_exports.string().min(1),
+      question: external_exports.string().min(1),
+      major: external_exports.boolean(),
+      suggested: external_exports.string().optional(),
+      options: external_exports.array(external_exports.object({ id: external_exports.string().min(1), label: external_exports.string(), description: external_exports.string().optional() })).min(1)
+    })
+  }),
+  external_exports.object({ move: external_exports.literal("content"), section: specSectionIdSchema, complete: external_exports.boolean(), payload: sectionPayloadSchema }),
+  external_exports.object({ move: external_exports.literal("done") })
+]);
+var MOVE_INSTRUCTION = 'Reply with EXACTLY ONE JSON object and nothing else, in one of these shapes:\n{"move":"fork","fork":{"id":"<kebab-slug>","section":"<section id>","concept":"<concept name>","question":"...","major":true|false,"suggested":"<option id>","options":[{"id":"a","label":"...","description":"..."}]}}\n{"move":"content","section":"<section id>","complete":true|false,"payload":{<additive spec fragment>}}\n{"move":"done"}';
+var RETRY_NOTE = "\nYour previous reply was not one valid move JSON object. Reply again with exactly one JSON object matching the protocol above.";
+function extractJson3(text) {
+  if (!text) return void 0;
+  const stripped = text.replace(/```(?:json)?/gi, "").trim();
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start < 0 || end <= start) return void 0;
+  try {
+    return JSON.parse(stripped.slice(start, end + 1));
+  } catch {
+    return void 0;
+  }
+}
+function parseMove(result) {
+  if (!result.ok) return null;
+  const raw = result.data ?? extractJson3(result.text);
+  const parsed = moveSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+async function runCockpit(deps) {
+  const now = deps.now ?? (() => Date.now());
+  const log = deps.log ?? (() => {
+  });
+  const interrogation = deps.orchestration.interrogation;
+  const roles = deps.orchestration.roles;
+  const grounding = (deps.files ?? []).join("\n");
+  const interrogate = deps.forTask("interrogate");
+  let state = deps.resumeState ?? initialState(deps.runId, deps.task);
+  let sessionId;
+  let lastAnswer;
+  let stalls = 0;
+  const pause = (reason) => {
+    log({ event: "cockpit_pause", run_id: deps.runId, reason, polls: state.polls });
+    return { status: "paused", state, reason };
+  };
+  const nextMove = async (remainingSections) => {
+    const prompt = deps.prompts.interrogate({ task: deps.task, remainingSections, grounding, lastAnswer });
+    lastAnswer = void 0;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const call = {
+        component: "um",
+        taskKind: "interrogate",
+        task: `${prompt}
+
+${MOVE_INSTRUCTION}${attempt > 0 ? RETRY_NOTE : ""}`,
+        inputs: deps.files ? { files: deps.files } : void 0,
+        model: deps.roleModels?.interrogate,
+        effort: roles.interrogate?.effort ?? "medium",
+        timeoutMs: roles.interrogate?.timeout_ms,
+        tools: "read-only",
+        session: sessionId ? { reuse: sessionId } : { persist: true }
+      };
+      const result = await interrogate.invoke(call);
+      deps.budget.charge("spec", result.usage.costUsd);
+      if (result.session?.id) sessionId = result.session.id;
+      const move = parseMove(result);
+      if (move) return move;
+    }
+    return null;
+  };
+  while (true) {
+    if (deps.budget.wouldExceed("spec")) return pause("budget");
+    const remainingSections = SPEC_SECTIONS.filter((s3) => state.spec.sections[s3] !== "complete");
+    const move = await nextMove(remainingSections);
+    if (!move) return pause("interrogator-malformed");
+    if (move.move === "content") {
+      stalls = 0;
+      state = recordContent(state, move.section, move.payload, move.complete);
+      log({ event: "cockpit_move", move: "content", section: move.section, complete: move.complete });
+      continue;
+    }
+    if (move.move === "fork") {
+      stalls = 0;
+      const fork = {
+        id: move.fork.id,
+        section: move.fork.section,
+        concept: move.fork.concept,
+        question: move.fork.question,
+        options: move.fork.options,
+        major: move.fork.major
+      };
+      log({ event: "cockpit_move", move: "fork", fork_id: fork.id, section: fork.section, major: fork.major });
+      const ask = interrogation.granularity === "every-fork" || interrogation.granularity === "major-forks" && fork.major;
+      if (!ask) {
+        const chosen = fork.options.find((o2) => o2.id === move.fork.suggested) ?? fork.options[0];
+        const answer3 = { pollId: fork.id, optionId: chosen.id, source: "delegated" };
+        state = recordDecision(state, {
+          pollId: fork.id,
+          section: fork.section,
+          concept: fork.concept,
+          question: fork.question,
+          options: fork.options.map((o2) => ({ id: o2.id, label: o2.label, findings: [] })),
+          answer: answer3,
+          at: now()
+        });
+        lastAnswer = `Fork "${fork.id}" was auto-resolved to "${chosen.label}" (delegated by poll granularity).`;
+        log({ event: "cockpit_poll", poll_id: fork.id, asked: false, source: "delegated", option: chosen.id });
+        continue;
+      }
+      if (state.polls >= interrogation.max_polls) return pause("max_polls");
+      if (deps.budget.wouldExceed("spec")) return pause("budget");
+      const plan = consequencePlan(fork, {
+        axes: interrogation.consequence_axes,
+        fanoutWidth: interrogation.fanout_width,
+        component: "um",
+        model: deps.roleModels?.consequence,
+        effort: roles.consequence?.effort ?? "minimal",
+        timeoutMs: roles.consequence?.timeout_ms,
+        files: deps.files,
+        renderPrompt: (axis, option) => deps.prompts.axis(axis, {
+          question: fork.question,
+          optionLabel: option.label,
+          optionDescription: option.description,
+          concept: fork.concept
+        })
+      });
+      const fanout = await run(plan, { forTask: deps.forTask, log: deps.log, now: deps.now });
+      deps.budget.charge("spec", fanout.usage.costUsd);
+      let poll = synthesizePoll(fork, fanout.tasks, {
+        axes: interrogation.consequence_axes,
+        allowDelegate: true
+      });
+      if (interrogation.teach && deps.mastery.treatment(fork.concept) === "teach-then-poll") {
+        poll = { ...poll, teaching: renderTeaching(fork, poll.options.flatMap((o2) => o2.findings)) };
+      }
+      const answer2 = await deps.interactor.ask(poll);
+      if (!answer2) return pause("interactor-lost");
+      state = recordDecision(state, {
+        pollId: poll.id,
+        section: fork.section,
+        concept: fork.concept,
+        question: fork.question,
+        // Findings embed in the ledger so the spec records not just WHAT was chosen but what the
+        // pilot knew when choosing it.
+        options: poll.options.map((o2) => ({ id: o2.id, label: o2.label, findings: o2.findings })),
+        answer: answer2,
+        at: now()
+      });
+      deps.mastery.observe(fork.concept, {
+        confident: answer2.source === "pilot",
+        delegated: answer2.source !== "pilot"
+      });
+      const chosenLabel = answer2.optionId ? fork.options.find((o2) => o2.id === answer2.optionId)?.label ?? answer2.optionId : void 0;
+      lastAnswer = answer2.freeText ? `On "${fork.question}" the pilot answered in their own words: ${answer2.freeText}` : `On "${fork.question}" the pilot chose "${chosenLabel}".`;
+      log({ event: "cockpit_poll", poll_id: poll.id, asked: true, source: answer2.source, option: answer2.optionId });
+      continue;
+    }
+    if (!isComplete(state)) {
+      stalls += 1;
+      log({ event: "cockpit_move", move: "done", premature: true, stalls });
+      if (stalls >= 3) return pause("interrogator-stalled");
+      lastAnswer = `The spec is NOT complete. Sections remaining: ${remainingSections.join(", ")}. Keep interrogating.`;
+      continue;
+    }
+    log({ event: "cockpit_move", move: "done", premature: false });
+    let answer;
+    if (deps.autoApprove) {
+      answer = { pollId: "approve-spec", optionId: "approve", freeText: "--yes", source: "pilot" };
+    } else {
+      const approvePoll = {
+        id: "approve-spec",
+        concept: "spec-approval",
+        question: "Approve this spec and hand it to the swarm, or request revisions?",
+        options: [
+          { id: "approve", label: "Approve", findings: [] },
+          { id: "revise", label: "Revise", findings: [] }
+        ],
+        allowFreeText: true,
+        allowDelegate: false,
+        defaultOptionId: void 0
+      };
+      answer = await deps.interactor.ask(approvePoll);
+    }
+    if (!answer) return pause("interactor-lost");
+    if (answer.optionId === "approve") {
+      state = { ...state, spec: { ...state.spec, approvedAt: now() } };
+      log({ event: "cockpit_approved", run_id: deps.runId, polls: state.polls, decisions: state.spec.decisions.length });
+      return { status: "approved", state };
+    }
+    stalls = 0;
+    lastAnswer = `The pilot wants revisions before approving${answer.freeText ? `: ${answer.freeText}` : ""}. Continue interrogating.`;
+  }
+}
+
+// src/um/mastery.ts
+var import_node_fs37 = require("node:fs");
 var import_node_path30 = require("node:path");
+var masteryFileSchema = external_exports.object({
+  version: external_exports.literal(1),
+  concepts: external_exports.record(
+    external_exports.object({
+      concept: external_exports.string(),
+      observations: external_exports.array(
+        external_exports.object({ at: external_exports.number(), confident: external_exports.boolean(), delegated: external_exports.boolean() })
+      )
+    })
+  )
+});
+function createMasteryModel(opts) {
+  const path = opts.file ?? masteryFile(opts.env);
+  const now = opts.now ?? Date.now;
+  const read = opts.readFile ?? ((p2) => {
+    try {
+      return (0, import_node_fs37.readFileSync)(p2, "utf8");
+    } catch {
+      return null;
+    }
+  });
+  const write = opts.writeFile ?? ((p2, text) => {
+    try {
+      ensureDir((0, import_node_path30.dirname)(p2));
+      (0, import_node_fs37.writeFileSync)(p2, text);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  function load() {
+    const text = read(path);
+    if (text === null) return { version: 1, concepts: {} };
+    try {
+      return masteryFileSchema.parse(JSON.parse(text));
+    } catch {
+      return { version: 1, concepts: {} };
+    }
+  }
+  return {
+    treatment() {
+      return opts.teach ? "teach-then-poll" : "poll";
+    },
+    observe(concept, outcome) {
+      try {
+        const shape = load();
+        const record = shape.concepts[concept] ?? { concept, observations: [] };
+        record.observations.push({
+          at: now(),
+          confident: outcome.confident,
+          delegated: outcome.delegated
+        });
+        shape.concepts[concept] = record;
+        write(path, JSON.stringify(shape, null, 2));
+      } catch {
+      }
+    }
+  };
+}
+
+// src/interact/terminal.ts
+var import_promises = require("node:readline/promises");
+var SEVERITY_WIDTH = 4;
+function findingRow(f2, axisWidth) {
+  const sev = f2.ok ? f2.severity : "?";
+  const summary = f2.ok ? f2.summary : "unanalyzed";
+  return `       ${f2.axis.padEnd(axisWidth)}  ${sev.padEnd(SEVERITY_WIDTH)}  ${summary}`;
+}
+function renderOption(opt, index2) {
+  const lines = [`  ${index2 + 1}. ${opt.label}${opt.recommended ? "  (recommended)" : ""}`];
+  if (opt.description) lines.push(`     ${opt.description}`);
+  if (opt.findings.length > 0) {
+    const axisWidth = Math.max(...opt.findings.map((f2) => f2.axis.length));
+    for (const f2 of opt.findings) lines.push(findingRow(f2, axisWidth));
+  }
+  return lines;
+}
+function renderTeaching2(poll) {
+  if (!poll.teaching) return [];
+  return [`\u2500\u2500 teaching: ${poll.teaching.concept} ${"\u2500".repeat(Math.max(4, 60 - poll.teaching.concept.length))}`, poll.teaching.body, "\u2500".repeat(74), ""];
+}
+function renderHint(poll) {
+  const parts = [`pick 1-${poll.options.length}`];
+  if (poll.allowDelegate) parts.push(`"d" to delegate`);
+  if (poll.allowFreeText) parts.push("or type your answer");
+  return `  (${parts.join(", ")})`;
+}
+function renderPoll(poll) {
+  const lines = [...renderTeaching2(poll), poll.question, ""];
+  poll.options.forEach((opt, i2) => lines.push(...renderOption(opt, i2)));
+  lines.push("", renderHint(poll));
+  return `${lines.join("\n")}
+`;
+}
+function delegatedOptionId(poll) {
+  return poll.options.find((o2) => o2.recommended)?.id ?? poll.defaultOptionId ?? poll.options[0]?.id;
+}
+function resolveDefault(poll) {
+  return poll.defaultOptionId ? { pollId: poll.id, optionId: poll.defaultOptionId, source: "default" } : null;
+}
+function createTerminalInteractor(opts = {}) {
+  const input = opts.input ?? process.stdin;
+  const output = opts.output ?? process.stdout;
+  let closed = false;
+  let rl = null;
+  const pending = [];
+  let waiter = null;
+  const signalClosed = () => {
+    closed = true;
+    waiter?.(null);
+    waiter = null;
+  };
+  try {
+    rl = (0, import_promises.createInterface)({ input, output });
+    rl.on("line", (line) => {
+      if (waiter) {
+        const w2 = waiter;
+        waiter = null;
+        w2(line);
+      } else pending.push(line);
+    });
+    rl.on("close", signalClosed);
+    input.on("error", signalClosed);
+  } catch {
+    signalClosed();
+  }
+  const write = (text) => {
+    try {
+      output.write(text);
+    } catch {
+    }
+  };
+  function readLine(prompt) {
+    write(prompt);
+    if (pending.length > 0) return Promise.resolve(pending.shift());
+    if (closed || !rl) return Promise.resolve(null);
+    return new Promise((resolve2) => {
+      waiter = resolve2;
+    });
+  }
+  return {
+    async ask(poll) {
+      try {
+        write(renderPoll(poll));
+        for (; ; ) {
+          const line = await readLine("> ");
+          if (line === null) return resolveDefault(poll);
+          const text = line.trim();
+          if (text === "d" && poll.allowDelegate) {
+            const optionId = delegatedOptionId(poll);
+            return optionId ? { pollId: poll.id, optionId, source: "delegated" } : resolveDefault(poll);
+          }
+          if (/^\d+$/.test(text)) {
+            const picked = poll.options[Number(text) - 1];
+            if (picked) return { pollId: poll.id, optionId: picked.id, source: "pilot" };
+            write(`  no option ${text} \u2014${renderHint(poll).slice(2)}
+`);
+            continue;
+          }
+          if (text && poll.allowFreeText) return { pollId: poll.id, freeText: text, source: "pilot" };
+          write(`${renderHint(poll)}
+`);
+        }
+      } catch {
+        return resolveDefault(poll);
+      }
+    },
+    say(block) {
+      write(`${block}
+`);
+    },
+    async close() {
+      if (closed) return;
+      signalClosed();
+      try {
+        rl?.close();
+      } catch {
+      }
+    }
+  };
+}
+
+// src/interact/scripted.ts
+var import_node_fs38 = require("node:fs");
+var scriptedAnswersSchema = external_exports.object({
+  answers: external_exports.array(
+    external_exports.object({
+      poll: external_exports.string().optional(),
+      concept: external_exports.string().optional(),
+      option: external_exports.string().optional(),
+      freeText: external_exports.string().optional(),
+      delegate: external_exports.boolean().optional()
+    })
+  )
+});
+function loadAnswersFile(path, readFile) {
+  const read = readFile ?? ((p2) => {
+    try {
+      return (0, import_node_fs38.readFileSync)(p2, "utf8");
+    } catch {
+      return null;
+    }
+  });
+  const raw = read(path);
+  if (raw === null) return null;
+  try {
+    const parsed = scriptedAnswersSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+function delegatedOptionId2(poll) {
+  return poll.options.find((o2) => o2.recommended)?.id ?? poll.defaultOptionId ?? poll.options[0]?.id;
+}
+function resolveDefault2(poll) {
+  return poll.defaultOptionId ? { pollId: poll.id, optionId: poll.defaultOptionId, source: "default" } : null;
+}
+function ruleMatches(rule, poll) {
+  if (rule.poll !== void 0 && rule.poll !== poll.id) return false;
+  if (rule.concept !== void 0 && !poll.concept.includes(rule.concept)) return false;
+  return true;
+}
+function resolveRule(rule, poll) {
+  if (rule.delegate) {
+    const optionId = delegatedOptionId2(poll);
+    return optionId ? { pollId: poll.id, optionId, source: "delegated" } : null;
+  }
+  if (rule.option !== void 0) {
+    const picked = poll.options.find((o2) => o2.id === rule.option || o2.label === rule.option);
+    return picked ? { pollId: poll.id, optionId: picked.id, source: "pilot" } : null;
+  }
+  if (rule.freeText !== void 0 && poll.allowFreeText) {
+    return { pollId: poll.id, freeText: rule.freeText, source: "pilot" };
+  }
+  return null;
+}
+function createScriptedInteractor(script, opts) {
+  const consumed = /* @__PURE__ */ new Set();
+  return {
+    async ask(poll) {
+      try {
+        for (let i2 = 0; i2 < script.answers.length; i2++) {
+          if (consumed.has(i2) || !ruleMatches(script.answers[i2], poll)) continue;
+          consumed.add(i2);
+          return resolveRule(script.answers[i2], poll) ?? resolveDefault2(poll);
+        }
+        return resolveDefault2(poll);
+      } catch {
+        return resolveDefault2(poll);
+      }
+    },
+    say(block) {
+      try {
+        opts?.output?.(block);
+      } catch {
+      }
+    },
+    async close() {
+    }
+  };
+}
+
+// src/um/harvest/tasks-schema.ts
+var taskEntrySchema = external_exports.object({
+  id: external_exports.string(),
+  // superpowers plan files carry only a description — no title — so title must default rather
+  // than reject the very artifact this mirror exists to read.
+  title: external_exports.string().default(""),
+  description: external_exports.string().default(""),
+  files: external_exports.array(external_exports.string()).default([]),
+  verifyCommand: external_exports.string().optional(),
+  acceptanceCriteria: external_exports.array(external_exports.string()).default([]),
+  dependsOn: external_exports.array(external_exports.string()).default([]),
+  status: external_exports.enum(["pending", "in_progress", "completed"]).default("pending"),
+  modelTier: external_exports.string().optional(),
+  budgetUsd: external_exports.number().optional(),
+  specRefs: external_exports.array(external_exports.string()).default([])
+}).strip();
+var tasksFileSchema = external_exports.object({
+  version: external_exports.literal(1).default(1),
+  tasks: external_exports.array(taskEntrySchema).default([])
+}).strip();
+function emitTasksFile(spec) {
+  const seedIds = new Set(spec.taskSeeds.map((s3) => s3.id));
+  const unknownDeps = [];
+  for (const seed of spec.taskSeeds) {
+    for (const dep of seed.dependsOn) {
+      if (!seedIds.has(dep)) unknownDeps.push(`${seed.id} -> ${dep}`);
+    }
+  }
+  if (unknownDeps.length > 0) {
+    return { ok: false, error: `dependsOn names unknown task seeds: ${unknownDeps.join(", ")}` };
+  }
+  const edges = new Map(spec.taskSeeds.map((s3) => [s3.id, s3.dependsOn]));
+  const state = /* @__PURE__ */ new Map();
+  for (const root of seedIds) {
+    if (state.has(root)) continue;
+    const stack = [{ id: root, next: 0 }];
+    state.set(root, "visiting");
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1];
+      const deps = edges.get(frame.id) ?? [];
+      if (frame.next < deps.length) {
+        const dep = deps[frame.next++];
+        const mark = state.get(dep);
+        if (mark === "visiting") {
+          const path = stack.map((f2) => f2.id).slice(stack.findIndex((f2) => f2.id === dep));
+          return { ok: false, error: `dependsOn cycle: ${[...path, dep].join(" -> ")}` };
+        }
+        if (mark === void 0) {
+          state.set(dep, "visiting");
+          stack.push({ id: dep, next: 0 });
+        }
+      } else {
+        state.set(frame.id, "done");
+        stack.pop();
+      }
+    }
+  }
+  const criterionById = new Map(spec.acceptance.map((a2) => [a2.id, a2.criterion]));
+  const tasks = spec.taskSeeds.map((seed) => ({
+    id: seed.id,
+    title: seed.title,
+    description: seed.description,
+    files: [...seed.files],
+    // A ref with no matching acceptance entry stays in specRefs (the audit trail keeps it) but
+    // resolves to no criterion text — fail-open, not fail-loud, until Phase 2's validators.
+    ...seed.verifyCommand !== void 0 ? { verifyCommand: seed.verifyCommand } : {},
+    acceptanceCriteria: seed.acceptanceRefs.flatMap((ref) => {
+      const criterion = criterionById.get(ref);
+      return criterion === void 0 ? [] : [criterion];
+    }),
+    dependsOn: [...seed.dependsOn],
+    status: "pending",
+    specRefs: [...seed.acceptanceRefs]
+  }));
+  return { ok: true, file: { version: 1, tasks } };
+}
+
+// src/commands/start.ts
+function parseStartFlags(argv) {
+  const flags = { specOnly: false, dev: false, yes: false, list: false };
+  for (let i2 = 0; i2 < argv.length; i2++) {
+    const a2 = argv[i2];
+    if (a2 === "--spec-only") flags.specOnly = true;
+    else if (a2 === "--dev") flags.dev = true;
+    else if (a2 === "--yes") flags.yes = true;
+    else if (a2 === "--list") flags.list = true;
+    else if (a2 === "--answers") flags.answers = argv[++i2];
+    else if (a2 === "--resume") flags.resume = argv[++i2];
+    else if (a2 === "--status") flags.status = argv[++i2];
+    else if (!a2.startsWith("--") && flags.task === void 0) flags.task = a2;
+  }
+  return flags;
+}
+function cockpitPrompts(opts) {
+  const resolver = createPromptResolver(opts);
+  return {
+    interrogate: (vars) => resolver.resolve("um-interrogate", {
+      task: vars.task,
+      remainingSections: vars.remainingSections.join(", "),
+      grounding: vars.grounding || "(no grounding available)",
+      lastAnswer: vars.lastAnswer ?? "(none yet)"
+    }),
+    axis: (axis, vars) => {
+      const specific = `um-axis-${axis}`;
+      const fill = {
+        axis,
+        concept: vars.concept,
+        question: vars.question,
+        optionLabel: vars.optionLabel,
+        optionDescription: vars.optionDescription ?? "(no further description)"
+      };
+      return isPromptId(specific) ? resolver.resolve(specific, fill) : resolver.resolve("um-axis", fill);
+    }
+  };
+}
+function loadSpecState(runId, cwd6, env) {
+  try {
+    const raw = JSON.parse((0, import_node_fs39.readFileSync)(runFile(runId, "spec.json", cwd6, env), "utf8"));
+    const spec = specSchema.parse(raw);
+    return { spec, polls: spec.decisions.length };
+  } catch {
+    return null;
+  }
+}
+function writeArtifacts(runId, spec, cwd6, env) {
+  ensureDir(runDir(runId, cwd6, env));
+  (0, import_node_fs39.writeFileSync)(runFile(runId, "spec.json", cwd6, env), `${JSON.stringify(spec, null, 2)}
+`);
+  (0, import_node_fs39.writeFileSync)(runFile(runId, "spec.md", cwd6, env), renderSpecMarkdown(spec));
+}
+function decisionSummary(spec) {
+  const by = { pilot: 0, delegated: 0, default: 0 };
+  for (const d2 of spec.decisions) by[d2.answer.source]++;
+  return `${spec.decisions.length} decision(s) \u2014 ${by.pilot} pilot, ${by.delegated} delegated, ${by.default} defaulted`;
+}
+async function runStartCommand(argv, env = process.env) {
+  const flags = parseStartFlags(argv);
+  const out = (s3) => void process.stdout.write(`${s3}
+`);
+  const err = (s3) => void process.stderr.write(`${s3}
+`);
+  const cwd6 = process.cwd();
+  if (flags.list) {
+    const runs = listRuns(cwd6, env);
+    if (runs.length === 0) return out('no runs yet \u2014 `corpocode start "<task>"` begins one');
+    for (const r2 of runs) out(`${r2.id}  ${r2.status.padEnd(13)} ${r2.task.slice(0, 60)}`);
+    return;
+  }
+  if (flags.status) {
+    const run3 = loadRun(flags.status, cwd6, env);
+    if (!run3) {
+      err(`no run "${flags.status}" \u2014 see \`corpocode start --list\``);
+      process.exitCode = 1;
+      return;
+    }
+    out(`${run3.id}: ${run3.status}${run3.pausedReason ? ` (${run3.pausedReason})` : ""} \u2014 ${run3.task}`);
+    return;
+  }
+  let config;
+  try {
+    config = loadConfig({ env });
+  } catch (e2) {
+    err(`config invalid: ${e2 instanceof Error ? e2.message : String(e2)}`);
+    process.exitCode = 1;
+    return;
+  }
+  if (!config.orchestrator.enabled) {
+    err("the orchestrator is disabled (config.orchestrator.enabled = false)");
+    process.exitCode = 1;
+    return;
+  }
+  const dev = flags.dev || env.CORPOCODE_DEV === "1";
+  if (!config.orchestrator.initialized && !dev) {
+    err("corpocode start is gated until onboarding: run `corpocode init` (or use --dev / CORPOCODE_DEV=1 for local testing)");
+    process.exitCode = 1;
+    return;
+  }
+  let run2;
+  let resumeState;
+  if (flags.resume) {
+    const existing = loadRun(flags.resume, cwd6, env);
+    if (!existing || existing.status !== "paused") {
+      err(existing ? `run ${existing.id} is ${existing.status}, not paused` : `no run "${flags.resume}"`);
+      process.exitCode = 1;
+      return;
+    }
+    run2 = advance(existing, { type: "resume" }, Date.now());
+    resumeState = loadSpecState(run2.id, cwd6, env) ?? void 0;
+    if (!resumeState) out("no spec checkpoint found \u2014 the interrogation restarts (decided forks were not persisted)");
+  } else {
+    if (!flags.task || !flags.task.trim()) {
+      err('usage: corpocode start "<task>" [--spec-only] [--answers <file>] [--yes] [--dev]');
+      process.exitCode = 1;
+      return;
+    }
+    run2 = createRun(newRunId(() => Date.now()), flags.task, Date.now());
+  }
+  if (!saveRun(run2, cwd6, env)) {
+    err(`cannot persist run state under ${runDir(run2.id, cwd6, env)} \u2014 refusing to start an untrackable run`);
+    process.exitCode = 1;
+    return;
+  }
+  const logger = createLogger({
+    file: logFile(cwd6, env),
+    enabled: config.logging.enabled,
+    sessionFile: runFile(run2.id, "journal.ndjson", cwd6, env)
+  });
+  let files = [];
+  try {
+    const project = projectKey(cwd6);
+    const graph = buildKnowledgeGraph(config, { repoRoot: cwd6 });
+    const memory = buildMemoryStore(config, { project, env, repoRoot: cwd6 });
+    const candidates = await gather(
+      { kind: "prompt", prompt: run2.task, sessionId: run2.id, transcriptPath: "" },
+      { graph, memory, project, limit: 12, logger }
+    );
+    files = candidates.files.map((f2) => f2.path);
+  } catch {
+    files = [];
+  }
+  let interactor;
+  if (flags.answers) {
+    const script = loadAnswersFile(flags.answers);
+    if (!script) {
+      err(`cannot read answers file: ${flags.answers}`);
+      process.exitCode = 1;
+      return;
+    }
+    interactor = createScriptedInteractor(script, { output: (block) => out(block) });
+  } else {
+    interactor = createTerminalInteractor();
+  }
+  const onSignal = () => void interactor.close();
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+  const budget = createBudgetGuard(config.orchestrator.budget);
+  const agents = buildOrchestratorAgents(config, { repoRoot: cwd6 });
+  out(`run ${run2.id} \u2014 interrogating: ${run2.task}`);
+  try {
+    const outcome = await runCockpit({
+      forTask: (kind3) => agents.forTask(kind3),
+      interactor,
+      mastery: createMasteryModel({
+        env,
+        teach: config.orchestrator.interrogation.teach,
+        enabled: config.orchestrator.interrogation.mastery.enabled
+      }),
+      prompts: cockpitPrompts({ cwd: cwd6, env }),
+      orchestration: config.orchestrator,
+      runId: run2.id,
+      task: run2.task,
+      files,
+      roleModels: {
+        interrogate: resolveRoleModel(config, "interrogate"),
+        consequence: resolveRoleModel(config, "consequence")
+      },
+      budget,
+      autoApprove: flags.yes,
+      resumeState,
+      log: (line) => logger.log({ event: String(line.event ?? "cockpit"), ...line })
+    });
+    writeArtifacts(run2.id, outcome.state.spec, cwd6, env);
+    if (outcome.status === "approved") {
+      run2 = advance(run2, { type: "spec-approved" }, Date.now());
+      const tasks = emitTasksFile(outcome.state.spec);
+      if (tasks.ok) {
+        (0, import_node_fs39.writeFileSync)(runFile(run2.id, "tasks.json", cwd6, env), `${JSON.stringify(tasks.file, null, 2)}
+`);
+      } else {
+        err(`spec approved, but the task graph did not validate: ${tasks.error}`);
+        err("spec.json/spec.md are written; fix the seeds and re-run decompose in a later phase");
+      }
+      saveRun(run2, cwd6, env);
+      out(`spec approved \u2014 ${decisionSummary(outcome.state.spec)}; spent $${budget.spent().toFixed(2)}`);
+      out(`artifacts: ${runDir(run2.id, cwd6, env)} (spec.json, spec.md${tasks.ok ? ", tasks.json" : ""})`);
+      out("run parked at `specified` \u2014 the implementation swarm lands in Phase 3");
+    } else {
+      run2 = advance(run2, { type: "pause", reason: outcome.reason ?? "paused" }, Date.now());
+      saveRun(run2, cwd6, env);
+      out(`paused (${outcome.reason ?? "unknown"}) \u2014 ${decisionSummary(outcome.state.spec)}; spent $${budget.spent().toFixed(2)}`);
+      out(`resume with: corpocode start --resume ${run2.id}`);
+      process.exitCode = 1;
+    }
+  } finally {
+    process.removeListener("SIGINT", onSignal);
+    process.removeListener("SIGTERM", onSignal);
+    await interactor.close();
+  }
+}
+
+// src/commands/doctor.ts
+var import_node_fs40 = require("node:fs");
+var import_node_path31 = require("node:path");
 var REPAIR_INSTALL = "corpocode install --repair";
 var REPAIR_PROVISION = "corpocode provision";
 function readJsonOr3(path, fallback) {
   try {
-    return JSON.parse((0, import_node_fs36.readFileSync)(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse((0, import_node_fs40.readFileSync)(path, "utf8").replace(/^﻿/, ""));
   } catch {
     return fallback;
   }
 }
 function defaultSecretsState(env) {
   const path = secretsFile(env);
-  if (!(0, import_node_fs36.existsSync)(path)) return "absent";
+  if (!(0, import_node_fs40.existsSync)(path)) return "absent";
   try {
-    (0, import_node_fs36.readFileSync)(path, "utf8");
+    (0, import_node_fs40.readFileSync)(path, "utf8");
     return "ok";
   } catch {
     return "unreadable";
@@ -30042,13 +31582,13 @@ function pluginInstalled(home) {
     if (depth > 3) return false;
     let entries;
     try {
-      entries = (0, import_node_fs36.readdirSync)(dir, { withFileTypes: true });
+      entries = (0, import_node_fs40.readdirSync)(dir, { withFileTypes: true });
     } catch {
       return false;
     }
     for (const e2 of entries) {
       if (e2.name.toLowerCase().includes("corpocode")) return true;
-      if (e2.isDirectory() && walk((0, import_node_path30.join)(dir, e2.name), depth + 1)) return true;
+      if (e2.isDirectory() && walk((0, import_node_path31.join)(dir, e2.name), depth + 1)) return true;
     }
     return false;
   };
@@ -30063,9 +31603,9 @@ function defaultMemoryWritable(cwd6, env) {
   try {
     const dir = memoryDir(cwd6, env);
     ensureDir(dir);
-    const probe = (0, import_node_path30.join)(dir, ".doctor-probe");
-    (0, import_node_fs36.writeFileSync)(probe, "ok");
-    (0, import_node_fs36.rmSync)(probe, { force: true });
+    const probe = (0, import_node_path31.join)(dir, ".doctor-probe");
+    (0, import_node_fs40.writeFileSync)(probe, "ok");
+    (0, import_node_fs40.rmSync)(probe, { force: true });
     return true;
   } catch {
     return false;
@@ -30137,7 +31677,7 @@ async function runDoctor(deps = {}) {
   const cs = config?.backends.contextStore ?? "native";
   if (kg === "graphify") {
     const graphifyOk = await (deps.graphifyVersion ?? (async () => (await spawnRunner("graphify", ["--version"])).code === 0))();
-    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs36.existsSync)((0, import_node_path30.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
+    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs40.existsSync)((0, import_node_path31.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
     if (!graphifyOk) {
       checks.push({ name: "graphify", status: "fail", detail: "graphify CLI not found on PATH", repair: REPAIR_PROVISION });
     } else if (!graphPresent) {
@@ -30146,7 +31686,7 @@ async function runDoctor(deps = {}) {
       checks.push({ name: "graphify", status: "ok", detail: "CLI present and graph built" });
     }
   } else {
-    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs36.existsSync)((0, import_node_path30.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
+    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs40.existsSync)((0, import_node_path31.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
     checks.push({
       name: "knowledge graph",
       status: "ok",
@@ -30179,6 +31719,29 @@ async function runDoctor(deps = {}) {
     const summary = plugins.map((p2) => `${p2.name} (${p2.plugin.templates?.length ?? 0} template(s), ${p2.plugin.tenets?.length ?? 0} tenet(s))`).join("; ");
     checks.push({ name: "plugins", status: "ok", detail: `${plugins.length} discovered \u2014 ${summary}` });
   }
+  if (config) {
+    checks.push(
+      config.orchestrator.initialized ? { name: "orchestrator", status: "ok", detail: "onboarded (`corpocode start` is unlocked)" } : {
+        name: "orchestrator",
+        status: "warn",
+        detail: "not onboarded \u2014 `corpocode start` is gated (CORPOCODE_DEV=1 bypasses for local testing)",
+        repair: "corpocode init"
+      }
+    );
+  }
+  const engineOnPath = deps.engineOnPath ?? (async (bin) => (await spawnRunner(bin, ["--version"])).code === 0);
+  const engines = [];
+  for (const bin of ["claude", "codex", "opencode"]) {
+    if (await engineOnPath(bin)) engines.push(bin);
+  }
+  checks.push(
+    engines.length > 0 ? { name: "engines", status: "ok", detail: `on PATH: ${engines.join(", ")}` } : {
+      name: "engines",
+      status: "warn",
+      detail: "no coding engine (claude/codex/opencode) on PATH \u2014 agents cannot spawn",
+      repair: "install the `claude` CLI (or point providers at a keyed API)"
+    }
+  );
   return checks;
 }
 var MARK = { ok: "\u2713", warn: "\u26A0", fail: "\u2717" };
@@ -30198,7 +31761,7 @@ ${failed === 0 ? "All required checks passed." : `${failed} check(s) failed.`}
 }
 
 // src/commands/stats.ts
-var import_node_fs37 = require("node:fs");
+var import_node_fs41 = require("node:fs");
 
 // src/cost/tracker.ts
 var UNKNOWN = "unknown";
@@ -30284,7 +31847,7 @@ function computeStats(lines, opts = {}) {
 }
 function readLogLines() {
   try {
-    return (0, import_node_fs37.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs41.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -30335,7 +31898,7 @@ function runStatsCommand(argv, env) {
 }
 
 // src/commands/why.ts
-var import_node_fs38 = require("node:fs");
+var import_node_fs42 = require("node:fs");
 
 // src/log/explain.ts
 function s2(v2) {
@@ -30503,7 +32066,7 @@ function computeWhy(lines, opts = {}) {
 }
 function readLogLines2(env) {
   try {
-    return (0, import_node_fs38.readFileSync)(logFile(void 0, env), "utf8").split("\n");
+    return (0, import_node_fs42.readFileSync)(logFile(void 0, env), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -30560,7 +32123,7 @@ function runWhyCommand(argv, env) {
   if (report.sessionsSeen > 1) process.stdout.write(`
   ${report.sessionsSeen - 1} older session(s) in the log; use --session <id>.
 `);
-  if ((0, import_node_fs38.existsSync)(flowLogFile(void 0, env))) process.stdout.write(`
+  if ((0, import_node_fs42.existsSync)(flowLogFile(void 0, env))) process.stdout.write(`
 Full narrative: ${flowLogFile(void 0, env)}
 `);
 }
@@ -30570,30 +32133,30 @@ var import_node_child_process7 = require("node:child_process");
 
 // src/monitor/server.ts
 var import_node_http = require("node:http");
-var import_node_fs40 = require("node:fs");
+var import_node_fs44 = require("node:fs");
 
 // src/monitor/tail.ts
-var import_node_fs39 = require("node:fs");
+var import_node_fs43 = require("node:fs");
 function createTailer(file) {
   let offset = 0;
   function read() {
     let size;
     try {
-      size = (0, import_node_fs39.statSync)(file).size;
+      size = (0, import_node_fs43.statSync)(file).size;
     } catch {
       return "";
     }
     if (size < offset) offset = 0;
     if (size === offset) return "";
-    const fd = (0, import_node_fs39.openSync)(file, "r");
+    const fd = (0, import_node_fs43.openSync)(file, "r");
     try {
       const len = size - offset;
       const buf = Buffer.alloc(len);
-      (0, import_node_fs39.readSync)(fd, buf, 0, len, offset);
+      (0, import_node_fs43.readSync)(fd, buf, 0, len, offset);
       offset = size;
       return buf.toString("utf8");
     } finally {
-      (0, import_node_fs39.closeSync)(fd);
+      (0, import_node_fs43.closeSync)(fd);
     }
   }
   return {
@@ -30693,7 +32256,7 @@ data: ${JSON.stringify(data)}
 function servePage(res, htmlPath, warn) {
   let html;
   try {
-    html = (0, import_node_fs40.readFileSync)(htmlPath, "utf8");
+    html = (0, import_node_fs44.readFileSync)(htmlPath, "utf8");
   } catch {
     warn(`monitor: could not read page at ${htmlPath}`);
     res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
@@ -30749,9 +32312,9 @@ function createMonitorServer(opts) {
 }
 
 // src/monitor/page.ts
-var import_node_path31 = require("node:path");
+var import_node_path32 = require("node:path");
 function monitorPagePath() {
-  return (0, import_node_path31.join)(__dirname, "..", "src", "monitor", "app.html");
+  return (0, import_node_path32.join)(__dirname, "..", "src", "monitor", "app.html");
 }
 
 // src/commands/monitor.ts
@@ -30819,12 +32382,12 @@ function runMonitorCommand(argv, env = process.env) {
 var import_node_process4 = require("node:process");
 
 // src/loops/skillgen.ts
-var import_node_fs41 = require("node:fs");
+var import_node_fs45 = require("node:fs");
 var import_node_os6 = require("node:os");
-var import_node_path32 = require("node:path");
+var import_node_path33 = require("node:path");
 function candidatesDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path32.join)((0, import_node_os6.homedir)(), ".claude");
-  return (0, import_node_path32.join)(base, "memdir", "corpocode-candidates");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path33.join)((0, import_node_os6.homedir)(), ".claude");
+  return (0, import_node_path33.join)(base, "memdir", "corpocode-candidates");
 }
 var zCandidates = external_exports.object({
   candidates: external_exports.array(external_exports.object({ name: external_exports.string(), description: external_exports.string(), body: external_exports.string() }))
@@ -30863,24 +32426,24 @@ async function generateSkillCandidates(deps) {
   }
   const dir = deps.dir ?? candidatesDir(deps.env);
   ensureDir(dir);
-  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs41.writeFileSync)(p2, c2));
+  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs45.writeFileSync)(p2, c2));
   const names = [];
   for (const c2 of candidates.slice(0, deps.maxCandidates ?? 5)) {
     const slug = slugify(c2.name);
     if (!slug) continue;
-    write((0, import_node_path32.join)(dir, `${slug}.md`), renderMemo(c2, slug));
+    write((0, import_node_path33.join)(dir, `${slug}.md`), renderMemo(c2, slug));
     names.push(slug);
   }
   return { mined: mems.length, written: names.length, names };
 }
 
 // src/loops/skillify.ts
-var import_node_fs42 = require("node:fs");
+var import_node_fs46 = require("node:fs");
 var import_node_os7 = require("node:os");
-var import_node_path33 = require("node:path");
+var import_node_path34 = require("node:path");
 function skillsDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path33.join)((0, import_node_os7.homedir)(), ".claude");
-  return (0, import_node_path33.join)(base, "skills");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path34.join)((0, import_node_os7.homedir)(), ".claude");
+  return (0, import_node_path34.join)(base, "skills");
 }
 function parseFrontmatter(text) {
   const m2 = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -30900,28 +32463,28 @@ function promoteCandidates(opts = {}) {
   const to = opts.toDir ?? skillsDir(opts.env);
   let files;
   try {
-    files = (0, import_node_fs42.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
+    files = (0, import_node_fs46.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
   } catch {
     return { promoted: [], skipped: [] };
   }
   const promoted = [];
   const skipped = [];
   for (const f2 of files) {
-    const path = (0, import_node_path33.join)(from, f2);
-    const raw = (0, import_node_fs42.readFileSync)(path, "utf8");
+    const path = (0, import_node_path34.join)(from, f2);
+    const raw = (0, import_node_fs46.readFileSync)(path, "utf8");
     const { fm } = parseFrontmatter(raw);
     const slug = fm.name ? slugify(fm.name) : "";
     if (!slug || !fm.description) {
       skipped.push(f2);
       continue;
     }
-    const skillDir = (0, import_node_path33.join)(to, slug);
+    const skillDir = (0, import_node_path34.join)(to, slug);
     ensureDir(skillDir);
-    (0, import_node_fs42.writeFileSync)((0, import_node_path33.join)(skillDir, "SKILL.md"), raw);
+    (0, import_node_fs46.writeFileSync)((0, import_node_path34.join)(skillDir, "SKILL.md"), raw);
     promoted.push(slug);
     if (opts.removeAfter !== false) {
       try {
-        (0, import_node_fs42.rmSync)(path);
+        (0, import_node_fs46.rmSync)(path);
       } catch {
       }
     }
@@ -30971,7 +32534,7 @@ async function runSkillifyCommand(argv, env = process.env) {
 }
 
 // src/commands/review.ts
-var import_node_fs43 = require("node:fs");
+var import_node_fs47 = require("node:fs");
 var MIN_FIRES = 5;
 var LOW_CONFIDENCE = 0.5;
 function computeReview(lines, opts = {}) {
@@ -31051,7 +32614,7 @@ function buildProposals(tenets, verifierChecks, turns, stage2, config) {
 }
 function readLogLines3() {
   try {
-    return (0, import_node_fs43.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs47.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -31105,7 +32668,7 @@ function runReviewCommand(argv, env) {
 }
 
 // src/commands/telemetry.ts
-var import_node_fs44 = require("node:fs");
+var import_node_fs48 = require("node:fs");
 
 // src/telemetry/whitelist.ts
 var TELEMETRY_SCHEMA = "corpocode-telemetry/1";
@@ -31177,7 +32740,7 @@ function buildTelemetryPayload(lines, config) {
 var NEVER_COLLECTED = "prompts, code, file contents, file paths, transcripts, memory contents, and repository identity";
 function readRawConfig(env) {
   try {
-    const parsed = JSON.parse((0, import_node_fs44.readFileSync)(configFile(env), "utf8"));
+    const parsed = JSON.parse((0, import_node_fs48.readFileSync)(configFile(env), "utf8"));
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
@@ -31188,12 +32751,12 @@ function setTelemetryEnabled(enabled, env) {
   const tel = raw.telemetry && typeof raw.telemetry === "object" ? raw.telemetry : {};
   raw.telemetry = { ...tel, enabled };
   ensureDir(corpocodeHome(env));
-  (0, import_node_fs44.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
+  (0, import_node_fs48.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
 `);
 }
 function readLogLines4() {
   try {
-    return (0, import_node_fs44.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs48.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -31232,8 +32795,8 @@ Set telemetry.endpoint in your config to choose where it is sent. Preview anytim
 }
 
 // src/commands/docs.ts
-var import_node_fs45 = require("node:fs");
-var import_node_path34 = require("node:path");
+var import_node_fs49 = require("node:fs");
+var import_node_path35 = require("node:path");
 
 // src/docs-site/config-reference.ts
 function typeOf(value) {
@@ -31271,10 +32834,11 @@ ${body}
 
 // src/cli-commands.ts
 var COMMANDS = [
+  { name: "start", usage: 'start "<task>" [--answers <file>] [--yes] [--dev] [--resume <id>] [--list] [--status <id>]', summary: "Run the orchestrator: cockpit interrogation \u2192 spec + tasks artifacts" },
   { name: "install", usage: "install [--platform <name>] [--all] [--dry-run] [--skip-backends] [--repair]", summary: "Register hooks into a coding-agent platform" },
   { name: "provision", usage: "provision [--repair]", summary: "Install/start backends (graphify, OpenViking)" },
   { name: "uninstall", usage: "uninstall [--purge]", summary: "Remove shims and config (optionally Python tools)" },
-  { name: "init", usage: "init [--force]", summary: "Scaffold config + a secrets file with key placeholders (no npm needed)" },
+  { name: "init", usage: "init [--force] [--no-orchestrator]", summary: "Scaffold config + secrets, then the orchestrator onboarding (unlocks `start`)" },
   { name: "prompts", usage: "prompts [--force]", summary: "Scaffold editable per-component system prompts into ~/.corpocode/prompts" },
   { name: "hook", usage: "hook <name> [--platform <id>]", summary: "Dispatch a hook (invoked by installed shims)" },
   { name: "doctor", usage: "doctor", summary: "Run health checks and print repair hints" },
@@ -31308,8 +32872,8 @@ function runDocsCommand(argv) {
   const commands = generateCommandReference();
   if (out) {
     ensureDir(out);
-    (0, import_node_fs45.writeFileSync)((0, import_node_path34.join)(out, "config-reference.md"), config);
-    (0, import_node_fs45.writeFileSync)((0, import_node_path34.join)(out, "command-reference.md"), commands);
+    (0, import_node_fs49.writeFileSync)((0, import_node_path35.join)(out, "config-reference.md"), config);
+    (0, import_node_fs49.writeFileSync)((0, import_node_path35.join)(out, "command-reference.md"), commands);
     process.stdout.write(`Wrote config-reference.md and command-reference.md to ${out}
 `);
     return;
@@ -31320,7 +32884,7 @@ ${commands}
 }
 
 // src/commands/init.ts
-var import_node_fs46 = require("node:fs");
+var import_node_fs50 = require("node:fs");
 var import_node_process5 = require("node:process");
 function placeholderFor(key) {
   return `REPLACE_WITH_YOUR_${key}`;
@@ -31354,24 +32918,24 @@ function runInitCommand(argv, env = process.env) {
   const force = argv.includes("--force");
   ensureDir(corpocodeHome(env));
   const cfgPath = configFile(env);
-  if ((0, import_node_fs46.existsSync)(cfgPath) && !force) {
+  if ((0, import_node_fs50.existsSync)(cfgPath) && !force) {
     process.stdout.write(`\xB7 config already exists, leaving it: ${cfgPath}
 `);
   } else {
-    (0, import_node_fs46.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
+    (0, import_node_fs50.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
 `);
     process.stdout.write(`wrote default config: ${cfgPath}
 `);
   }
   const keys = defaultKeyNames();
   const secPath = secretsFile(env);
-  if ((0, import_node_fs46.existsSync)(secPath) && !force) {
+  if ((0, import_node_fs50.existsSync)(secPath) && !force) {
     process.stdout.write(`\xB7 secrets already exists, not touching it: ${secPath}
 `);
   } else {
-    (0, import_node_fs46.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
+    (0, import_node_fs50.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
     try {
-      (0, import_node_fs46.chmodSync)(secPath, 384);
+      (0, import_node_fs50.chmodSync)(secPath, 384);
     } catch {
     }
     process.stdout.write(
@@ -31412,10 +32976,101 @@ Next: open ${secPath} and replace the placeholder${plural} with your real key${p
 `
   );
 }
+var ARBITER_POLL = {
+  id: "onboard-arbiter",
+  concept: "arbiter-model",
+  question: "Which strong model should verify the swarm's work (the arbiter \u2014 the only expensive role)?",
+  options: [
+    { id: "fable", label: "claude-fable-5 (recommended)", description: "The most capable judge; verdicts are output-capped so cost stays bounded.", findings: [], recommended: true },
+    { id: "opus", label: "claude-opus-4", description: "Strong and cheaper per token.", findings: [] }
+  ],
+  allowFreeText: true,
+  // any exact model id
+  allowDelegate: false,
+  defaultOptionId: "fable"
+};
+var GRANULARITY_POLL = {
+  id: "onboard-granularity",
+  concept: "poll-granularity",
+  question: "How granular should the cockpit's interrogation be?",
+  options: [
+    { id: "every-fork", label: "every-fork", description: "Poll every decision fork \u2014 nothing left to interpretation (the correctness mechanism).", findings: [] },
+    { id: "major-forks", label: "major-forks", description: "Poll architecture-shaping forks; minor ones auto-resolve to the interrogator's suggestion (recorded as delegated).", findings: [] },
+    { id: "minimal", label: "minimal", description: "Only the final spec approval is asked; every fork auto-resolves (recorded).", findings: [] }
+  ],
+  allowFreeText: false,
+  allowDelegate: false,
+  defaultOptionId: "every-fork"
+};
+var BUDGET_POLL = {
+  id: "onboard-budget",
+  concept: "run-budget",
+  question: "Cap each run's total model spend? (Breach pauses the run and asks \u2014 never silent.)",
+  options: [
+    { id: "cap10", label: "$10 per run", description: "Conservative; good first default.", findings: [] },
+    { id: "cap25", label: "$25 per run", description: "Roomier for real features.", findings: [] },
+    { id: "uncapped", label: "uncapped", description: "No ceiling \u2014 watchdog and turn limits still bound runaways.", findings: [] }
+  ],
+  allowFreeText: true,
+  // a custom dollar amount
+  allowDelegate: false,
+  defaultOptionId: "cap10"
+};
+var MODEL_BY_OPTION = { fable: "claude-fable-5", opus: "claude-opus-4" };
+var BUDGET_BY_OPTION = { cap10: 10, cap25: 25, uncapped: null };
+async function runOrchestratorOnboarding(argv, deps = {}) {
+  const env = deps.env ?? process.env;
+  if (argv.includes("--no-orchestrator")) return;
+  let config;
+  try {
+    config = loadConfig({ env });
+  } catch {
+    return;
+  }
+  if (config.orchestrator.initialized && !argv.includes("--force")) {
+    process.stdout.write("\xB7 orchestrator already onboarded (`corpocode start` is unlocked)\n");
+    return;
+  }
+  const isTTY = deps.isTTY ?? Boolean(process.stdin.isTTY);
+  if (!deps.interactor && !isTTY) {
+    process.stdout.write(
+      "\xB7 skipped orchestrator onboarding (no terminal) \u2014 run `corpocode init` interactively to unlock `corpocode start`, or use `corpocode start --dev` for local testing\n"
+    );
+    return;
+  }
+  const interactor = deps.interactor ?? createTerminalInteractor();
+  try {
+    const arbiter = await interactor.ask(ARBITER_POLL);
+    if (!arbiter) return abandoned();
+    const granularity = await interactor.ask(GRANULARITY_POLL);
+    if (!granularity) return abandoned();
+    const budget = await interactor.ask(BUDGET_POLL);
+    if (!budget) return abandoned();
+    const arbiterModel = arbiter.freeText?.trim() || MODEL_BY_OPTION[arbiter.optionId ?? ""] || "claude-fable-5";
+    const gran = granularity.optionId ?? "every-fork";
+    const customCap = budget.freeText ? Number.parseFloat(budget.freeText.replace(/[^0-9.]/g, "")) : NaN;
+    const maxRunUsd = Number.isFinite(customCap) && customCap > 0 ? customCap : BUDGET_BY_OPTION[budget.optionId ?? ""] ?? 10;
+    config.orchestrator.initialized = true;
+    config.orchestrator.interrogation.granularity = gran;
+    config.orchestrator.budget.max_run_usd = maxRunUsd;
+    config.orchestrator.roles.arbiter = { ...config.orchestrator.roles.arbiter ?? { effort: "high" }, model: arbiterModel };
+    (0, import_node_fs50.writeFileSync)(configFile(env), `${JSON.stringify(config, null, 2)}
+`);
+    process.stdout.write(
+      `orchestrator onboarded: arbiter=${arbiterModel}, granularity=${gran}, budget=${maxRunUsd === null ? "uncapped" : `$${maxRunUsd}/run`}. \`corpocode start\` is unlocked.
+`
+    );
+  } finally {
+    if (!deps.interactor) await interactor.close();
+  }
+  function abandoned() {
+    process.stdout.write("\xB7 orchestrator onboarding abandoned \u2014 nothing changed (re-run `corpocode init` any time)\n");
+  }
+}
 
 // src/prompts/scaffold.ts
-var import_node_fs47 = require("node:fs");
-var import_node_path35 = require("node:path");
+var import_node_fs51 = require("node:fs");
+var import_node_path36 = require("node:path");
 function renderScaffold(id) {
   const body = BUILTIN_PROMPTS[id];
   const meta = PROMPT_META[id];
@@ -31466,16 +33121,16 @@ function scaffoldPrompts(opts = {}) {
   const wrote = [];
   const skipped = [];
   for (const id of allPromptIds()) {
-    const path = (0, import_node_path35.join)(dir, promptRelPath(id));
-    if ((0, import_node_fs47.existsSync)(path) && !opts.force) {
+    const path = (0, import_node_path36.join)(dir, promptRelPath(id));
+    if ((0, import_node_fs51.existsSync)(path) && !opts.force) {
       skipped.push(id);
       continue;
     }
-    (0, import_node_fs47.mkdirSync)((0, import_node_path35.dirname)(path), { recursive: true });
-    (0, import_node_fs47.writeFileSync)(path, renderScaffold(id));
+    (0, import_node_fs51.mkdirSync)((0, import_node_path36.dirname)(path), { recursive: true });
+    (0, import_node_fs51.writeFileSync)(path, renderScaffold(id));
     wrote.push(id);
   }
-  (0, import_node_fs47.writeFileSync)((0, import_node_path35.join)(dir, "README.md"), renderReadme());
+  (0, import_node_fs51.writeFileSync)((0, import_node_path36.join)(dir, "README.md"), renderReadme());
   return { dir, wrote, skipped };
 }
 
@@ -31501,7 +33156,7 @@ var VERSION3 = "0.2.8";
 function renderHelp() {
   const width = Math.max(...COMMANDS.map((c2) => c2.usage.length));
   const lines = COMMANDS.map((c2) => `  ${c2.usage.padEnd(width)}  ${c2.summary}`);
-  return `corpocode ${VERSION3} \u2014 cheap-model caretakers for coding agents
+  return `corpocode ${VERSION3} \u2014 a swarm of cheap authors, one expensive judge, and a human in the cockpit
 
 Usage: corpocode <command> [options]
 
@@ -31544,8 +33199,12 @@ async function runCli(argv) {
     case "uninstall":
       await runUninstallCommand(rest);
       return;
+    case "start":
+      await runStartCommand(rest);
+      return;
     case "init":
       runInitCommand(rest);
+      await runOrchestratorOnboarding(rest);
       return;
     case "prompts":
       runPromptsCommand(rest);

@@ -8,10 +8,11 @@ export interface CommandDoc {
 }
 
 export const COMMANDS: CommandDoc[] = [
+  { name: "start", usage: 'start "<task>" [--answers <file>] [--yes] [--dev] [--resume <id>] [--list] [--status <id>]', summary: "Run the orchestrator: cockpit interrogation → spec + tasks artifacts" },
   { name: "install", usage: "install [--platform <name>] [--all] [--dry-run] [--skip-backends] [--repair]", summary: "Register hooks into a coding-agent platform" },
   { name: "provision", usage: "provision [--repair]", summary: "Install/start backends (graphify, OpenViking)" },
   { name: "uninstall", usage: "uninstall [--purge]", summary: "Remove shims and config (optionally Python tools)" },
-  { name: "init", usage: "init [--force]", summary: "Scaffold config + a secrets file with key placeholders (no npm needed)" },
+  { name: "init", usage: "init [--force] [--no-orchestrator]", summary: "Scaffold config + secrets, then the orchestrator onboarding (unlocks `start`)" },
   { name: "prompts", usage: "prompts [--force]", summary: "Scaffold editable per-component system prompts into ~/.corpocode/prompts" },
   { name: "hook", usage: "hook <name> [--platform <id>]", summary: "Dispatch a hook (invoked by installed shims)" },
   { name: "doctor", usage: "doctor", summary: "Run health checks and print repair hints" },
