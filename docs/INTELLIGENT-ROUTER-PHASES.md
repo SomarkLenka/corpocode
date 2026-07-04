@@ -5,12 +5,22 @@ Imperative spec for the work that remains on the IntelligentRouter. The **infras
 final **cacheGuard**. This document is the authoritative checklist to review before building each phase.
 Narrative / recap documentation will be written separately, on top of this.
 
+> **Re-scoped under the orchestrator build order.** This engine is the execution substrate of the
+> orchestrator mode (`docs/narrative/08-orchestrator.md`) — its first live consumers are the
+> Upper-Management cockpit's consequence fan-out and Middle-Management's implementer swarm
+> (`docs/narrative/05-upper-management.md`), which land **before** the hook-mode action-patterns
+> below. The phase list that follows (bug-hunt → pre-write → workspace capabilities → cacheGuard)
+> is the *hook-channel* roadmap and proceeds after — its flag-off parity acceptance criteria are
+> the hook-mode non-regression tests and stay binding.
+>
 > Source plan (working notes): `~/.claude/plans/flesh-out-our-anthropic-cli-stateful-rose.md`.
 > Governing principle: **infrastructure first, action-patterns atomic and deferred.** The engine never
 > hardcodes what an agent does; each pattern is a small module that *produces a plan* the engine runs.
 > The agent-loop shape — turn caps, stop conditions, fan-out width, session reuse — lives in the plan a
-> pattern emits, decided per-pattern, **not** baked into the engine. Everything fail-open (In-flight),
-> config-gated (`agents.enabled`, default false), ships dark, and is byte-identical with the flag off.
+> pattern emits, decided per-pattern, **not** baked into the engine. Everything fail-open (In-flight).
+> Gating is **mode-conditional**: in the hook channel this layer is config-gated (`agents.enabled`,
+> default false), ships dark in hook mode, and is byte-identical with the flag off; orchestrator
+> commands construct the agent registry unconditionally — there, this engine is live and primary.
 
 ---
 

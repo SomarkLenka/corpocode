@@ -32,6 +32,14 @@ export const PROMPT_META: Record<PromptId, PromptMeta> = {
   "verifier-documentation": { path: "verifier/tenets/documentation.md", source: "src/verifier/tenets/documentation.ts", effect: "the Documentation (D) standard the verifier enforces" },
   "verifier-in-flight": { path: "verifier/tenets/in-flight.md", source: "src/verifier/tenets/in-flight.ts", effect: "the In-flight (I) standard the verifier enforces" },
   "verifier-testing": { path: "verifier/tenets/testing.md", source: "src/verifier/tenets/testing.ts", effect: "the Testing (T) standard the verifier enforces" },
+  "um-interrogate": { path: "um/interrogate.md", source: "src/um/loop.ts", effect: "how the cockpit drives the spec conversation (harvested superpowers v0)" },
+  "um-decompose": { path: "um/decompose.md", source: "src/orchestrator/decompose.ts (Phase 2/3)", effect: "how an approved spec becomes a task graph" },
+  "um-axis": { path: "um/axis/generic.md", source: "src/um/loop.ts", effect: "the fallback rubric for a user-configured consequence axis" },
+  "um-axis-performance": { path: "um/axis/performance.md", source: "src/um/loop.ts", effect: "how an option's performance consequence is priced in a poll" },
+  "um-axis-maintainability": { path: "um/axis/maintainability.md", source: "src/um/loop.ts", effect: "how an option's maintainability cost is priced in a poll" },
+  "um-axis-extensibility": { path: "um/axis/extensibility.md", source: "src/um/loop.ts", effect: "how an option's extensibility tax is priced in a poll" },
+  "um-axis-failure-modes": { path: "um/axis/failure-modes.md", source: "src/um/loop.ts", effect: "how an option's failure modes are priced in a poll" },
+  "um-axis-idiom": { path: "um/axis/idiom.md", source: "src/um/loop.ts", effect: "how an option's idiomatic fit is priced in a poll" },
 };
 
 /** Relative on-disk path for a prompt id (foldered by component). */

@@ -2,6 +2,14 @@
 
 **Narrative and technical implementation theory for the system we are building.**
 
+> **Status (reframe, 2026-07):** Part I is the **vision of record**, realized through
+> [`docs/narrative/05-upper-management.md`](narrative/05-upper-management.md) (the cockpit) and
+> [`docs/narrative/08-orchestrator.md`](narrative/08-orchestrator.md) (the run) — with one
+> correction applied below: the swarm authors the code; the expensive model only judges. Part II
+> governs the **secondary (hook-coexistence) channel only** and proceeds at lower priority; the
+> primary product is the standalone orchestrator. The mission of record lives in
+> [`docs/PHILOSOPHY.md`](PHILOSOPHY.md).
+
 superpowers gave a coding agent skills and discipline so it stopped flailing. We are aiming that exact
 move at superpowers itself. Its brainstorm → plan → execute → gate spine is the *seed* — we grow it into
 a firm of cheap-model shells that offloads every part of building software **except the authorship**,
@@ -23,12 +31,15 @@ One line holds the whole thing together: **total offload of labor, zero offload 
 
 Every agentic-coding pitch promises to take work off the human. We invert *which* work.
 
-The expensive coding model's one irreplaceable act is turning a fully-specified intent into correct code.
-Everything around that act — eliciting the intent, weighing the trade-offs, finding the relevant files,
-recalling what was already decided, verifying the edit, keeping git clean, writing the docs, choosing the
-dependencies — is **labor**, and labor belongs to a firm of cheap shells. But the *intent* and the
-*judgment* — every *what* and every *why* — are **authorship**, and authorship stays with the human,
-amplified and educated.
+The expensive model's one irreplaceable act is **judgment**: verifying that the swarm's output matches
+the fully-specified intent. The swarm — not the engine, not the expensive model — authors the code,
+because turning a fully-specified intent into correct code is itself labor once nothing is left to
+interpretation. Everything around and including that act — eliciting the intent, weighing the
+trade-offs, finding the relevant files, recalling what was already decided, writing the code, verifying
+the edit, keeping git clean, writing the docs, choosing the dependencies — is **labor**, and labor
+belongs to a firm of cheap shells with one expensive check pilot above them. But the *intent* and the
+*human judgment* — every *what* and every *why* — are **authorship**, and authorship stays with the
+human, amplified and educated.
 
 This is the line everyone else blurs and we refuse to. A tool that decides *what* to build has quietly
 taken authorship. A tool that only decides *how* to build a thing the human specified exactly has taken
@@ -83,6 +94,11 @@ systems without ever consulting the engine.
 
 ## The cockpit endgame: a prospective decision engine
 
+> **The cockpit is Upper-Management, and it is no longer an endgame** — the reframe made it the first
+> build. Its charter (with the concrete Phase-1 artifacts) lives in
+> [`docs/narrative/05-upper-management.md`](narrative/05-upper-management.md); this section remains the
+> vision source it was written from.
+
 This is the part with no precedent in either project, and it is what "a novice pushing a fighter jet to
 its full potential" actually demands.
 
@@ -134,7 +150,7 @@ The plane still needs a pilot and a passenger. It requires both for a coherent p
 
 ---
 
-# Part II — The Implementation Theory
+# Part II — The Secondary-Mode (Hook Coexistence) Roadmap
 
 ## Two planes now, one airframe later
 
@@ -365,11 +381,14 @@ Each mitigation ships *before* the capability that needs it.
 - **Phase 6 — cross-harness TS gates (deferred, optional).** Only for Cursor/Codex/Gemini. Reimplement the
   planning gates *and* the `specifying-gates` AskUserQuestion flow as `tool_name` branches; the PostToolUse
   TaskUpdate-completed reader is new code. Mandatory compute-and-log-only A/B on a bash-capable harness
-  first, decision-parity proven before any cutover. The dark IntelligentRouter and the Upper-Management
-  charter stay **unbuilt** — superpowers' `brainstorming`+`writing-plans` *are* the executive front-end.
-- **Cockpit endgame (charter).** The prospective decision engine and the expertise model, built on the
-  Phase-0 substrate (the shared transcript-model and a `mastery` memory kind), the Phase-5 review team run
-  forward, and the Phase-6 control laws keeping the climbing novice inside the envelope.
+  first, decision-parity proven before any cutover. **Superseded by the reframe:** superpowers'
+  brainstorming/writing-plans content is Upper-Management's **v0** — harvested (vendored, version-pinned
+  prompt text), then absorbed by CorpoCode's native spine — and the IntelligentRouter runs live as the
+  orchestrator's execution substrate. See `docs/narrative/05` and `docs/narrative/08`.
+- **Cockpit endgame (charter).** **Promoted to the first build** by the reframe: the prospective decision
+  engine ships in orchestrator Phase 1 (the `mastery` memory kind's seam records from day one; adaptive
+  behavior lands later), built on the review team run forward and the control laws keeping the climbing
+  novice inside the envelope. Charter: `docs/narrative/05-upper-management.md`.
 
 ## Honest limits
 

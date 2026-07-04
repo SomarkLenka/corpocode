@@ -2,6 +2,7 @@
 // behavior lives in its own module and is wired in here as milestones land.
 import { runHook } from "./hooks/dispatch";
 import { runInstallCommand, runProvisionCommand, runUninstallCommand } from "./commands/install";
+import { runStartCommand } from "./commands/start";
 import { runDoctorCommand } from "./commands/doctor";
 import { runStatsCommand } from "./commands/stats";
 import { runWhyCommand } from "./commands/why";
@@ -10,7 +11,7 @@ import { runSkillifyCommand } from "./commands/skillify";
 import { runReviewCommand } from "./commands/review";
 import { runTelemetryCommand } from "./commands/telemetry";
 import { runDocsCommand } from "./commands/docs";
-import { runInitCommand } from "./commands/init";
+import { runInitCommand, runOrchestratorOnboarding } from "./commands/init";
 import { runPromptsCommand } from "./commands/prompts";
 import { COMMANDS } from "./cli-commands";
 
@@ -20,7 +21,7 @@ function renderHelp(): string {
   const width = Math.max(...COMMANDS.map((c) => c.usage.length));
   const lines = COMMANDS.map((c) => `  ${c.usage.padEnd(width)}  ${c.summary}`);
   return (
-    `corpocode ${VERSION} — cheap-model caretakers for coding agents\n\n` +
+    `corpocode ${VERSION} — a swarm of cheap authors, one expensive judge, and a human in the cockpit\n\n` +
     "Usage: corpocode <command> [options]\n\nCommands:\n" +
     `${lines.join("\n")}\n` +
     `  ${"--version, -v".padEnd(width)}  Print the version\n` +
@@ -61,8 +62,12 @@ export async function runCli(argv: string[]): Promise<void> {
     case "uninstall":
       await runUninstallCommand(rest);
       return;
+    case "start":
+      await runStartCommand(rest);
+      return;
     case "init":
       runInitCommand(rest);
+      await runOrchestratorOnboarding(rest);
       return;
     case "prompts":
       runPromptsCommand(rest);

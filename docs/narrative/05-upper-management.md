@@ -1,117 +1,140 @@
-# Chapter 05 — Upper-Management
+# Chapter 05 — Upper-Management: the cockpit
 
-*The executive caretaker: the one tier that **designs whole applications** rather than guiding or
-tidying a single turn. Where Middle-Management and Housekeeping are cheap models surrounding an expensive
-one, Upper-Management inverts the ratio — an **expensive model commanding a peon army of cheap ones** —
-because architecture is the one task where deep reasoning pays for itself and the legwork (researching
-options, drafting specs, exploring trade-offs) parallelizes across a swarm. It interrogates the user for a
-complete technical, API, and architectural specification and produces a buildable plan the other two
-caretakers then execute against.*
+*The front door. Every CorpoCode engagement begins here: Upper-Management interrogates intent
+into a **complete specification** — polling every decision fork with its consequences already
+computed, teaching before it builds, and slowly adapting its questions to the pilot — and then
+hands the swarm a fully specified target to execute **autonomously**. It is built **first**,
+because everything downstream consumes its output.*
 
-> **This caretaker is designed, not built.** There is no `src/` code for it today — `corpocode install`
-> wires nothing for Upper-Management, and no hook invokes it. This chapter is its **charter**: a durable
-> record of *what it is for* and *how it fits the existing substrate*, so the design has a home before the
-> code does (the D tenet — document the decision before it lands). It is scheduled after the agent
-> substrate of [chapter 06](06-intelligent-router.md) proves out, because it is built entirely on top of
-> it.
+> *A swarm of cheap authors, one expensive judge, and a human in the cockpit.* — the mission of
+> record lives in [`docs/PHILOSOPHY.md`](../PHILOSOPHY.md); this chapter is the cockpit's
+> charter, and [chapter 08](08-orchestrator.md) is the run it launches.
 
 ---
 
-## The inversion: spend on the design, not the typing
+## There is no executive
 
-Every other part of CorpoCode exists to keep the expensive model *off* the cheap work. Upper-Management is
-the deliberate exception. There is exactly one moment where a large model earns its cost: deciding the
-shape of a system before a line of it is written — the choice of service boundaries, the data flow, the
-seams that will or won't exist for the next two years. Getting that wrong is the most expensive mistake a
-project can make, and no swarm of cheap models substitutes for one strong one reasoning over the whole.
+The earlier version of this charter imagined an expensive "executive" model directing the spec
+work. That framing predates the reframe and is **dead**: in the entire system the expensive
+model has exactly one role — the **arbiter**, which verifies the swarm's output
+([chapter 08](08-orchestrator.md)) — and it appears nowhere in the cockpit. The spec is authored
+by two parties only:
 
-So Upper-Management is an **executive** (a Provider pointed at a strong model) directing a **peon army**
-(the [chapter 06](06-intelligent-router.md) fan-out of cheap agents). The executive decides *what to ask*
-and *how to weigh the answers*; the army does the breadth — reading the existing code, researching each
-option, drafting each section of the spec, surfacing each risk — all in parallel. The same
-decompose-then-aggregate shape as every other caretaker, with the tiers of the pyramid simply flipped.
+- a **cheap interrogator agent** (a persistent, resumable agent thread — one directed
+  conversation, not a series of one-shot prompts) that drafts the decision forks, tracks which
+  charter sections remain open, and folds answers into the spec, and
+- **the human**, who makes every decision that matters.
 
-## What it produces: a complete specification
+Deep reasoning over the whole design is not bought with an expensive model; it is *assembled*
+from breadth — one cheap agent per consequence of each option of each fork — which is exactly
+the trade the economics favor: exhaustive analysis is unaffordable on a frontier model and
+merely cheap on a swarm.
 
-Upper-Management's deliverable is not code; it is a spec complete enough that Middle-Management can guide
-the main model through building it. It gets there by **thoroughly interrogating the user** — not a single
-prompt but a directed conversation — until it has, at minimum:
+## The cockpit: decisions arrive pre-analyzed
 
-- **The technical and API spec** — entities, contracts, endpoints, data shapes: the precise surface the
-  build will implement.
-- **Expansion of current capabilities** — for an existing codebase, what is being added and how it grafts
-  onto what already exists (grounded in the KnowledgeGraph, not imagined).
-- **Future plans** — the features and updates the architecture must *not* foreclose, so today's seams
-  survive tomorrow's roadmap.
-- **Parallelization of the work** — which tasks are independent, so the build itself can fan out.
-- **Compartmentalization of services** — the boundaries, each with one reason to change (the Atomicity
-  tenet applied at the service grain).
-- **The path to production scale** — what has to hold when the load is real, decided up front rather than
-  retrofitted.
-- **Reusable systems built once** — the shared substrate to factor out so it is written a single time and
-  consumed everywhere (the same interface-not-implementation discipline that shapes [chapter 02](02-abstractions.md)).
+The defining move (inherited from [SUPERPOWERING-SUPERPOWERS](../SUPERPOWERING-SUPERPOWERS.md)
+Part I, which remains the vision source): the MOLAR-EDIT review fan-out, run **prospectively**.
+Where the verifier fans one cheap agent per tenet over code already written, the cockpit fans
+one cheap agent per **option × consequence axis** over a decision the pilot has not yet made —
+performance, maintainability, extensibility, failure modes, idiom — and aggregates the findings
+into a poll whose every branch carries its computed trade-offs. The pilot chooses from a
+pre-analyzed tree instead of answering an open question. The recommendation attached to a poll
+is a **deterministic majority-of-axes fold** (tie → no recommendation) — never a hidden model
+call.
 
-It also **records major architectural flaws to memory** — a design-grade `MemoryStore` entry that protects
-future decisions the way a `mistake` memory protects future edits, so a structural trap discovered once is
-never walked into twice.
+**"Nothing left to interpretation" is the correctness mechanism, not an aesthetic.** Flaws enter
+a system exactly where it interpolates intent it was never given. Every silent guess a coding
+agent makes is a place the artifact can diverge from what the human wanted. Polling every fork
+removes the interpolation entirely; the granularity dial (`every-fork` → `major-forks` →
+`minimal`) is the difference between a guarantee and a guess, and it belongs to the user. A
+fork the pilot declines ("you decide") is recorded in the decisions ledger as **`delegated`** —
+answered by the deterministic recommendation, never silently guessed.
 
-## It is already mostly built — as substrate
+**It teaches before it builds.** When a poll involves a concept the pilot is not yet equipped to
+decide, the cockpit shows a teaching block pitched to their level before asking. And **it morphs,
+very slowly, to the pilot**: a per-concept mastery model (a `mastery` memory kind, global to the
+user rather than per-project) tracks what the pilot decides confidently; mastered concepts drop
+out of the poll, frontier concepts get teach-then-poll, concepts past the frontier stay hidden.
+The morph rate is a control law (EMA + hysteresis + debounce), tuned between interrogation
+fatigue and stagnation. Mastery changes **what is polled and taught, never what is enforced** —
+envelope protection stays on regardless of assumed mastery.
 
-The reason Upper-Management can be deferred without risk is that almost everything it needs already exists
-behind the four abstractions and the agent seam. The charter is mostly *composition*, not new
-infrastructure:
+## What it produces: the interrogation deliverable
 
-| It needs | It reuses |
+The cockpit's deliverable is not code; it is a spec complete enough for **autonomous
+execution** — after spec approval there is no human in the implementation loop, so anything
+unspecified now is a guess later. The interrogation drives until it has, at minimum:
+
+- **The technical and API spec** — entities, contracts, endpoints, data shapes: the precise
+  surface the build will implement.
+- **Expansion of current capabilities** — for an existing codebase, what is being added and how
+  it grafts onto what exists (grounded in the KnowledgeGraph, not imagined).
+- **Future plans** — the features the architecture must *not* foreclose.
+- **Parallelization of the work** — which tasks are independent, so the swarm can fan out.
+- **Compartmentalization of services** — boundaries with one reason to change each.
+- **The path to production scale** — decided up front rather than retrofitted.
+- **Reusable systems built once** — the shared substrate factored out a single time.
+
+Concretely, a completed interrogation emits into `.corpocode/runs/<runId>/`:
+
+- **`spec.json`** (Zod-validated structure — entities, contracts, constraints, future seams,
+  compartments, scale path, reusable systems, `acceptance[]` with a verify method per criterion,
+  and `taskSeeds[]`) with **`spec.md` derived from it, one direction only** — structure, not
+  presentation;
+- **the decisions ledger** — every poll, its per-axis findings, the answer, and its source
+  (`pilot` | `delegated` | `default`): the single audit trail of every human choice, extended
+  later by any mid-run escalation;
+- **`tasks.json`** — a task graph in a superset of the superpowers plan schema, so a spec-only
+  run hands back artifacts executable with superpowers-equipped Claude Code today;
+- **design-grade `MemoryStore` entries** — architectural flaws recorded once, never walked into
+  twice (and immediately enriching hook-mode recall).
+
+The exit is visible and explicit: each charter section above is a ledger lamp that goes
+amber → green, and the run leaves the cockpit only when all are green **and** the pilot answers
+the final "approve spec" poll.
+
+## The superpowers harvest: v0 now, absorbed later
+
+The superpowers plugin's `brainstorming` and `writing-plans` skills are a proven, novice-grade
+draft of exactly this interrogation spine, so the cockpit **harvests them as v0**: their prompt
+content is **vendored, version-pinned, provenance-commented** into CorpoCode's prompt registry
+(`um-interrogate-v0`, `um-decompose-v0`) — content and schema, never process. There is no
+runtime dependency on the installed plugin (agents spawn with `--bare`, which skips plugins; the
+cockpit must own the conversation). Superpowers' execution gates are **not** harvested: the
+orchestrator's own wave/verify gating supersedes them ([chapter 08](08-orchestrator.md)).
+Absorption is complete when deleting the vendored constants changes prompt text, not
+architecture.
+
+## Substrate map
+
+| It needs | It uses |
 | --- | --- |
-| an expensive executive model | a `Provider` pointed at a strong model — the registry already runs each component on its own provider ([chapter 02](02-abstractions.md)) |
-| a cheap army doing breadth in parallel | the IntelligentRouter's bounded fan-out, judge, and synthesize ([chapter 06](06-intelligent-router.md)) |
-| grounding in an existing codebase | `KnowledgeGraph.scoreFiles` / `query` to anchor "expand current capabilities" in real structure |
-| reference material at the right depth | the tiered `ContextStore` (L0/L1/L2) for spec drafts and research |
-| durable memory of architectural flaws | the `MemoryStore`, with a design-grade entry alongside `decision` / `mistake` / `rule` / `approach` |
-| a way to reach the model | the same `additionalContext` channel and fail-open dispatcher every caretaker uses ([chapter 01](01-hook-engine.md)) |
-
-What remains to build is the *executive logic* itself — the interrogation flow that knows which questions
-remain unanswered, the plan producer that turns answers into an `OrchestrationPlan` for the army, and the
-synthesis that assembles the spec — plus the surface that triggers it (a command, or a categorized
-"design a system" moment). All of that is an action-pattern in the [chapter 06](06-intelligent-router.md)
-sense: a small module that emits a plan the engine runs, not a new engine.
-
-## Why it is shaped this way
-
-- **Spend where it counts.** The whole rest of CorpoCode minimizes model cost; Upper-Management is the one
-  place that deliberately spends, because a wrong architecture is costlier than any number of cheap calls.
-- **Executive over army, not executive alone.** A strong model reasoning *and* doing all the legwork is
-  slow and expensive; a strong model directing cheap agents that do the breadth keeps the deep reasoning
-  scarce and the research wide.
-- **Interrogate, don't assume.** A spec the user never confirmed is a guess; the value is in driving the
-  conversation until the unknowns are closed — which is "the user disposes" applied to design itself.
-- **Built on the substrate, deferred on purpose.** Shipping it before the agent layer is proven would mean
-  building its army twice. Deferring it is the same infrastructure-first discipline that governs
-  [chapter 06](06-intelligent-router.md) — and keeping the charter documented now is how the design stays
-  coherent until the code arrives.
-- **Memory of flaws is protective, like mistakes.** A `mistake` memory keeps the model from repeating an
-  edit error; an architectural-flaw memory keeps a *design* from repeating a structural one — the same
-  loop, one altitude up.
-
-## How it will connect
-
-When built, Upper-Management changes nothing about the contracts the rest of the suite relies on. It runs
-as an action-pattern under the agent substrate, reaches the model only through `additionalContext`,
-inherits the dispatcher's catch-all and timeout for free ([chapter 01](01-hook-engine.md)), and hands its
-finished spec to Middle-Management to guide and Housekeeping to keep clean. The caretaker set is extensible
-precisely so this third tier — and any future fourth — is an additive seam rather than a structural change.
+| the directed conversation | a cheap agent on a **persistent session** (`sessionKeyForTopic`, `src/agents/sessions.ts`) so the interrogation is literally one resumed thread |
+| breadth per decision | the intelligence engine's bounded fan-out (`src/intelligence/engine.ts` — the cockpit is its first live consumer), one read-only cheap agent per option×axis |
+| grounding | `gather()` (`src/intelligence/gather.ts`): `KnowledgeGraph.scoreFiles` + `MemoryStore.recall`, zero model calls |
+| a way to ask the human | the **Interactor seam** (`src/interact/`) — the codebase's first interactive surface: terminal Q&A now, a monitor-style local web cockpit next, a scripted answers file for CI |
+| the spec state | a pure state machine (`src/um/interrogator.ts`) over the seven sections — `nextMoves` / `applyAnswer` / `isComplete`, zero IO |
+| durable memory | `MemoryStore` with `design-flaw` and `mastery` kinds |
+| run state | `.corpocode/runs/<runId>/` via `src/config/paths.ts`, journaled through the Logger seam so `corpocode why`/`monitor` narrate it for free |
 
 ## Invariants the build must honor
 
-- **Reuse the substrate, don't fork it** — the army is the [chapter 06](06-intelligent-router.md) engine,
-  the executive is a `Provider`, the memory is the `MemoryStore`. New infrastructure here is a smell.
-- **Fail open** — even the executive tier degrades to doing nothing; a failed design pass must never break
-  the host's turn.
-- **The user disposes** — the spec is *proposed*; it becomes the plan only on the user's confirmation, the
-  same bar that gates a git promotion or a skill.
-- **Structure, not presentation** — the spec carries entities, contracts, and boundaries (meaning), never
-  rendered markup, exactly as the one rule requires of every CorpoCode output.
+- **The arbiter is the only strong-model component in the system.** The cockpit runs entirely on
+  cheap agents plus the human. No executive, ever.
+- **Never silently guess.** Every fork is polled, delegated (recorded), or defaulted (recorded —
+  a dead interactor resolves a declared default and journals `answer_defaulted`, or pauses the
+  run). The ledger is complete or the run does not leave the cockpit.
+- **Reuse the substrate, don't fork it** — the fan-out is the engine, the conversation is an
+  agent session, the memory is the MemoryStore, the prompts ride the existing resolver.
+- **Fatigue is a failure mode** — `max_polls` guards the loop; the granularity dial and the
+  mastery model exist to keep interrogation proportionate to the pilot.
+- **The user disposes, concentrated here.** The spec becomes the plan only on the explicit
+  approve poll; after that the swarm runs autonomously and every later escalation lands in the
+  same ledger.
+- **Structure, not presentation** — `spec.json` is the artifact; `spec.md` is derived, one way.
 
 ---
 
-*Continue to [chapter 06 — the IntelligentRouter](06-intelligent-router.md).*
+*Continue to [chapter 06 — the IntelligentRouter](06-intelligent-router.md), the substrate the
+cockpit fans out through, or jump to [chapter 08 — the orchestrator run](08-orchestrator.md) it
+launches.*

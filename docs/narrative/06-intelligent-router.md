@@ -1,30 +1,34 @@
 # Chapter 06 — The IntelligentRouter
 
-*The agent substrate the three caretakers fan out through, and CorpoCode's private workspace: on a hook,
+*The agent substrate the three caretakers fan out through, and CorpoCode's private workspace:
 triage whether the moment is worth investigating, gather
 deterministic candidates, fan out low-cost agents per a pattern-emitted plan, judge their output, and
-synthesize exactly one tagged injection — so the main model receives a **conclusion**, not a pile of
-files to open.*
+synthesize the result — so the verifier receives **evidence** and the swarm receives **direction**,
+not a pile of files to open.*
 
-> This is the newest and largest in-progress feature. Its **infrastructure is built and wired but
-> ships dark** (off by default); the concrete behaviors that consume it are deliberately deferred. The
-> remaining-work spec is `docs/INTELLIGENT-ROUTER-PHASES.md`; this chapter is the narrative of the
-> *why* and the *shape*.
+> **Two postures.** In **orchestrator mode this layer is live and primary** — it is the execution
+> substrate of the cockpit's consequence fan-out and the implementation swarm
+> ([chapter 08](08-orchestrator.md)); orchestrator commands construct the agent registry
+> unconditionally, because there CorpoCode is the host. In the **hook channel** the infrastructure
+> is built and wired but ships dark in hook mode (`agents.enabled`, default false) — the concrete
+> hook-side behaviors that consume it are deliberately deferred. The remaining-work spec is
+> `docs/INTELLIGENT-ROUTER-PHASES.md`; this chapter is the narrative of the *why* and the *shape*.
 
 ---
 
 ## The problem it solves
 
-The caretakers of [chapter 03](03-middle-management.md) inject *candidates* — "here are the files that
-look relevant." That is already a large saving, but it still hands the main model a reading list. The
+A one-shot model call can only opine on what it is handed; an *agent* can go look. The
 IntelligentRouter is the place where CorpoCode does the reading itself: it can spend a few cheap-model
-agents to actually open `auth/session.ts`, decide whether the bug is there, and inject *"the bug is at
+agents to actually open `auth/session.ts`, decide whether the bug is there, and report *"the bug is at
 `auth/session.ts:140-158` because the session TTL is compared before the clock skew is applied"* — a
-conclusion the expensive model can act on directly. Every bit of investigation the router absorbs is
-repaid as fewer tokens and less wandering for the main model. This is the engine that turns each
-caretaker's fan-out from a team of one-shot *model calls* into a team of true *agents* — the realization
-of Middle-Management's team-of-agents charter ([chapter 03](03-middle-management.md)) and the army
-[Upper-Management](05-upper-management.md) will command.
+**conclusion**. In orchestrator mode that is the difference between a swarm that guesses and a swarm
+that investigates: the cockpit's consequence agents read the real code before pricing an option, and
+the verifier receives authored evidence it can judge cheaply. In the hook channel the same engine
+upgrades injected *candidates* ("here are the files that look relevant") into answers. This is the
+engine that turns each caretaker's fan-out from a team of one-shot *model calls* into a team of true
+*agents* — the substrate of the cockpit ([chapter 05](05-upper-management.md)) and the implementation
+swarm ([chapter 08](08-orchestrator.md)).
 
 ## The governing principle: infrastructure first, behaviors deferred
 
@@ -41,14 +45,18 @@ emits the plan**, and patterns can evolve independently without ever touching th
 integration of any one behavior would make the others harder to shape; keeping the core ignorant of
 specifics keeps it malleable.
 
-### Ships dark
+### Two postures: dark in the hook channel, live in the orchestrator
 
-The entire layer is gated on `agents.enabled` (default **false**). When off, `ctx.agents` is
-`undefined` and every caller falls back to today's behavior, so output is **byte-identical** to a build
-without the IntelligentRouter. The seam, the registry, the engine, `gather`/`synthesize`/`router-router`,
-and the SessionEnd cleanup are all built and wired — but inert until the flag flips and the first
-action-pattern lands. This is "the user disposes" applied to a whole subsystem: it proves itself in
-isolation before it is allowed to touch a live turn.
+In the **hook channel** the layer is gated on `agents.enabled` (default **false**). When off,
+`ctx.agents` is `undefined` and every caller falls back to today's behavior, so hook output is
+**byte-identical** to a build without the IntelligentRouter — the non-regression promise, enforced by
+the parity tests. This is "the user disposes" applied to a whole subsystem: it proves itself before it
+is allowed to touch someone else's live turn.
+
+In **orchestrator mode** there is no host to protect — CorpoCode is the host — so orchestrator
+commands build the registry unconditionally (`src/orchestrator/context.ts` deliberately ignores
+`agents.enabled`; that flag scopes the hook channel only). The engine's first live consumers are the
+cockpit's consequence fan-out and, from Phase 3, the implementation swarm.
 
 ## The architecture in one diagram
 
