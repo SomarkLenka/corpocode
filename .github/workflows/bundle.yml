@@ -1,0 +1,42 @@
+# Bundle CD — keeps the committed bin/corpocode.js fresh on the plugin channel. The plugin
+# marketplace tracks the develop branch and executes the committed bundle directly, so a merge
+# that forgot the rebuild would ship stale code to every `/plugin update`. On each push to
+# develop this rebuilds from source and, only if the output differs, commits the rebuilt bundle
+# back. Pushes made with GITHUB_TOKEN do not trigger workflows, so this cannot loop. main is
+# deliberately excluded: nothing auto-pushes to main; semantic-release rebuilds the bundle there
+# as part of each release (.releaserc.json prepareCmd), and the ci bundle-freshness job flags
+# stale bundles on PRs before they merge.
+name: bundle
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: write # push the rebuilt bundle back to develop
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: commit rebuilt bundle if the committed one is stale
+        run: |
+          # Only the bundle: sync-version may also touch .claude-plugin/plugin.json, but the
+          # version there is owned by semantic-release on main, not by this workflow.
+          git checkout -- .claude-plugin/plugin.json 2>/dev/null || true
+          if git diff --quiet -- bin/corpocode.js; then
+            echo "bundle is fresh — nothing to do"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bin/corpocode.js
+          git commit -m "chore(bundle): rebuild bin/corpocode.js from merged source [skip ci]"
+          git push

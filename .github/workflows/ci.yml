@@ -6,9 +6,9 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -35,3 +35,24 @@ jobs:
       # The binary must exist and run after a clean build; `npm pack` proves the files allowlist ships.
       - run: node bin/corpocode.js --version
       - run: npm pack --dry-run
+
+  # The committed bundle is what the plugin channel executes — a PR whose bin/corpocode.js does not
+  # match a fresh rebuild ships stale code to plugin users. This job makes that visible at review
+  # time; pushes to develop self-heal via the bundle workflow, and releases rebuild on main.
+  bundle-freshness:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: committed bundle must match a fresh rebuild
+        run: |
+          if ! git diff --exit-code -- bin/corpocode.js; then
+            echo "::error file=bin/corpocode.js::committed bundle is stale — run 'npm run build' and commit bin/corpocode.js"
+            exit 1
+          fi
