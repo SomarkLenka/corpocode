@@ -1,6 +1,6 @@
 {
   "name": "corpocode",
-  "version": "0.2.8",
+  "version": "0.3.0",
   "description": "A swarm of cheap authors, one expensive judge, and a human in the cockpit — simulate a frontier coding model with cheap-agent fan-outs.",
   "license": "MIT",
   "author": {
