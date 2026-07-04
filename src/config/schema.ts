@@ -221,7 +221,8 @@ export const configSchema = z
         initialized: z.boolean().default(false),
         interrogation: z
           .object({
-            interface: z.enum(["terminal", "web", "auto"]).default("terminal"), // "web" lands Phase 2
+            // auto = web cockpit in an interactive session, terminal otherwise (--web/--tty force).
+            interface: z.enum(["terminal", "web", "auto"]).default("auto"),
             granularity: z.enum(["every-fork", "major-forks", "minimal"]).default("every-fork"),
             consequence_axes: z
               .array(z.string())

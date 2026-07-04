@@ -23680,8 +23680,8 @@ var configSchema = external_exports.object({
     enabled: external_exports.boolean().default(true),
     initialized: external_exports.boolean().default(false),
     interrogation: external_exports.object({
-      interface: external_exports.enum(["terminal", "web", "auto"]).default("terminal"),
-      // "web" lands Phase 2
+      // auto = web cockpit in an interactive session, terminal otherwise (--web/--tty force).
+      interface: external_exports.enum(["terminal", "web", "auto"]).default("auto"),
       granularity: external_exports.enum(["every-fork", "major-forks", "minimal"]).default("every-fork"),
       consequence_axes: external_exports.array(external_exports.string()).default(["performance", "maintainability", "extensibility", "failure-modes", "idiom"]),
       fanout_width: external_exports.number().int().positive().default(4),
@@ -23700,6 +23700,7 @@ var configSchema = external_exports.object({
     roles: external_exports.record(roleConfigSchema).default({
       interrogate: { effort: "medium", timeout_ms: 6e4 },
       consequence: { effort: "minimal", timeout_ms: 3e4 },
+      decompose: { effort: "medium", timeout_ms: 12e4 },
       implement: { effort: "medium", max_turns: 40, timeout_ms: 6e5 },
       arbiter: { component: "arbiter", model: "claude-fable-5", effort: "high" },
       housekeeping: { effort: "minimal" }
@@ -23957,6 +23958,9 @@ THE CHARTER \u2014 seven sections; each must reach complete before the spec can 
 HOW TO WORK
 - Ask ONE question at a time. If a topic needs more exploration, break it into several forks
   across turns rather than one compound question.
+- Approaches before details: early in the conversation, surface a fork proposing 2-3 whole
+  APPROACHES to the task (with trade-offs and your recommendation) before refining any detail \u2014
+  detail questions about an approach the pilot will not choose are wasted polls.
 - Prefer concrete multiple-choice forks over open questions: 2-4 real options, each with a short
   label and a description carrying its trade-off. Always name your recommended option via
   "suggested" and make the recommendation defensible from the grounding.
@@ -23965,11 +23969,17 @@ HOW TO WORK
   "major": false \u2014 the granularity dial filters on this flag.
 - If the task spans multiple independent subsystems, surface a decomposition fork FIRST. Do not
   spend questions refining details of a project that needs splitting.
+- No task is "too simple to need a spec": a small task earns a short spec, never a skipped one \u2014
+  simple projects are where unexamined assumptions waste the most work.
 - YAGNI ruthlessly: propose cutting unnecessary features; never widen scope the pilot did not ask for.
-- Every acceptance criterion must carry a verify method; prefer deterministic commands over
-  manual checks.
+- Acceptance criteria must be OPERATIONAL: each names an observable and a pass/fail value
+  ("HTTP 200 from /health", "setup.done file present") \u2014 never "it works" or "integration is
+  solid". Every criterion carries a verify method; prefer deterministic commands over manual checks.
 - Record only what the pilot decided or what the grounding establishes. Never invent a decision
   the pilot has not made \u2014 an unresolved fork is asked, not assumed.
+- SELF-REVIEW before {"move":"done"}: scan the accumulated spec for placeholders ("TBD",
+  "appropriate", "handle edge cases"), contradictions between sections, ambiguous criteria, and
+  scope the pilot never asked for. Fix by emitting corrective content moves, then end.
 
 RESPONSE FORMAT \u2014 respond with EXACTLY ONE JSON object per turn. No prose, no code fences,
 nothing before or after the object. Three moves exist:
@@ -24013,7 +24023,17 @@ TASK GRAPH RULES
   what later tasks rely on \u2014 exact names, signatures, and types, since neighbors cannot see
   each other. Names and types used across tasks must match exactly.
 - Map every acceptance criterion to at least one task via acceptanceRefs; a criterion no task
-  covers is a spec-coverage failure.
+  covers is a spec-coverage failure. Criteria must be OPERATIONAL \u2014 each names an observable and
+  a pass/fail value, never "it works".
+- Assign each task a "modelTier": "mechanical" for bulk/rote edits any model gets right,
+  "standard" for ordinary implementation, "frontier" for subtle, design-heavy, or high-blast-
+  radius work. The swarm routes implementer capability by this field \u2014 under-tiering breaks the
+  build, over-tiering burns money.
+- Detect USER-THROWN GATES: if the spec's language commits to verification ordering ("verify on
+  one before the rest"), names a gate artifact ("smoke test", "acceptance test", "E2E"), or
+  demands proof ("prove it works", "demonstrate"), the covering task gets "userGate": true \u2014 it
+  must never be closed by walking around it. A bare verb like "check" or "validate" alone is NOT
+  a gate.
 - DRY. YAGNI. Test-first where the verifyCommand is a test.
 
 NO PLACEHOLDERS \u2014 these are plan failures, never write them:
@@ -24027,7 +24047,7 @@ SELF-REVIEW before responding: (1) spec coverage \u2014 every spec requirement p
 names referenced across tasks match exactly. Fix issues inline, then respond.
 
 RESPONSE FORMAT \u2014 respond with EXACTLY ONE JSON object, no prose, no code fences:
-{"taskSeeds":[{"id":"<kebab-slug>","title":"...","description":"...","files":["exact/path.ts"],"dependsOn":["<earlier id>"],"verifyCommand":"<exact command>","acceptanceRefs":["<acceptance id>"]}]}`;
+{"taskSeeds":[{"id":"<kebab-slug>","title":"...","description":"...","files":["exact/path.ts"],"dependsOn":["<earlier id>"],"verifyCommand":"<exact command>","acceptanceRefs":["<acceptance id>"],"modelTier":"mechanical|standard|frontier","userGate":false}]}`;
 
 // src/prompts/registry.ts
 function axisPrompt(lens, rubric) {
@@ -30255,7 +30275,7 @@ async function runUninstallCommand(argv) {
 }
 
 // src/commands/start.ts
-var import_node_fs39 = require("node:fs");
+var import_node_fs40 = require("node:fs");
 
 // src/intelligence/gather.ts
 var DEFAULT_LIMIT = 8;
@@ -30558,7 +30578,10 @@ var taskSeedSchema = external_exports.object({
   dependsOn: external_exports.array(external_exports.string()).default([]),
   verifyCommand: external_exports.string().optional(),
   // authored at decompose when absent; never silently dropped
-  acceptanceRefs: external_exports.array(external_exports.string()).default([])
+  acceptanceRefs: external_exports.array(external_exports.string()).default([]),
+  modelTier: external_exports.enum(["mechanical", "standard", "frontier"]).optional(),
+  userGate: external_exports.boolean().optional(),
+  tags: external_exports.array(external_exports.string()).default([])
 });
 var specSchema = external_exports.object({
   version: external_exports.literal(1).default(1),
@@ -30883,6 +30906,7 @@ ${MOVE_INSTRUCTION}${attempt > 0 ? RETRY_NOTE : ""}`,
       stalls = 0;
       state = recordContent(state, move.section, move.payload, move.complete);
       log({ event: "cockpit_move", move: "content", section: move.section, complete: move.complete });
+      deps.interactor.note?.({ kind: "sections", statuses: { ...state.spec.sections } });
       continue;
     }
     if (move.move === "fork") {
@@ -30911,6 +30935,8 @@ ${MOVE_INSTRUCTION}${attempt > 0 ? RETRY_NOTE : ""}`,
         });
         lastAnswer = `Fork "${fork.id}" was auto-resolved to "${chosen.label}" (delegated by poll granularity).`;
         log({ event: "cockpit_poll", poll_id: fork.id, asked: false, source: "delegated", option: chosen.id });
+        deps.interactor.note?.({ kind: "decision", pollId: fork.id, concept: fork.concept, source: "delegated", chosen: chosen.label });
+        deps.interactor.note?.({ kind: "sections", statuses: { ...state.spec.sections } });
         continue;
       }
       if (state.polls >= interrogation.max_polls) return pause("max_polls");
@@ -30959,6 +30985,8 @@ ${MOVE_INSTRUCTION}${attempt > 0 ? RETRY_NOTE : ""}`,
       const chosenLabel = answer2.optionId ? fork.options.find((o2) => o2.id === answer2.optionId)?.label ?? answer2.optionId : void 0;
       lastAnswer = answer2.freeText ? `On "${fork.question}" the pilot answered in their own words: ${answer2.freeText}` : `On "${fork.question}" the pilot chose "${chosenLabel}".`;
       log({ event: "cockpit_poll", poll_id: poll.id, asked: true, source: answer2.source, option: answer2.optionId });
+      deps.interactor.note?.({ kind: "decision", pollId: poll.id, concept: fork.concept, source: answer2.source, chosen: chosenLabel ?? answer2.freeText });
+      deps.interactor.note?.({ kind: "sections", statuses: { ...state.spec.sections } });
       continue;
     }
     if (!isComplete(state)) {
@@ -30991,6 +31019,7 @@ ${MOVE_INSTRUCTION}${attempt > 0 ? RETRY_NOTE : ""}`,
     if (answer.optionId === "approve") {
       state = { ...state, spec: { ...state.spec, approvedAt: now() } };
       log({ event: "cockpit_approved", run_id: deps.runId, polls: state.polls, decisions: state.spec.decisions.length });
+      deps.interactor.note?.({ kind: "phase", phase: "approved", detail: `${state.spec.decisions.length} decision(s)` });
       return { status: "approved", state };
     }
     stalls = 0;
@@ -31264,6 +31293,403 @@ function createScriptedInteractor(script, opts) {
   };
 }
 
+// src/interact/web.ts
+var import_node_http = require("node:http");
+var import_node_child_process7 = require("node:child_process");
+var HOST = "127.0.0.1";
+var FEED_LIMIT = 200;
+function delegatedOptionId3(poll) {
+  return poll.options.find((o2) => o2.recommended)?.id ?? poll.defaultOptionId ?? poll.options[0]?.id;
+}
+function resolveDefault3(poll) {
+  return poll.defaultOptionId ? { pollId: poll.id, optionId: poll.defaultOptionId, source: "default" } : null;
+}
+function openBrowser(url) {
+  const platform = process.platform;
+  const [cmd, args] = platform === "win32" ? ["cmd", ["/c", "start", "", url]] : platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
+  try {
+    (0, import_node_child_process7.spawn)(cmd, args, { stdio: "ignore", detached: true, shell: false }).unref();
+  } catch {
+  }
+}
+function respond(res, status, text) {
+  try {
+    if (text === void 0) {
+      res.writeHead(status);
+      res.end();
+    } else {
+      res.writeHead(status, { "content-type": "text/plain; charset=utf-8" });
+      res.end(text);
+    }
+  } catch {
+  }
+}
+function readBody(req, limit2 = 1e6) {
+  return new Promise((resolve2) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > limit2) {
+        req.destroy();
+        resolve2("");
+      }
+    });
+    req.on("end", () => resolve2(body));
+    req.on("error", () => resolve2(body));
+  });
+}
+async function createWebInteractor(opts = {}) {
+  const now = opts.now ?? (() => Date.now());
+  let closed = false;
+  let pendingPoll = null;
+  let pendingResolve = null;
+  const clients = /* @__PURE__ */ new Set();
+  let latestSections = null;
+  const feed = [];
+  const sse2 = (res, ev) => {
+    res.write(`data: ${JSON.stringify(ev)}
+
+`);
+  };
+  const broadcast = (ev) => {
+    for (const res of [...clients]) {
+      try {
+        sse2(res, ev);
+      } catch {
+        clients.delete(res);
+      }
+    }
+  };
+  const remember = (ev) => {
+    feed.push(ev);
+    if (feed.length > FEED_LIMIT) feed.splice(0, feed.length - FEED_LIMIT);
+  };
+  const settle = (answer) => {
+    const poll = pendingPoll;
+    const resolve2 = pendingResolve;
+    pendingPoll = null;
+    pendingResolve = null;
+    if (poll) broadcast({ type: "resolved", pollId: poll.id });
+    resolve2?.(answer);
+  };
+  const serveEvents = (req, res) => {
+    try {
+      res.writeHead(200, {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache",
+        connection: "keep-alive"
+      });
+      if (latestSections) sse2(res, latestSections);
+      for (const ev of feed) sse2(res, ev);
+      if (pendingPoll) sse2(res, { type: "poll", poll: pendingPoll });
+    } catch {
+      return;
+    }
+    clients.add(res);
+    const drop = () => {
+      clients.delete(res);
+    };
+    req.on("close", drop);
+    res.on("close", drop);
+  };
+  const handleAnswer = async (req, res) => {
+    const raw = await readBody(req);
+    let body;
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed !== "object" || parsed === null) return respond(res, 400, "body must be a JSON object");
+      body = parsed;
+    } catch {
+      return respond(res, 400, "malformed JSON body");
+    }
+    const poll = pendingPoll;
+    if (!poll || body.pollId !== poll.id) return respond(res, 409, "no pending poll with that id");
+    if (body.delegate === true) {
+      const optionId = delegatedOptionId3(poll);
+      settle(optionId ? { pollId: poll.id, optionId, source: "delegated" } : resolveDefault3(poll));
+      return respond(res, 204);
+    }
+    if (typeof body.optionId === "string") {
+      if (!poll.options.some((o2) => o2.id === body.optionId)) return respond(res, 400, "unknown optionId");
+      settle({ pollId: poll.id, optionId: body.optionId, source: "pilot" });
+      return respond(res, 204);
+    }
+    if (typeof body.freeText === "string" && body.freeText.length > 0) {
+      if (!poll.allowFreeText) return respond(res, 400, "this poll does not accept free text");
+      settle({ pollId: poll.id, freeText: body.freeText, source: "pilot" });
+      return respond(res, 204);
+    }
+    return respond(res, 400, "answer needs optionId, freeText, or delegate:true");
+  };
+  const server = (0, import_node_http.createServer)((req, res) => {
+    const path = (req.url ?? "/").split("?")[0];
+    if (req.method === "GET" && path === "/") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(PAGE);
+      return;
+    }
+    if (req.method === "GET" && path === "/events") return serveEvents(req, res);
+    if (req.method === "POST" && path === "/answer") {
+      void handleAnswer(req, res);
+      return;
+    }
+    respond(res, 404, "not found");
+  });
+  await new Promise((resolve2, reject) => {
+    server.once("error", reject);
+    server.listen(opts.port ?? 0, HOST, () => {
+      server.removeListener("error", reject);
+      resolve2();
+    });
+  });
+  const addr = server.address();
+  const port = typeof addr === "object" && addr ? addr.port : 0;
+  const url = `http://${HOST}:${port}`;
+  const open = opts.openBrowser ?? openBrowser;
+  try {
+    open(url);
+  } catch {
+  }
+  return {
+    url,
+    port,
+    async ask(poll) {
+      try {
+        if (closed) return resolveDefault3(poll);
+        if (pendingPoll) settle(resolveDefault3(pendingPoll));
+        const answered = new Promise((resolve2) => {
+          pendingResolve = resolve2;
+        });
+        pendingPoll = poll;
+        broadcast({ type: "poll", poll });
+        return await answered;
+      } catch {
+        return resolveDefault3(poll);
+      }
+    },
+    say(block) {
+      try {
+        const ev = { type: "say", text: block, ts: now() };
+        remember(ev);
+        broadcast(ev);
+      } catch {
+      }
+    },
+    note(note) {
+      try {
+        const ev = { type: "note", note, ts: now() };
+        if (note.kind === "sections") latestSections = ev;
+        else remember(ev);
+        broadcast(ev);
+      } catch {
+      }
+    },
+    async close() {
+      if (closed) return;
+      closed = true;
+      try {
+        if (pendingPoll) settle(resolveDefault3(pendingPoll));
+        for (const res of clients) {
+          try {
+            res.end();
+          } catch {
+          }
+        }
+        clients.clear();
+        await new Promise((resolve2) => {
+          server.close(() => resolve2());
+          server.closeAllConnections();
+        });
+      } catch {
+      }
+    }
+  };
+}
+var PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CorpoCode cockpit</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;font:14px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#14161a;color:#d6d9de}
+header{display:flex;align-items:baseline;gap:18px;padding:10px 16px;border-bottom:1px solid #2a2e35;flex-wrap:wrap}
+h1{font-size:15px;margin:0;font-weight:600}
+#ledger{display:flex;gap:12px;flex-wrap:wrap}
+.lamp{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#9aa0aa}
+.lamp::before{content:"";width:9px;height:9px;border-radius:50%;background:#555;flex:none}
+.lamp.amber::before{background:#d9a441}
+.lamp.green::before{background:#3fa550}
+main{display:grid;grid-template-columns:minmax(260px,2fr) minmax(360px,3fr);gap:16px;padding:16px;max-width:1200px;margin:0 auto}
+@media(max-width:760px){main{grid-template-columns:1fr}}
+#feed{border:1px solid #2a2e35;border-radius:6px;padding:10px;overflow-y:auto;max-height:82vh}
+.feed-line{padding:2px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.feed-line.decision{color:#8ec6e6}
+.feed-line.phase{color:#c7a5e8}
+#poll-card{border:1px solid #2a2e35;border-radius:6px;padding:14px;align-self:start}
+.teaching{background:#1d2330;border-left:3px solid #5b7fd4;border-radius:0 4px 4px 0;padding:8px 10px;margin-bottom:12px;white-space:pre-wrap}
+.teaching b{display:block;margin-bottom:4px;color:#9db6ea}
+.question{font-size:16px;font-weight:600;margin:4px 0 12px}
+.option{border:1px solid #2a2e35;border-radius:6px;padding:10px;margin-bottom:10px;cursor:pointer}
+.option.selected{border-color:#d9a441;background:#1b1e24}
+.opt-label{font-weight:600}
+.badge{color:#3fa550;font-size:12px;margin-left:6px;font-weight:400}
+table.findings{border-collapse:collapse;margin-top:6px;width:100%}
+table.findings td{padding:2px 10px 2px 0;font-size:12px;vertical-align:top}
+.sev-info{color:#9aa0aa}.sev-warn{color:#d9a441}.sev-risk{color:#e06c60}
+.sev-unanalyzed{color:#6b7078;font-style:italic}
+.controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{background:#242a33;color:#d6d9de;border:1px solid #3a414c;border-radius:5px;padding:6px 12px;cursor:pointer;font:inherit}
+button:hover{border-color:#d9a441}
+input[type=text]{flex:1;background:#101216;color:#d6d9de;border:1px solid #3a414c;border-radius:5px;padding:6px 8px;min-width:160px;font:inherit}
+.quiet{color:#6b7078}
+</style>
+</head>
+<body>
+<header>
+  <h1>CorpoCode cockpit</h1>
+  <div id="ledger"></div>
+</header>
+<main>
+  <section id="feed"></section>
+  <section id="poll-card"><div class="quiet">waiting for the first poll\u2026</div></section>
+</main>
+<script>
+(function () {
+  "use strict";
+  var current = null;
+  var selected = null;
+  var ledger = document.getElementById("ledger");
+  var feed = document.getElementById("feed");
+  var card = document.getElementById("poll-card");
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined && text !== null) e.textContent = text;
+    return e;
+  }
+  function feedLine(cls, text) {
+    feed.appendChild(el("div", cls ? "feed-line " + cls : "feed-line", text));
+    feed.scrollTop = feed.scrollHeight;
+  }
+  function post(body) {
+    fetch("/answer", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body)
+    }).catch(function () {});
+  }
+
+  function renderLamps(statuses) {
+    ledger.textContent = "";
+    Object.keys(statuses).forEach(function (name) {
+      var green = statuses[name] === "complete";
+      ledger.appendChild(el("span", "lamp " + (green ? "green" : "amber"), name));
+    });
+  }
+
+  function renderPoll(poll) {
+    current = poll;
+    selected = null;
+    card.textContent = "";
+    if (poll.teaching) {
+      var t = el("div", "teaching");
+      t.appendChild(el("b", null, "teaching: " + poll.teaching.concept));
+      t.appendChild(el("span", null, poll.teaching.body));
+      card.appendChild(t);
+    }
+    card.appendChild(el("div", "question", poll.question));
+    poll.options.forEach(function (opt) {
+      var box = el("div", "option");
+      box.dataset.id = opt.id;
+      var head = el("div", "opt-label", opt.label);
+      if (opt.recommended) head.appendChild(el("span", "badge", "(recommended)"));
+      box.appendChild(head);
+      if (opt.description) box.appendChild(el("div", "quiet", opt.description));
+      if (opt.findings.length) {
+        var tbl = el("table", "findings");
+        opt.findings.forEach(function (f) {
+          var tr = el("tr");
+          tr.appendChild(el("td", null, f.axis));
+          tr.appendChild(el("td", f.ok ? "sev-" + f.severity : "sev-unanalyzed", f.ok ? f.severity : "?"));
+          tr.appendChild(el("td", f.ok ? null : "sev-unanalyzed", f.ok ? f.summary : "unanalyzed"));
+          tbl.appendChild(tr);
+        });
+        box.appendChild(tbl);
+      }
+      box.onclick = function () {
+        selected = opt.id;
+        Array.prototype.forEach.call(card.querySelectorAll(".option"), function (n) {
+          n.classList.toggle("selected", n.dataset.id === opt.id);
+        });
+      };
+      card.appendChild(box);
+    });
+    var controls = el("div", "controls");
+    var submit = el("button", null, "answer");
+    submit.onclick = function () {
+      if (current && selected) post({ pollId: current.id, optionId: selected });
+    };
+    controls.appendChild(submit);
+    if (poll.allowDelegate) {
+      var d = el("button", null, "you decide");
+      d.onclick = function () {
+        if (current) post({ pollId: current.id, delegate: true });
+      };
+      controls.appendChild(d);
+    }
+    card.appendChild(controls);
+    if (poll.allowFreeText) {
+      var row = el("div", "controls");
+      var input = el("input");
+      input.type = "text";
+      input.placeholder = "answer in your own words";
+      var send = el("button", null, "send");
+      send.onclick = function () {
+        if (current && input.value.trim()) post({ pollId: current.id, freeText: input.value.trim() });
+      };
+      input.onkeydown = function (e) {
+        if (e.key === "Enter") send.onclick();
+      };
+      row.appendChild(input);
+      row.appendChild(send);
+      card.appendChild(row);
+    }
+  }
+
+  function handle(ev) {
+    if (ev.type === "poll") renderPoll(ev.poll);
+    else if (ev.type === "say") feedLine(null, ev.text);
+    else if (ev.type === "resolved") {
+      if (current && current.id === ev.pollId) {
+        current = null;
+        card.textContent = "";
+        card.appendChild(el("div", "quiet", "decision recorded \u2014 waiting for the next poll\u2026"));
+      }
+    } else if (ev.type === "note") {
+      var n = ev.note;
+      if (n.kind === "sections") renderLamps(n.statuses);
+      else if (n.kind === "decision") feedLine("decision", "decision " + n.concept + ": " + (n.chosen || "(free text)") + " [" + n.source + "]");
+      else if (n.kind === "phase") feedLine("phase", "phase: " + n.phase + (n.detail ? " \u2014 " + n.detail : ""));
+    }
+  }
+
+  var es = new EventSource("/events");
+  es.onmessage = function (m) {
+    try {
+      handle(JSON.parse(m.data));
+    } catch (e) {
+      /* a malformed frame is skipped, never fatal */
+    }
+  };
+})();
+</script>
+</body>
+</html>
+`;
+
 // src/um/harvest/tasks-schema.ts
 var taskEntrySchema = external_exports.object({
   id: external_exports.string(),
@@ -31278,12 +31704,80 @@ var taskEntrySchema = external_exports.object({
   status: external_exports.enum(["pending", "in_progress", "completed"]).default("pending"),
   modelTier: external_exports.string().optional(),
   budgetUsd: external_exports.number().optional(),
-  specRefs: external_exports.array(external_exports.string()).default([])
+  specRefs: external_exports.array(external_exports.string()).default([]),
+  // pcvelz/superpowers gate metadata (task-format-reference.md) — carried, never interpreted here.
+  userGate: external_exports.boolean().optional(),
+  tags: external_exports.array(external_exports.string()).default([]),
+  requiresUserSpecification: external_exports.boolean().optional(),
+  estimatedScope: external_exports.enum(["small", "medium", "large"]).optional()
 }).strip();
 var tasksFileSchema = external_exports.object({
   version: external_exports.literal(1).default(1),
   tasks: external_exports.array(taskEntrySchema).default([])
 }).strip();
+function parseTasksFile(raw) {
+  const result = tasksFileSchema.safeParse(raw);
+  return result.success ? result.data : null;
+}
+var nativeTaskSchema = external_exports.object({
+  id: external_exports.union([external_exports.number(), external_exports.string()]),
+  subject: external_exports.string().default(""),
+  status: external_exports.string().default("pending"),
+  blockedBy: external_exports.array(external_exports.union([external_exports.number(), external_exports.string()])).default([]),
+  description: external_exports.string().default("")
+}).strip();
+var nativePlanSchema = external_exports.object({
+  planPath: external_exports.string().optional(),
+  tasks: external_exports.array(nativeTaskSchema).default([])
+}).strip();
+var metadataFenceSchema = external_exports.object({
+  files: external_exports.array(external_exports.string()).default([]),
+  verifyCommand: external_exports.string().optional(),
+  acceptanceCriteria: external_exports.array(external_exports.string()).default([]),
+  modelTier: external_exports.string().optional(),
+  userGate: external_exports.boolean().optional(),
+  tags: external_exports.array(external_exports.string()).default([]),
+  requiresUserSpecification: external_exports.boolean().optional(),
+  estimatedScope: external_exports.enum(["small", "medium", "large"]).optional()
+}).strip();
+function normalizeStatus(status) {
+  return status === "in_progress" || status === "completed" ? status : "pending";
+}
+function fenceMetadata(description) {
+  const empty = metadataFenceSchema.parse({});
+  const match = description.match(/```json:metadata\s*\n([\s\S]*?)```/);
+  if (!match) return empty;
+  try {
+    const parsed = metadataFenceSchema.safeParse(JSON.parse(match[1]));
+    return parsed.success ? parsed.data : empty;
+  } catch {
+    return empty;
+  }
+}
+function parseNativePlanFile(raw) {
+  const result = nativePlanSchema.safeParse(raw);
+  if (!result.success || result.data.tasks.length === 0) return null;
+  const tasks = result.data.tasks.map((t2) => {
+    const meta = fenceMetadata(t2.description);
+    return {
+      id: String(t2.id),
+      title: t2.subject,
+      description: t2.description,
+      files: meta.files,
+      ...meta.verifyCommand !== void 0 ? { verifyCommand: meta.verifyCommand } : {},
+      acceptanceCriteria: meta.acceptanceCriteria,
+      dependsOn: t2.blockedBy.map(String),
+      status: normalizeStatus(t2.status),
+      ...meta.modelTier !== void 0 ? { modelTier: meta.modelTier } : {},
+      specRefs: [],
+      ...meta.userGate !== void 0 ? { userGate: meta.userGate } : {},
+      tags: meta.tags,
+      ...meta.requiresUserSpecification !== void 0 ? { requiresUserSpecification: meta.requiresUserSpecification } : {},
+      ...meta.estimatedScope !== void 0 ? { estimatedScope: meta.estimatedScope } : {}
+    };
+  });
+  return { version: 1, tasks };
+}
 function emitTasksFile(spec) {
   const seedIds = new Set(spec.taskSeeds.map((s3) => s3.id));
   const unknownDeps = [];
@@ -31336,22 +31830,226 @@ function emitTasksFile(spec) {
     }),
     dependsOn: [...seed.dependsOn],
     status: "pending",
-    specRefs: [...seed.acceptanceRefs]
+    ...seed.modelTier !== void 0 ? { modelTier: seed.modelTier } : {},
+    specRefs: [...seed.acceptanceRefs],
+    ...seed.userGate !== void 0 ? { userGate: seed.userGate } : {},
+    tags: [...seed.tags]
   }));
   return { ok: true, file: { version: 1, tasks } };
 }
 
+// src/orchestrator/decompose.ts
+function validateTasks(file) {
+  const issues = [];
+  const ids = new Set(file.tasks.map((t2) => t2.id));
+  for (const task of file.tasks) {
+    for (const dep of task.dependsOn) {
+      if (!ids.has(dep)) issues.push({ kind: "unknown-dep", fatal: true, detail: `${task.id} -> ${dep}` });
+    }
+    if (!task.verifyCommand || !task.verifyCommand.trim()) {
+      issues.push({ kind: "missing-verify", fatal: true, detail: task.id });
+    }
+    if (task.acceptanceCriteria.length === 0) {
+      issues.push({ kind: "empty-criteria", fatal: true, detail: task.id });
+    }
+  }
+  const edges = new Map(file.tasks.map((t2) => [t2.id, t2.dependsOn.filter((d2) => ids.has(d2))]));
+  const mark = /* @__PURE__ */ new Map();
+  for (const root of ids) {
+    if (mark.has(root)) continue;
+    const stack = [{ id: root, next: 0 }];
+    mark.set(root, "visiting");
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1];
+      const deps = edges.get(frame.id) ?? [];
+      if (frame.next < deps.length) {
+        const dep = deps[frame.next++];
+        const state = mark.get(dep);
+        if (state === "visiting") {
+          const path = stack.map((f2) => f2.id).slice(stack.findIndex((f2) => f2.id === dep));
+          issues.push({ kind: "cycle", fatal: true, detail: [...path, dep].join(" -> ") });
+        } else if (state === void 0) {
+          mark.set(dep, "visiting");
+          stack.push({ id: dep, next: 0 });
+        }
+      } else {
+        mark.set(frame.id, "done");
+        stack.pop();
+      }
+    }
+  }
+  const reachable = transitiveClosure(edges);
+  for (let i2 = 0; i2 < file.tasks.length; i2++) {
+    for (let j2 = i2 + 1; j2 < file.tasks.length; j2++) {
+      const a2 = file.tasks[i2];
+      const b2 = file.tasks[j2];
+      if (reachable.get(a2.id)?.has(b2.id) || reachable.get(b2.id)?.has(a2.id)) continue;
+      const shared = a2.files.filter((f2) => b2.files.includes(f2));
+      if (shared.length > 0) {
+        issues.push({ kind: "file-overlap", fatal: false, detail: `${a2.id} \u2229 ${b2.id}: ${shared.join(", ")}` });
+      }
+    }
+  }
+  return issues;
+}
+function transitiveClosure(edges) {
+  const memo = /* @__PURE__ */ new Map();
+  const visit = (id, guard) => {
+    const cached = memo.get(id);
+    if (cached) return cached;
+    if (guard.has(id)) return /* @__PURE__ */ new Set();
+    guard.add(id);
+    const out = /* @__PURE__ */ new Set();
+    for (const dep of edges.get(id) ?? []) {
+      out.add(dep);
+      for (const t2 of visit(dep, guard)) out.add(t2);
+    }
+    guard.delete(id);
+    memo.set(id, out);
+    return out;
+  };
+  for (const id of edges.keys()) visit(id, /* @__PURE__ */ new Set());
+  return memo;
+}
+async function decompose(spec, deps) {
+  const log = deps.log ?? (() => {
+  });
+  const emitted = emitTasksFile(spec);
+  if (emitted.ok) {
+    const issues = validateTasks(emitted.file);
+    if (!issues.some((i2) => i2.fatal)) {
+      log({ event: "decompose", used_agent: false, tasks: emitted.file.tasks.length, issues: issues.length });
+      return { ok: true, file: emitted.file, issues, usedAgent: false, costUsd: 0 };
+    }
+  }
+  const maxAttempts = deps.maxAttempts ?? 2;
+  let feedback = emitted.ok ? formatIssues(validateTasks(emitted.file).filter((i2) => i2.fatal)) : emitted.error;
+  let costUsd = 0;
+  let lastError = feedback;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const result = await deps.invoke(deps.renderPrompt(spec, feedback));
+    costUsd += result.usage.costUsd;
+    if (!result.ok) {
+      lastError = result.error?.message ?? "decompose agent failed";
+      feedback = lastError;
+      continue;
+    }
+    const seeds = extractSeeds(result);
+    if (!seeds) {
+      lastError = "decompose agent returned no parseable taskSeeds";
+      feedback = lastError;
+      continue;
+    }
+    const candidate = parseTasksFile({
+      version: 1,
+      tasks: seeds.map((s3) => ({ ...s3, status: "pending", specRefs: s3.acceptanceRefs ?? [] }))
+    });
+    if (!candidate) {
+      lastError = "decompose agent output did not validate against the tasks schema";
+      feedback = lastError;
+      continue;
+    }
+    const issues = validateTasks(candidate);
+    const fatal = issues.filter((i2) => i2.fatal);
+    if (fatal.length === 0) {
+      log({ event: "decompose", used_agent: true, attempt, tasks: candidate.tasks.length, issues: issues.length, cost_usd: costUsd });
+      return { ok: true, file: candidate, issues, usedAgent: true, costUsd };
+    }
+    lastError = formatIssues(fatal);
+    feedback = lastError;
+    log({ event: "decompose_retry", attempt, fatal: fatal.length });
+  }
+  log({ event: "decompose_failed", cost_usd: costUsd });
+  return { ok: false, error: lastError, issues: [], costUsd };
+}
+function formatIssues(issues) {
+  return issues.map((i2) => `${i2.kind}: ${i2.detail}`).join("; ");
+}
+function extractSeeds(result) {
+  const raw = result.data ?? tryJson(result.text);
+  if (!raw || typeof raw !== "object") return null;
+  const seeds = raw.taskSeeds;
+  if (!Array.isArray(seeds) || seeds.length === 0) return null;
+  return seeds.map((s3) => {
+    const seed = s3;
+    const criteria = seed.acceptanceCriteria?.length ? seed.acceptanceCriteria : seed.acceptanceRefs ?? [];
+    return { ...seed, acceptanceCriteria: criteria };
+  });
+}
+function tryJson(text) {
+  if (!text) return void 0;
+  const stripped = text.replace(/```(?:json)?/gi, "").trim();
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start < 0 || end <= start) return void 0;
+  try {
+    return JSON.parse(stripped.slice(start, end + 1));
+  } catch {
+    return void 0;
+  }
+}
+
+// src/orchestrator/lock.ts
+var import_node_fs39 = require("node:fs");
+var import_node_path31 = require("node:path");
+function lockFile(cwd6, env) {
+  return (0, import_node_path31.join)(runsDir(cwd6, env), "active.lock");
+}
+function defaultPidAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function readLock(cwd6, env) {
+  try {
+    const raw = JSON.parse((0, import_node_fs39.readFileSync)(lockFile(cwd6, env), "utf8"));
+    if (typeof raw.runId !== "string" || typeof raw.pid !== "number") return null;
+    return { runId: raw.runId, pid: raw.pid, at: typeof raw.at === "number" ? raw.at : 0 };
+  } catch {
+    return null;
+  }
+}
+function acquireRunLock(runId, deps = {}) {
+  const alive = deps.pidAlive ?? defaultPidAlive;
+  const existing = readLock(deps.cwd, deps.env);
+  if (existing && existing.runId !== runId && alive(existing.pid)) return { ok: false, holder: existing };
+  try {
+    ensureDir(runsDir(deps.cwd, deps.env));
+    const lock = { runId, pid: deps.pid ?? process.pid, at: (deps.now ?? Date.now)() };
+    (0, import_node_fs39.writeFileSync)(lockFile(deps.cwd, deps.env), `${JSON.stringify(lock)}
+`);
+    return { ok: true };
+  } catch {
+    return { ok: true };
+  }
+}
+function releaseRunLock(runId, deps = {}) {
+  const existing = readLock(deps.cwd, deps.env);
+  if (existing && existing.runId !== runId) return;
+  try {
+    (0, import_node_fs39.rmSync)(lockFile(deps.cwd, deps.env), { force: true });
+  } catch {
+  }
+}
+
 // src/commands/start.ts
 function parseStartFlags(argv) {
-  const flags = { specOnly: false, dev: false, yes: false, list: false };
+  const flags = { specOnly: false, planOnly: false, dev: false, yes: false, web: false, tty: false, list: false };
   for (let i2 = 0; i2 < argv.length; i2++) {
     const a2 = argv[i2];
     if (a2 === "--spec-only") flags.specOnly = true;
+    else if (a2 === "--plan-only") flags.planOnly = true;
     else if (a2 === "--dev") flags.dev = true;
     else if (a2 === "--yes") flags.yes = true;
+    else if (a2 === "--web") flags.web = true;
+    else if (a2 === "--tty") flags.tty = true;
     else if (a2 === "--list") flags.list = true;
     else if (a2 === "--answers") flags.answers = argv[++i2];
     else if (a2 === "--resume") flags.resume = argv[++i2];
+    else if (a2 === "--from-plan") flags.fromPlan = argv[++i2];
     else if (a2 === "--status") flags.status = argv[++i2];
     else if (!a2.startsWith("--") && flags.task === void 0) flags.task = a2;
   }
@@ -31381,7 +32079,7 @@ function cockpitPrompts(opts) {
 }
 function loadSpecState(runId, cwd6, env) {
   try {
-    const raw = JSON.parse((0, import_node_fs39.readFileSync)(runFile(runId, "spec.json", cwd6, env), "utf8"));
+    const raw = JSON.parse((0, import_node_fs40.readFileSync)(runFile(runId, "spec.json", cwd6, env), "utf8"));
     const spec = specSchema.parse(raw);
     return { spec, polls: spec.decisions.length };
   } catch {
@@ -31390,14 +32088,25 @@ function loadSpecState(runId, cwd6, env) {
 }
 function writeArtifacts(runId, spec, cwd6, env) {
   ensureDir(runDir(runId, cwd6, env));
-  (0, import_node_fs39.writeFileSync)(runFile(runId, "spec.json", cwd6, env), `${JSON.stringify(spec, null, 2)}
+  (0, import_node_fs40.writeFileSync)(runFile(runId, "spec.json", cwd6, env), `${JSON.stringify(spec, null, 2)}
 `);
-  (0, import_node_fs39.writeFileSync)(runFile(runId, "spec.md", cwd6, env), renderSpecMarkdown(spec));
+  (0, import_node_fs40.writeFileSync)(runFile(runId, "spec.md", cwd6, env), renderSpecMarkdown(spec));
 }
 function decisionSummary(spec) {
   const by = { pilot: 0, delegated: 0, default: 0 };
   for (const d2 of spec.decisions) by[d2.answer.source]++;
   return `${spec.decisions.length} decision(s) \u2014 ${by.pilot} pilot, ${by.delegated} delegated, ${by.default} defaulted`;
+}
+function issueLines(issues) {
+  return issues.map((i2) => `  ${i2.fatal ? "\u2717" : "\u26A0"} ${i2.kind}: ${i2.detail}`);
+}
+function importPlan(path) {
+  try {
+    const raw = JSON.parse((0, import_node_fs40.readFileSync)(path, "utf8"));
+    return parseNativePlanFile(raw) ?? parseTasksFile(raw);
+  } catch {
+    return null;
+  }
 }
 async function runStartCommand(argv, env = process.env) {
   const flags = parseStartFlags(argv);
@@ -31441,6 +32150,48 @@ async function runStartCommand(argv, env = process.env) {
     process.exitCode = 1;
     return;
   }
+  if (flags.fromPlan) {
+    const file = importPlan(flags.fromPlan);
+    if (!file) {
+      err(`cannot read a plan from ${flags.fromPlan} (tried the superpowers native shape and the tasks.json superset)`);
+      process.exitCode = 1;
+      return;
+    }
+    const issues = validateTasks(file);
+    const fatal = issues.filter((i2) => i2.fatal);
+    if (fatal.length > 0) {
+      err(`the imported plan does not validate:
+${issueLines(fatal).join("\n")}`);
+      process.exitCode = 1;
+      return;
+    }
+    let imported = createRun(newRunId(() => Date.now()), flags.task ?? `imported plan: ${flags.fromPlan}`, Date.now());
+    const lock2 = acquireRunLock(imported.id, { cwd: cwd6, env });
+    if (!lock2.ok) {
+      err(`another run is active in this repo: ${lock2.holder.runId} (pid ${lock2.holder.pid}) \u2014 one run per repo`);
+      process.exitCode = 1;
+      return;
+    }
+    try {
+      imported = advance(imported, { type: "spec-approved" }, Date.now());
+      imported = advance(imported, { type: "phase", to: "planned" }, Date.now());
+      ensureDir(runDir(imported.id, cwd6, env));
+      (0, import_node_fs40.writeFileSync)(runFile(imported.id, "tasks.json", cwd6, env), `${JSON.stringify(file, null, 2)}
+`);
+      if (!saveRun(imported, cwd6, env)) {
+        err(`cannot persist run state under ${runDir(imported.id, cwd6, env)}`);
+        process.exitCode = 1;
+        return;
+      }
+      out(`run ${imported.id} \u2014 adopted ${file.tasks.length} task(s) from ${flags.fromPlan}`);
+      if (issues.length > 0) out(`plan notes:
+${issueLines(issues).join("\n")}`);
+      out("run parked at `planned` \u2014 the implementation swarm lands in Phase 3");
+    } finally {
+      releaseRunLock(imported.id, { cwd: cwd6, env });
+    }
+    return;
+  }
   let run2;
   let resumeState;
   if (flags.resume) {
@@ -31463,6 +32214,12 @@ async function runStartCommand(argv, env = process.env) {
   }
   if (!saveRun(run2, cwd6, env)) {
     err(`cannot persist run state under ${runDir(run2.id, cwd6, env)} \u2014 refusing to start an untrackable run`);
+    process.exitCode = 1;
+    return;
+  }
+  const lock = acquireRunLock(run2.id, { cwd: cwd6, env });
+  if (!lock.ok) {
+    err(`another run is active in this repo: ${lock.holder.runId} (pid ${lock.holder.pid}) \u2014 one run per repo; \`corpocode start --status ${lock.holder.runId}\``);
     process.exitCode = 1;
     return;
   }
@@ -31490,11 +32247,20 @@ async function runStartCommand(argv, env = process.env) {
     if (!script) {
       err(`cannot read answers file: ${flags.answers}`);
       process.exitCode = 1;
+      releaseRunLock(run2.id, { cwd: cwd6, env });
       return;
     }
     interactor = createScriptedInteractor(script, { output: (block) => out(block) });
   } else {
-    interactor = createTerminalInteractor();
+    const mode = flags.web ? "web" : flags.tty ? "terminal" : config.orchestrator.interrogation.interface;
+    const wantWeb = mode === "web" || mode === "auto" && Boolean(process.stdout.isTTY);
+    if (wantWeb) {
+      const web = await createWebInteractor();
+      out(`cockpit: ${web.url}`);
+      interactor = web;
+    } else {
+      interactor = createTerminalInteractor();
+    }
   }
   const onSignal = () => void interactor.close();
   process.on("SIGINT", onSignal);
@@ -31528,18 +32294,80 @@ async function runStartCommand(argv, env = process.env) {
     writeArtifacts(run2.id, outcome.state.spec, cwd6, env);
     if (outcome.status === "approved") {
       run2 = advance(run2, { type: "spec-approved" }, Date.now());
-      const tasks = emitTasksFile(outcome.state.spec);
-      if (tasks.ok) {
-        (0, import_node_fs39.writeFileSync)(runFile(run2.id, "tasks.json", cwd6, env), `${JSON.stringify(tasks.file, null, 2)}
+      out(`spec approved \u2014 ${decisionSummary(outcome.state.spec)}`);
+      if (flags.specOnly) {
+        const tasks = emitTasksFile(outcome.state.spec);
+        if (tasks.ok) (0, import_node_fs40.writeFileSync)(runFile(run2.id, "tasks.json", cwd6, env), `${JSON.stringify(tasks.file, null, 2)}
 `);
-      } else {
-        err(`spec approved, but the task graph did not validate: ${tasks.error}`);
-        err("spec.json/spec.md are written; fix the seeds and re-run decompose in a later phase");
+        else err(`task seeds did not emit: ${tasks.error} \u2014 spec.json/spec.md are written`);
+        saveRun(run2, cwd6, env);
+        out(`artifacts: ${runDir(run2.id, cwd6, env)} (spec.json, spec.md${tasks.ok ? ", tasks.json" : ""}); spent $${budget.spent().toFixed(2)}`);
+        out("run parked at `specified` (--spec-only)");
+        return;
       }
+      interactor.note?.({ kind: "phase", phase: "decompose" });
+      out("decomposing the spec into a validated task graph\u2026");
+      const roles = config.orchestrator.roles;
+      const resolver = createPromptResolver({ cwd: cwd6, env });
+      const dec = await decompose(outcome.state.spec, {
+        invoke: (prompt) => agents.forTask("general").invoke({
+          component: "um",
+          taskKind: "general",
+          task: prompt,
+          tools: "read-only",
+          model: resolveRoleModel(config, "decompose"),
+          effort: roles.decompose?.effort ?? "medium",
+          timeoutMs: roles.decompose?.timeout_ms,
+          ...files.length ? { inputs: { files } } : {}
+        }),
+        renderPrompt: (spec, feedback) => resolver.resolve("um-decompose", { spec: JSON.stringify(spec, null, 2) }) + (feedback ? `
+
+YOUR PREVIOUS GRAPH FAILED VALIDATION \u2014 fix exactly these and respond again:
+${feedback}` : ""),
+        log: (line) => logger.log({ event: String(line.event ?? "decompose"), ...line })
+      });
+      budget.charge("spec", dec.costUsd);
+      if (dec.ok) {
+        (0, import_node_fs40.writeFileSync)(runFile(run2.id, "tasks.json", cwd6, env), `${JSON.stringify(dec.file, null, 2)}
+`);
+        if (dec.issues.length > 0) out(`plan notes:
+${issueLines(dec.issues).join("\n")}`);
+        run2 = advance(run2, { type: "phase", to: "planned" }, Date.now());
+        saveRun(run2, cwd6, env);
+        interactor.note?.({ kind: "phase", phase: "planned", detail: `${dec.file.tasks.length} task(s)` });
+        out(
+          `plan validated \u2014 ${dec.file.tasks.length} task(s)${dec.usedAgent ? " (agent-enriched)" : " (seeds were already complete)"}; spent $${budget.spent().toFixed(2)}`
+        );
+        out(`artifacts: ${runDir(run2.id, cwd6, env)} (spec.json, spec.md, tasks.json)`);
+        out("run parked at `planned` \u2014 the implementation swarm lands in Phase 3");
+        return;
+      }
+      const escalation = {
+        id: "decompose-failed",
+        concept: "decompose-escalation",
+        question: `Decompose failed after retries: ${dec.error}. How should this run proceed?`,
+        options: [
+          { id: "emit-seeds", label: "Emit the raw seeds anyway", description: "Write tasks.json from the spec's seeds without enrichment; fix by hand or re-run later.", findings: [] },
+          { id: "pause", label: "Pause the run", description: "Park it; resume after editing the spec.", findings: [] }
+        ],
+        allowFreeText: false,
+        allowDelegate: false,
+        defaultOptionId: void 0
+      };
+      const choice = await interactor.ask(escalation);
+      if (choice?.optionId === "emit-seeds") {
+        const tasks = emitTasksFile(outcome.state.spec);
+        if (tasks.ok) (0, import_node_fs40.writeFileSync)(runFile(run2.id, "tasks.json", cwd6, env), `${JSON.stringify(tasks.file, null, 2)}
+`);
+        else err(`the raw seeds did not emit either: ${tasks.error}`);
+        saveRun(run2, cwd6, env);
+        out(`run parked at \`specified\` with ${tasks.ok ? "UNVALIDATED seed tasks.json" : "no tasks.json"}; spent $${budget.spent().toFixed(2)}`);
+        return;
+      }
+      run2 = advance(run2, { type: "pause", reason: "decompose-failed" }, Date.now());
       saveRun(run2, cwd6, env);
-      out(`spec approved \u2014 ${decisionSummary(outcome.state.spec)}; spent $${budget.spent().toFixed(2)}`);
-      out(`artifacts: ${runDir(run2.id, cwd6, env)} (spec.json, spec.md${tasks.ok ? ", tasks.json" : ""})`);
-      out("run parked at `specified` \u2014 the implementation swarm lands in Phase 3");
+      out(`paused (decompose-failed) \u2014 resume with: corpocode start --resume ${run2.id}`);
+      process.exitCode = 1;
     } else {
       run2 = advance(run2, { type: "pause", reason: outcome.reason ?? "paused" }, Date.now());
       saveRun(run2, cwd6, env);
@@ -31551,26 +32379,27 @@ async function runStartCommand(argv, env = process.env) {
     process.removeListener("SIGINT", onSignal);
     process.removeListener("SIGTERM", onSignal);
     await interactor.close();
+    releaseRunLock(run2.id, { cwd: cwd6, env });
   }
 }
 
 // src/commands/doctor.ts
-var import_node_fs40 = require("node:fs");
-var import_node_path31 = require("node:path");
+var import_node_fs41 = require("node:fs");
+var import_node_path32 = require("node:path");
 var REPAIR_INSTALL = "corpocode install --repair";
 var REPAIR_PROVISION = "corpocode provision";
 function readJsonOr3(path, fallback) {
   try {
-    return JSON.parse((0, import_node_fs40.readFileSync)(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse((0, import_node_fs41.readFileSync)(path, "utf8").replace(/^﻿/, ""));
   } catch {
     return fallback;
   }
 }
 function defaultSecretsState(env) {
   const path = secretsFile(env);
-  if (!(0, import_node_fs40.existsSync)(path)) return "absent";
+  if (!(0, import_node_fs41.existsSync)(path)) return "absent";
   try {
-    (0, import_node_fs40.readFileSync)(path, "utf8");
+    (0, import_node_fs41.readFileSync)(path, "utf8");
     return "ok";
   } catch {
     return "unreadable";
@@ -31582,13 +32411,13 @@ function pluginInstalled(home) {
     if (depth > 3) return false;
     let entries;
     try {
-      entries = (0, import_node_fs40.readdirSync)(dir, { withFileTypes: true });
+      entries = (0, import_node_fs41.readdirSync)(dir, { withFileTypes: true });
     } catch {
       return false;
     }
     for (const e2 of entries) {
       if (e2.name.toLowerCase().includes("corpocode")) return true;
-      if (e2.isDirectory() && walk((0, import_node_path31.join)(dir, e2.name), depth + 1)) return true;
+      if (e2.isDirectory() && walk((0, import_node_path32.join)(dir, e2.name), depth + 1)) return true;
     }
     return false;
   };
@@ -31603,9 +32432,9 @@ function defaultMemoryWritable(cwd6, env) {
   try {
     const dir = memoryDir(cwd6, env);
     ensureDir(dir);
-    const probe = (0, import_node_path31.join)(dir, ".doctor-probe");
-    (0, import_node_fs40.writeFileSync)(probe, "ok");
-    (0, import_node_fs40.rmSync)(probe, { force: true });
+    const probe = (0, import_node_path32.join)(dir, ".doctor-probe");
+    (0, import_node_fs41.writeFileSync)(probe, "ok");
+    (0, import_node_fs41.rmSync)(probe, { force: true });
     return true;
   } catch {
     return false;
@@ -31677,7 +32506,7 @@ async function runDoctor(deps = {}) {
   const cs = config?.backends.contextStore ?? "native";
   if (kg === "graphify") {
     const graphifyOk = await (deps.graphifyVersion ?? (async () => (await spawnRunner("graphify", ["--version"])).code === 0))();
-    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs40.existsSync)((0, import_node_path31.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
+    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs41.existsSync)((0, import_node_path32.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
     if (!graphifyOk) {
       checks.push({ name: "graphify", status: "fail", detail: "graphify CLI not found on PATH", repair: REPAIR_PROVISION });
     } else if (!graphPresent) {
@@ -31686,7 +32515,7 @@ async function runDoctor(deps = {}) {
       checks.push({ name: "graphify", status: "ok", detail: "CLI present and graph built" });
     }
   } else {
-    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs40.existsSync)((0, import_node_path31.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
+    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs41.existsSync)((0, import_node_path32.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
     checks.push({
       name: "knowledge graph",
       status: "ok",
@@ -31761,7 +32590,7 @@ ${failed === 0 ? "All required checks passed." : `${failed} check(s) failed.`}
 }
 
 // src/commands/stats.ts
-var import_node_fs41 = require("node:fs");
+var import_node_fs42 = require("node:fs");
 
 // src/cost/tracker.ts
 var UNKNOWN = "unknown";
@@ -31847,7 +32676,7 @@ function computeStats(lines, opts = {}) {
 }
 function readLogLines() {
   try {
-    return (0, import_node_fs41.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs42.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -31898,7 +32727,7 @@ function runStatsCommand(argv, env) {
 }
 
 // src/commands/why.ts
-var import_node_fs42 = require("node:fs");
+var import_node_fs43 = require("node:fs");
 
 // src/log/explain.ts
 function s2(v2) {
@@ -32066,7 +32895,7 @@ function computeWhy(lines, opts = {}) {
 }
 function readLogLines2(env) {
   try {
-    return (0, import_node_fs42.readFileSync)(logFile(void 0, env), "utf8").split("\n");
+    return (0, import_node_fs43.readFileSync)(logFile(void 0, env), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -32123,40 +32952,40 @@ function runWhyCommand(argv, env) {
   if (report.sessionsSeen > 1) process.stdout.write(`
   ${report.sessionsSeen - 1} older session(s) in the log; use --session <id>.
 `);
-  if ((0, import_node_fs42.existsSync)(flowLogFile(void 0, env))) process.stdout.write(`
+  if ((0, import_node_fs43.existsSync)(flowLogFile(void 0, env))) process.stdout.write(`
 Full narrative: ${flowLogFile(void 0, env)}
 `);
 }
 
 // src/commands/monitor.ts
-var import_node_child_process7 = require("node:child_process");
+var import_node_child_process8 = require("node:child_process");
 
 // src/monitor/server.ts
-var import_node_http = require("node:http");
-var import_node_fs44 = require("node:fs");
+var import_node_http2 = require("node:http");
+var import_node_fs45 = require("node:fs");
 
 // src/monitor/tail.ts
-var import_node_fs43 = require("node:fs");
+var import_node_fs44 = require("node:fs");
 function createTailer(file) {
   let offset = 0;
   function read() {
     let size;
     try {
-      size = (0, import_node_fs43.statSync)(file).size;
+      size = (0, import_node_fs44.statSync)(file).size;
     } catch {
       return "";
     }
     if (size < offset) offset = 0;
     if (size === offset) return "";
-    const fd = (0, import_node_fs43.openSync)(file, "r");
+    const fd = (0, import_node_fs44.openSync)(file, "r");
     try {
       const len = size - offset;
       const buf = Buffer.alloc(len);
-      (0, import_node_fs43.readSync)(fd, buf, 0, len, offset);
+      (0, import_node_fs44.readSync)(fd, buf, 0, len, offset);
       offset = size;
       return buf.toString("utf8");
     } finally {
-      (0, import_node_fs43.closeSync)(fd);
+      (0, import_node_fs44.closeSync)(fd);
     }
   }
   return {
@@ -32256,7 +33085,7 @@ data: ${JSON.stringify(data)}
 function servePage(res, htmlPath, warn) {
   let html;
   try {
-    html = (0, import_node_fs44.readFileSync)(htmlPath, "utf8");
+    html = (0, import_node_fs45.readFileSync)(htmlPath, "utf8");
   } catch {
     warn(`monitor: could not read page at ${htmlPath}`);
     res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
@@ -32302,7 +33131,7 @@ function createMonitorServer(opts) {
   const pollMs = opts.pollMs ?? 500;
   const warn = opts.onWarn ?? ((m2) => process.stderr.write(`${m2}
 `));
-  return (0, import_node_http.createServer)((req, res) => {
+  return (0, import_node_http2.createServer)((req, res) => {
     const path = (req.url ?? "/").split("?")[0];
     if (path === "/") return servePage(res, opts.htmlPath, warn);
     if (path === "/stream") return serveStream(req, res, opts, pollMs, warn);
@@ -32312,14 +33141,14 @@ function createMonitorServer(opts) {
 }
 
 // src/monitor/page.ts
-var import_node_path32 = require("node:path");
+var import_node_path33 = require("node:path");
 function monitorPagePath() {
-  return (0, import_node_path32.join)(__dirname, "..", "src", "monitor", "app.html");
+  return (0, import_node_path33.join)(__dirname, "..", "src", "monitor", "app.html");
 }
 
 // src/commands/monitor.ts
 var DEFAULT_PORT = 4319;
-var HOST = "127.0.0.1";
+var HOST2 = "127.0.0.1";
 function parseFlags4(argv) {
   const flags = { open: true, lines: 200 };
   for (let i2 = 0; i2 < argv.length; i2++) {
@@ -32335,21 +33164,21 @@ function parseFlags4(argv) {
   }
   return flags;
 }
-function openBrowser(url) {
+function openBrowser2(url) {
   const platform = process.platform;
   const [cmd, args] = platform === "win32" ? ["cmd", ["/c", "start", "", url]] : platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
   try {
-    (0, import_node_child_process7.spawn)(cmd, args, { stdio: "ignore", detached: true, shell: false }).unref();
+    (0, import_node_child_process8.spawn)(cmd, args, { stdio: "ignore", detached: true, shell: false }).unref();
   } catch {
   }
 }
 function ready(server, flags) {
   const addr = server.address();
   const port = typeof addr === "object" && addr ? addr.port : DEFAULT_PORT;
-  const url = `http://${HOST}:${port}`;
+  const url = `http://${HOST2}:${port}`;
   process.stdout.write(`corpocode monitor \u2192 ${url}  (Ctrl-C to stop)
 `);
-  if (flags.open) openBrowser(url);
+  if (flags.open) openBrowser2(url);
 }
 function runMonitorCommand(argv, env = process.env) {
   const flags = parseFlags4(argv);
@@ -32362,7 +33191,7 @@ function runMonitorCommand(argv, env = process.env) {
   const explicitPort = flags.port !== void 0;
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE" && !explicitPort) {
-      server.listen(0, HOST, () => ready(server, flags));
+      server.listen(0, HOST2, () => ready(server, flags));
       return;
     }
     const detail = err.code === "EADDRINUSE" ? `port ${flags.port} is already in use` : String(err);
@@ -32370,7 +33199,7 @@ function runMonitorCommand(argv, env = process.env) {
 `);
     process.exitCode = 1;
   });
-  server.listen(flags.port ?? DEFAULT_PORT, HOST, () => ready(server, flags));
+  server.listen(flags.port ?? DEFAULT_PORT, HOST2, () => ready(server, flags));
   const shutdown = () => {
     server.close(() => process.exit(0));
   };
@@ -32382,12 +33211,12 @@ function runMonitorCommand(argv, env = process.env) {
 var import_node_process4 = require("node:process");
 
 // src/loops/skillgen.ts
-var import_node_fs45 = require("node:fs");
+var import_node_fs46 = require("node:fs");
 var import_node_os6 = require("node:os");
-var import_node_path33 = require("node:path");
+var import_node_path34 = require("node:path");
 function candidatesDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path33.join)((0, import_node_os6.homedir)(), ".claude");
-  return (0, import_node_path33.join)(base, "memdir", "corpocode-candidates");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path34.join)((0, import_node_os6.homedir)(), ".claude");
+  return (0, import_node_path34.join)(base, "memdir", "corpocode-candidates");
 }
 var zCandidates = external_exports.object({
   candidates: external_exports.array(external_exports.object({ name: external_exports.string(), description: external_exports.string(), body: external_exports.string() }))
@@ -32426,24 +33255,24 @@ async function generateSkillCandidates(deps) {
   }
   const dir = deps.dir ?? candidatesDir(deps.env);
   ensureDir(dir);
-  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs45.writeFileSync)(p2, c2));
+  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs46.writeFileSync)(p2, c2));
   const names = [];
   for (const c2 of candidates.slice(0, deps.maxCandidates ?? 5)) {
     const slug = slugify(c2.name);
     if (!slug) continue;
-    write((0, import_node_path33.join)(dir, `${slug}.md`), renderMemo(c2, slug));
+    write((0, import_node_path34.join)(dir, `${slug}.md`), renderMemo(c2, slug));
     names.push(slug);
   }
   return { mined: mems.length, written: names.length, names };
 }
 
 // src/loops/skillify.ts
-var import_node_fs46 = require("node:fs");
+var import_node_fs47 = require("node:fs");
 var import_node_os7 = require("node:os");
-var import_node_path34 = require("node:path");
+var import_node_path35 = require("node:path");
 function skillsDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path34.join)((0, import_node_os7.homedir)(), ".claude");
-  return (0, import_node_path34.join)(base, "skills");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path35.join)((0, import_node_os7.homedir)(), ".claude");
+  return (0, import_node_path35.join)(base, "skills");
 }
 function parseFrontmatter(text) {
   const m2 = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -32463,28 +33292,28 @@ function promoteCandidates(opts = {}) {
   const to = opts.toDir ?? skillsDir(opts.env);
   let files;
   try {
-    files = (0, import_node_fs46.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
+    files = (0, import_node_fs47.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
   } catch {
     return { promoted: [], skipped: [] };
   }
   const promoted = [];
   const skipped = [];
   for (const f2 of files) {
-    const path = (0, import_node_path34.join)(from, f2);
-    const raw = (0, import_node_fs46.readFileSync)(path, "utf8");
+    const path = (0, import_node_path35.join)(from, f2);
+    const raw = (0, import_node_fs47.readFileSync)(path, "utf8");
     const { fm } = parseFrontmatter(raw);
     const slug = fm.name ? slugify(fm.name) : "";
     if (!slug || !fm.description) {
       skipped.push(f2);
       continue;
     }
-    const skillDir = (0, import_node_path34.join)(to, slug);
+    const skillDir = (0, import_node_path35.join)(to, slug);
     ensureDir(skillDir);
-    (0, import_node_fs46.writeFileSync)((0, import_node_path34.join)(skillDir, "SKILL.md"), raw);
+    (0, import_node_fs47.writeFileSync)((0, import_node_path35.join)(skillDir, "SKILL.md"), raw);
     promoted.push(slug);
     if (opts.removeAfter !== false) {
       try {
-        (0, import_node_fs46.rmSync)(path);
+        (0, import_node_fs47.rmSync)(path);
       } catch {
       }
     }
@@ -32534,7 +33363,7 @@ async function runSkillifyCommand(argv, env = process.env) {
 }
 
 // src/commands/review.ts
-var import_node_fs47 = require("node:fs");
+var import_node_fs48 = require("node:fs");
 var MIN_FIRES = 5;
 var LOW_CONFIDENCE = 0.5;
 function computeReview(lines, opts = {}) {
@@ -32614,7 +33443,7 @@ function buildProposals(tenets, verifierChecks, turns, stage2, config) {
 }
 function readLogLines3() {
   try {
-    return (0, import_node_fs47.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs48.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -32668,7 +33497,7 @@ function runReviewCommand(argv, env) {
 }
 
 // src/commands/telemetry.ts
-var import_node_fs48 = require("node:fs");
+var import_node_fs49 = require("node:fs");
 
 // src/telemetry/whitelist.ts
 var TELEMETRY_SCHEMA = "corpocode-telemetry/1";
@@ -32740,7 +33569,7 @@ function buildTelemetryPayload(lines, config) {
 var NEVER_COLLECTED = "prompts, code, file contents, file paths, transcripts, memory contents, and repository identity";
 function readRawConfig(env) {
   try {
-    const parsed = JSON.parse((0, import_node_fs48.readFileSync)(configFile(env), "utf8"));
+    const parsed = JSON.parse((0, import_node_fs49.readFileSync)(configFile(env), "utf8"));
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
@@ -32751,12 +33580,12 @@ function setTelemetryEnabled(enabled, env) {
   const tel = raw.telemetry && typeof raw.telemetry === "object" ? raw.telemetry : {};
   raw.telemetry = { ...tel, enabled };
   ensureDir(corpocodeHome(env));
-  (0, import_node_fs48.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
+  (0, import_node_fs49.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
 `);
 }
 function readLogLines4() {
   try {
-    return (0, import_node_fs48.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs49.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -32795,8 +33624,8 @@ Set telemetry.endpoint in your config to choose where it is sent. Preview anytim
 }
 
 // src/commands/docs.ts
-var import_node_fs49 = require("node:fs");
-var import_node_path35 = require("node:path");
+var import_node_fs50 = require("node:fs");
+var import_node_path36 = require("node:path");
 
 // src/docs-site/config-reference.ts
 function typeOf(value) {
@@ -32834,7 +33663,7 @@ ${body}
 
 // src/cli-commands.ts
 var COMMANDS = [
-  { name: "start", usage: 'start "<task>" [--answers <file>] [--yes] [--dev] [--resume <id>] [--list] [--status <id>]', summary: "Run the orchestrator: cockpit interrogation \u2192 spec + tasks artifacts" },
+  { name: "start", usage: 'start "<task>" [--spec-only|--plan-only] [--from-plan <file>] [--answers <file>] [--yes] [--web|--tty] [--dev] [--resume <id>] [--list] [--status <id>]', summary: "Run the orchestrator: cockpit interrogation \u2192 spec \u2192 validated task graph" },
   { name: "install", usage: "install [--platform <name>] [--all] [--dry-run] [--skip-backends] [--repair]", summary: "Register hooks into a coding-agent platform" },
   { name: "provision", usage: "provision [--repair]", summary: "Install/start backends (graphify, OpenViking)" },
   { name: "uninstall", usage: "uninstall [--purge]", summary: "Remove shims and config (optionally Python tools)" },
@@ -32872,8 +33701,8 @@ function runDocsCommand(argv) {
   const commands = generateCommandReference();
   if (out) {
     ensureDir(out);
-    (0, import_node_fs49.writeFileSync)((0, import_node_path35.join)(out, "config-reference.md"), config);
-    (0, import_node_fs49.writeFileSync)((0, import_node_path35.join)(out, "command-reference.md"), commands);
+    (0, import_node_fs50.writeFileSync)((0, import_node_path36.join)(out, "config-reference.md"), config);
+    (0, import_node_fs50.writeFileSync)((0, import_node_path36.join)(out, "command-reference.md"), commands);
     process.stdout.write(`Wrote config-reference.md and command-reference.md to ${out}
 `);
     return;
@@ -32884,7 +33713,7 @@ ${commands}
 }
 
 // src/commands/init.ts
-var import_node_fs50 = require("node:fs");
+var import_node_fs51 = require("node:fs");
 var import_node_process5 = require("node:process");
 function placeholderFor(key) {
   return `REPLACE_WITH_YOUR_${key}`;
@@ -32918,24 +33747,24 @@ function runInitCommand(argv, env = process.env) {
   const force = argv.includes("--force");
   ensureDir(corpocodeHome(env));
   const cfgPath = configFile(env);
-  if ((0, import_node_fs50.existsSync)(cfgPath) && !force) {
+  if ((0, import_node_fs51.existsSync)(cfgPath) && !force) {
     process.stdout.write(`\xB7 config already exists, leaving it: ${cfgPath}
 `);
   } else {
-    (0, import_node_fs50.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
+    (0, import_node_fs51.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
 `);
     process.stdout.write(`wrote default config: ${cfgPath}
 `);
   }
   const keys = defaultKeyNames();
   const secPath = secretsFile(env);
-  if ((0, import_node_fs50.existsSync)(secPath) && !force) {
+  if ((0, import_node_fs51.existsSync)(secPath) && !force) {
     process.stdout.write(`\xB7 secrets already exists, not touching it: ${secPath}
 `);
   } else {
-    (0, import_node_fs50.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
+    (0, import_node_fs51.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
     try {
-      (0, import_node_fs50.chmodSync)(secPath, 384);
+      (0, import_node_fs51.chmodSync)(secPath, 384);
     } catch {
     }
     process.stdout.write(
@@ -33054,7 +33883,7 @@ async function runOrchestratorOnboarding(argv, deps = {}) {
     config.orchestrator.interrogation.granularity = gran;
     config.orchestrator.budget.max_run_usd = maxRunUsd;
     config.orchestrator.roles.arbiter = { ...config.orchestrator.roles.arbiter ?? { effort: "high" }, model: arbiterModel };
-    (0, import_node_fs50.writeFileSync)(configFile(env), `${JSON.stringify(config, null, 2)}
+    (0, import_node_fs51.writeFileSync)(configFile(env), `${JSON.stringify(config, null, 2)}
 `);
     process.stdout.write(
       `orchestrator onboarded: arbiter=${arbiterModel}, granularity=${gran}, budget=${maxRunUsd === null ? "uncapped" : `$${maxRunUsd}/run`}. \`corpocode start\` is unlocked.
@@ -33069,8 +33898,8 @@ async function runOrchestratorOnboarding(argv, deps = {}) {
 }
 
 // src/prompts/scaffold.ts
-var import_node_fs51 = require("node:fs");
-var import_node_path36 = require("node:path");
+var import_node_fs52 = require("node:fs");
+var import_node_path37 = require("node:path");
 function renderScaffold(id) {
   const body = BUILTIN_PROMPTS[id];
   const meta = PROMPT_META[id];
@@ -33121,16 +33950,16 @@ function scaffoldPrompts(opts = {}) {
   const wrote = [];
   const skipped = [];
   for (const id of allPromptIds()) {
-    const path = (0, import_node_path36.join)(dir, promptRelPath(id));
-    if ((0, import_node_fs51.existsSync)(path) && !opts.force) {
+    const path = (0, import_node_path37.join)(dir, promptRelPath(id));
+    if ((0, import_node_fs52.existsSync)(path) && !opts.force) {
       skipped.push(id);
       continue;
     }
-    (0, import_node_fs51.mkdirSync)((0, import_node_path36.dirname)(path), { recursive: true });
-    (0, import_node_fs51.writeFileSync)(path, renderScaffold(id));
+    (0, import_node_fs52.mkdirSync)((0, import_node_path37.dirname)(path), { recursive: true });
+    (0, import_node_fs52.writeFileSync)(path, renderScaffold(id));
     wrote.push(id);
   }
-  (0, import_node_fs51.writeFileSync)((0, import_node_path36.join)(dir, "README.md"), renderReadme());
+  (0, import_node_fs52.writeFileSync)((0, import_node_path37.join)(dir, "README.md"), renderReadme());
   return { dir, wrote, skipped };
 }
 

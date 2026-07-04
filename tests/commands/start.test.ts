@@ -129,3 +129,51 @@ describe("run listing and status", () => {
     expect(errs.join("")).toContain("not paused");
   });
 });
+
+describe("--from-plan (adopts a plan with no model in the loop)", () => {
+  const nativePlan = {
+    planPath: "docs/superpowers/plans/x.md",
+    tasks: [
+      { id: 0, subject: "Task 0: store", status: "pending", description: "**Goal:** g\n\n```json:metadata\n{\"files\": [\"a.ts\"], \"verifyCommand\": \"npm test\", \"acceptanceCriteria\": [\"c\"]}\n```" },
+      { id: 1, subject: "Task 1: ui", status: "pending", blockedBy: [0], description: "```json:metadata\n{\"files\": [\"b.ts\"], \"verifyCommand\": \"npm test\", \"acceptanceCriteria\": [\"c2\"]}\n```" },
+    ],
+  };
+
+  it("imports the native superpowers shape, parks the run at planned, writes tasks.json", async () => {
+    const env = home();
+    const dir = mkdtempSync(join(tmpdir(), "cc-plan-"));
+    dirs.push(dir);
+    const planPath = join(dir, "x.md.tasks.json");
+    writeFileSync(planPath, JSON.stringify(nativePlan));
+    await runStartCommand(["--from-plan", planPath, "--dev"], env);
+    expect(process.exitCode ?? 0).toBe(0);
+    expect(out.join("")).toContain("adopted 2 task(s)");
+    expect(out.join("")).toContain("planned");
+    await runStartCommand(["--list"], env);
+    expect(out.join("")).toContain("planned");
+  });
+
+  it("refuses a plan whose graph fails validation, naming the fatal issues", async () => {
+    const env = home();
+    const dir = mkdtempSync(join(tmpdir(), "cc-plan-"));
+    dirs.push(dir);
+    const bad = { version: 1, tasks: [{ id: "a", verifyCommand: "", acceptanceCriteria: [] }] };
+    const planPath = join(dir, "bad.json");
+    writeFileSync(planPath, JSON.stringify(bad));
+    await runStartCommand(["--from-plan", planPath, "--dev"], env);
+    expect(process.exitCode).toBe(1);
+    expect(errs.join("")).toContain("missing-verify");
+    expect(errs.join("")).toContain("empty-criteria");
+  });
+
+  it("refuses junk that neither parser accepts", async () => {
+    const env = home();
+    const dir = mkdtempSync(join(tmpdir(), "cc-plan-"));
+    dirs.push(dir);
+    const planPath = join(dir, "junk.json");
+    writeFileSync(planPath, '"nope"');
+    await runStartCommand(["--from-plan", planPath, "--dev"], env);
+    expect(process.exitCode).toBe(1);
+    expect(errs.join("")).toContain("cannot read a plan");
+  });
+});
