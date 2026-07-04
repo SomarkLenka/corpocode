@@ -1,126 +1,140 @@
 Use sequential thinking and superpowers continuously. Use typescript-lsp
-# CorpoCode — Technical Implementation Specification
+# CorpoCode — Standing Build Instruction
 
-Target: a coding agent. Imperative requirements only. No rationale.
-
----
-
-## 1. Summary
-
-Build `corpocode`: a TypeScript npm package (CLI binary `corpocode`) that installs hooks into coding-agent platforms (Claude Code first) and runs cheap-LLM agents to read/inject context, verify code, manage git, and maintain memory, so the platform's main model only writes code.
-
-- All logic lives in TypeScript behind `corpocode hook <name>`; installed hooks are thin shims that pipe stdin→`corpocode hook`→stdout.
-- Components are grouped into **caretakers** (labels only): **Middle-Management** (session reader, categorizer, retrieval team, context injector, design-review team, model/effort selector), **Housekeeping** (verifier, doc generator, git manager, compactor, skill generator). **Upper-Management is out of scope for implementation** (no code this build).
-- Four modular abstractions behind interfaces: `Provider`, `KnowledgeGraph`, `ContextStore`, `MemoryStore`. Consumers call interfaces only, never adapters.
+Target: a coding agent. Imperative requirements only. Rationale lives in `docs/PHILOSOPHY.md`
+(the canonical mission) and `docs/narrative/` (the guided tour). If this file and those docs
+disagree, this file is stale — fix it in the same change.
 
 ---
 
-## 2. Tech stack & build
+## 1. Mission and build posture
+
+*A swarm of cheap authors, one expensive judge, and a human in the cockpit.*
+
+`corpocode` **simulates an expensive frontier coding model** with massive fan-outs of granular,
+well-scoped cheap-model agents. The swarm does **all** the work — requirements, technical specs,
+design, codebase navigation, bug hunting, and **the implementation itself: cheap agents write the
+code**. The expensive model never authors anything; it **verifies only** — one arbiter role that
+reads a great deal and emits tiny verdicts. Economics: input tokens are cheap, output tokens are
+expensive (speculative decoding, scaled to agents). Coding platforms — Claude Code, Codex,
+OpenCode — are **interchangeable hands** (headless engine sessions behind `AgentBackend`).
+Authorship — every *what* and *why* — stays with the human, concentrated at spec time in the
+Upper-Management cockpit. Full statement: `docs/PHILOSOPHY.md` (MISSION block).
+
+Build posture (current):
+
+- **Two modes, orchestrator first.** The primary product is the standalone orchestrator:
+  `corpocode start "<task>"` drives cockpit interrogation → spec → cheap implementation swarm →
+  arbiter verification → housekeeping promotion. The original **hook mode** (thin shims piping
+  stdin→`corpocode hook <name>`→stdout, output only via `additionalContext`) is the secondary
+  assist channel: frozen-but-supported, must never regress. `agents.enabled` stays default-false
+  for the hook channel only; orchestrator commands construct the agent registry unconditionally.
+- **Upper-Management is built FIRST and is the front door.** UM is the cockpit
+  (`docs/narrative/05-upper-management.md`): poll-every-fork spec interrogation with
+  pre-analyzed trade-offs (one cheap agent per option×consequence-axis), teach-before-build, a
+  per-concept mastery model. Human decisions concentrate at spec time; the swarm executes
+  autonomously afterward. Middle-Management owns the implementation phase; Housekeeping cleans
+  up artifacts. The superpowers plugin's brainstorming/writing-plans content is **harvested as
+  UM v0** (vendored, version-pinned prompt text; never a runtime plugin dependency), absorbed by
+  a native spine later.
+- **Verification cadence is a config knob** (`orchestrator.verify.cadence`: per-task | per-wave |
+  final; mode: gate | verify-rescue), experimentally tuned — never hardcoded.
+- **Release gate:** all orchestrator functionality is gated behind `corpocode init` onboarding
+  (arbiter model, poll granularity, budget). Local testing bypass: `CORPOCODE_DEV=1` or `--dev`
+  (defaults: arbiter `claude-fable-5`, granularity `every-fork`, budget uncapped).
+
+Hard prohibitions (never re-litigate; recorded in the reframe decision):
+
+- No strong-model "executive": a **cheap** interrogator agent + human answers author the spec.
+  The **arbiter is the only strong-model component** in the entire system.
+- The arbiter never authors code or tests (cheap agents author tests from the arbiter's prose
+  description). No `allow_direct_patch` knob, in any form.
+- Landing on the user's branch is always an explicit human poll — never automatic.
+- Caretakers stay labels over the fan-out engine, never processes.
+
+## 2. Principles, rescoped
+
+- **Fail open at the host boundary.** In hook mode CorpoCode runs inside someone else's turn:
+  any error, hang, or missing dependency degrades to `{}` + exit 0, never a broken turn.
+- **Gates may block inside the airframe.** In orchestrator mode CorpoCode IS the host: its
+  verification gates and budget guards may block its own worker engines. Fail-open still binds
+  wherever CorpoCode touches anything it does not own (the user's checkout, the user's branch).
+- **The user disposes — concentrated at spec time.** The cockpit polls every fork (granularity
+  dialable); after spec approval the swarm runs autonomously. Durable consequences (landing,
+  skill promotion, config diffs) remain explicit human polls.
+- **Interfaces, never adapters.** Consumers call `Provider`, `KnowledgeGraph`, `ContextStore`,
+  `MemoryStore`, `AgentBackend` — never a concrete implementation.
+- **No test invokes a real model.** Every model boundary is faked through the AgentBackend /
+  Provider seams (ADR-0001).
+
+## 3. Tech stack & build
 
 - Node ≥ 20. TypeScript with `tsc --noEmit` for typecheck (no emit).
-- Bundle with `esbuild` to a single `bin/corpocode.js` with a `#!/usr/bin/env node` shebang (no `node_modules` required at runtime).
+- Bundle with `esbuild` to a single `bin/corpocode.js` with a `#!/usr/bin/env node` shebang (no
+  `node_modules` required at runtime).
 - `package.json`: `"bin": { "corpocode": "./bin/corpocode.js" }`, `"engines": { "node": ">=20" }`.
 - Tests: `vitest`. Releases: `semantic-release` on merge to main.
-- npm deps: `@anthropic-ai/sdk`, `@google/generative-ai`, `openai`, `ollama`, `zod`. graphify and OpenViking are external processes (not npm deps), provisioned by `corpocode install`.
+- npm deps: `@anthropic-ai/sdk`, `@google/generative-ai`, `openai`, `ollama`, `zod`. graphify and
+  OpenViking are optional external processes (not npm deps), provisioned by `corpocode provision`;
+  the native TypeScript backends are the defaults and need no provisioning.
+- `npm run verify` = build + typecheck + tests; run before declaring anything done. It includes
+  the mission-drift lint (`scripts/check-mission.mjs`), the hook-mode parity suite, and the
+  hooks→orchestrator import-ban test once those land.
 
----
-
-## 3. Repository layout
+## 4. Repository layout
 
 ```
 src/
-  index.ts
-  cli.ts                         # arg parsing → command handlers
-  hooks/
-    envelope.ts                  # Zod schemas for hook stdin payloads
-    dispatch.ts                  # hook name → handler; stdin→stdout
-    response.ts                  # hookSpecificOutput / additionalContext builder
-  session/
-    reader.ts                    # SessionReader impl (transcript → line of thought)
-    types.ts
-  router/
-    heuristics.ts                # stage-1 prefilter
-    ranker.ts                    # stage-2 LLM ranker
-    output-schema.ts             # Zod schema for ranker output
-    effort.ts                    # selectModelEffort
-  retrieval/
-    worker.ts                    # dispatch: plan → fanout → aggregate
-    planner.ts                   # build checklist from template + cues
-    fanout.ts                    # Promise.all over items
-    item-handler.ts              # one item → one abstraction call
-    aggregator.ts                # deterministic merge
-    templates/                   # one file per task type
-      code-edit.ts code-gen.ts exploration.ts docs.ts config.ts
-  filter/
-    classify.ts                  # pre-tool classifier (deny/allow/ask)
-    policies.ts                  # deny/allow/soft lists
-    inject.ts                    # file-read interception + slice injection
-  verifier/
-    worker.ts                    # fan-out tenet checks
-    aggregator.ts
-    tenets/                      # one module per MOLAR-EDIT tenet
-      maintainability.ts observability.ts logging.ts atomicity.ts
-      responsiveness.ts extensibility.ts documentation.ts in-flight.ts testing.ts
-  review/
-    team.ts                      # design-review: one subagent per tenet
-    aggregator.ts
-  docs/
-    generator.ts                 # DocGenerator impl
-    types.ts
-  git/
-    manager.ts                   # GitManager orchestration
-    trace.ts                     # per-write atomic commits
-    promote.ts                   # squash trace → clean branch
-    types.ts
-  compactor/
-    worker.ts                    # Stop-hook handler
-    sliding-window.ts            # compute compactable region
-    openviking.ts                # ContextStore write path at Stop
-    memdir.ts                    # defensive fallback writer
-  providers/
-    types.ts                     # Provider + supporting types
-    registry.ts                  # buildRegistry, forComponent
-    pricing.ts                   # cost tables
-    anthropic.ts google.ts openai.ts openrouter.ts ollama.ts
-  backends/
-    graph/
-      types.ts registry.ts graphify-adapter.ts native.ts(stub)
-    context/
-      types.ts registry.ts openviking-adapter.ts native.ts(stub)
-    memory/
-      types.ts registry.ts native.ts
-  config/
-    schema.ts                    # Zod config schema
-    load.ts                      # read+validate+env override
-    paths.ts                     # cross-platform dirs
-  log/
-    ndjson.ts                    # append-only writer
-  cost/
-    tracker.ts                   # aggregate ChatOutput.costUsd
-  install/
-    claude-code.ts codex.ts opencode.ts cursor.ts gemini-cli.ts
-    backends/
-      graphify.ts openviking.ts
-  loops/
-    skillgen.ts
-tests/
-  providers/ backends/graph/ backends/context/ backends/memory/ ...
-bin/corpocode.js                 # esbuild output
+  index.ts  cli.ts  cli-commands.ts   # COMMANDS array = single source for help + docs
+  commands/                           # one module per CLI command (pure core + thin IO wrapper)
+  hooks/                              # hook-mode dispatch/envelope/response/context (assist channel)
+  agents/                             # AgentBackend seam + anthropic-cli / agent-engine backends,
+                                      #   disk-backed agent sessions, registry
+  intelligence/                       # gather / engine.run (bounded fan-out + judge) / synthesize /
+                                      #   router-router — the agent substrate both modes share
+  um/                (planned)        # the cockpit: interrogator state machine, loop, consequence
+                                      #   fan-out, poll-synth, spec-schema, mastery, harvest/*
+  interact/          (planned)        # Interactor seam: terminal / scripted / web (first
+                                      #   interactive surface in the codebase)
+  orchestrator/      (planned)        # run state machine, decompose, swarm waves, workspace
+                                      #   (worktrees), watchdog, budget, verify (arbiter), land,
+                                      #   context — NEVER src/cockpit/
+  session/  router/  retrieval/  filter/  verifier/  review/  molar/   # hook-mode caretaker teams
+  docs/  git/  compactor/  loops/  toolbox/                            # housekeeping components
+  providers/                          # Provider impls: anthropic, anthropic-cli (keyless),
+                                      #   google, openai, openrouter, ollama; effort, pricing
+  backends/                           # graph/ context/ memory/ (native defaults + optional adapters)
+  config/                             # schema.ts (Zod; every block .default()), load.ts, paths.ts
+                                      #   (single source of ALL on-disk locations), secrets, env
+  prompts/                            # BUILTIN_PROMPTS + local→global→built-in resolver
+  log/  cost/  perf/  monitor/  telemetry/  docs-site/  plugins/  install/  types/
+tests/                                # mirrors src/; fake backends, conformance suites
+bin/corpocode.js                      # esbuild output
+docs/                                 # PHILOSOPHY (mission), narrative/00-08, adr/, phase plans
+.corpocode/ (project-local state)     # logs, memory, sessions/<id>/, agent-sessions/,
+                                      #   runs/<runId>/ (planned: spec.json, tasks.json, journal)
 ```
 
----
-
-## 4. Configuration
+## 5. Configuration
 
 ### Paths
-- Config: `~/.corpocode/config.json`. Global state (config + secrets) lives in a `.corpocode` dotfolder in the user's home directory on every OS (e.g. `C:\Users\you\.corpocode` on Windows), resolved in `config/paths.ts`; `CORPOCODE_HOME` overrides it. Project-local state (logs, memory, sessions) lives in `./.corpocode`.
-- Secrets: `~/.corpocode/secrets` (chmod 600). `config.json` references keys by name; never inline secrets.
-- Logs: `~/.corpocode/logs/corpocode.ndjson`.
-- Memory: `~/.corpocode/memory/<project>.json` (+ sibling embeddings file).
+- Config: `~/.corpocode/config.json`. Global state (config + secrets) lives in a `.corpocode`
+  dotfolder in the user's home directory on every OS (e.g. `C:\Users\you\.corpocode` on Windows),
+  resolved in `config/paths.ts`; `CORPOCODE_HOME` overrides it. Project-local state (logs,
+  memory, sessions, runs) lives in `./.corpocode`.
+- Secrets: `~/.corpocode/secrets` (chmod 600). `config.json` references keys by name; never
+  inline secrets.
+- Logs: project-local `.corpocode/logs/corpocode.ndjson` (+ flow log), written through the
+  Logger seam (`src/log/ndjson.ts`) so `corpocode why`/`monitor` narrate everything for free.
+- Memory: `~/.corpocode/memory/<project>.json` (+ sibling embeddings file). Mastery-kind records
+  are global (CORPOCODE_HOME-scoped), not per-project.
 - Env override: any field via flat `CORPOCODE_*` (e.g. `CORPOCODE_PROVIDERS_DEFAULT_MODEL`).
 
 ### Loading
-`config/load.ts` reads, validates against `config/schema.ts` (Zod), applies env overrides, returns typed object. Components receive their config slice from the dispatcher; they never call `load.ts` directly.
+`config/load.ts` reads, validates against `config/schema.ts` (Zod), applies env overrides,
+returns typed object. `configSchema.parse({})` must always yield a complete valid config (every
+block carries `.default()`). Components receive their config slice from their entry point; they
+never call `load.ts` directly.
 
 Use sequential thinking and superpowers continuously.
 Use typescript-lsp

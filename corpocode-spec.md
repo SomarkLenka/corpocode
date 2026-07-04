@@ -1,15 +1,25 @@
-# CorpoCode — Technical Implementation Specification
+# CorpoCode — Technical Implementation Specification (hook / assist channel)
 
 Target: a coding agent. Imperative requirements only. No rationale.
+
+**Scope: this file specs the hook/assist channel — the secondary mode.** The primary product is
+the standalone orchestrator (`corpocode start`), specified by its charters in
+`docs/narrative/05-upper-management.md` (the cockpit) and `docs/narrative/08-orchestrator.md`
+(the run). The mission of record lives in `docs/PHILOSOPHY.md`.
 
 ---
 
 ## 1. Summary
 
-Build `corpocode`: a TypeScript npm package (CLI binary `corpocode`) that installs hooks into coding-agent platforms (Claude Code first) and runs cheap-LLM agents to read/inject context, verify code, manage git, and maintain memory, so the platform's main model only writes code.
+*A swarm of cheap authors, one expensive judge, and a human in the cockpit.* CorpoCode simulates
+an expensive frontier coding model with fan-outs of cheap-model agents that do all the work —
+including writing the code — while a single expensive arbiter only verifies. This file specs the
+**hook channel**: `corpocode` installs hooks into coding-agent platforms (Claude Code first) and
+runs cheap-LLM agents to read/inject context, verify code, manage git, and maintain memory,
+assisting whatever model the host runs.
 
-- All logic lives in TypeScript behind `corpocode hook <name>`; installed hooks are thin shims that pipe stdin→`corpocode hook`→stdout.
-- Components are grouped into **caretakers** (labels only): **Middle-Management** (session reader, categorizer, retrieval team, context injector, design-review team, model/effort selector), **Housekeeping** (verifier, doc generator, git manager, compactor, skill generator). **Upper-Management is out of scope for implementation** (no code this build).
+- All hook-channel logic lives in TypeScript behind `corpocode hook <name>`; installed hooks are thin shims that pipe stdin→`corpocode hook`→stdout.
+- Components are grouped into **caretakers** (labels only): **Middle-Management** (session reader, categorizer, retrieval team, context injector, design-review team, model/effort selector), **Housekeeping** (verifier, doc generator, git manager, compactor, skill generator). **Upper-Management** is the front door of the orchestrator mode, built first — see §17; it has no hook-channel surface.
 - Four modular abstractions behind interfaces: `Provider`, `KnowledgeGraph`, `ContextStore`, `MemoryStore`. Consumers call interfaces only, never adapters.
 
 ---
@@ -548,4 +558,24 @@ One module per tenet exporting `TenetCheck`(s); single-purpose prompt; `appliesT
 - MemoryStore: never indexes code structure (KnowledgeGraph) or does tiered doc retrieval/transcript compression (ContextStore).
 - Hooks must never break a host turn (top-level catch → exit 0 empty).
 - Consumers call interfaces only, never adapters.
-- Upper-Management: not implemented this build.
+- Upper-Management: the front door of the orchestrator mode, built first — specified in
+  `docs/narrative/05-upper-management.md`, not in this file.
+
+---
+
+## 17. Orchestrator mode (normative pointers)
+
+The orchestrator (`corpocode start`) is the primary product and is specified separately:
+
+- Mission of record: `docs/PHILOSOPHY.md` (MISSION block).
+- Cockpit charter (Upper-Management, built first): `docs/narrative/05-upper-management.md`.
+- Run charter (swarm, arbiter, housekeeping, run state): `docs/narrative/08-orchestrator.md`.
+- Substrate re-prioritization: `docs/INTELLIGENT-ROUTER-PHASES.md` preamble.
+
+Binding constraints the orchestrator inherits from this spec: never edit user source outside
+CorpoCode-owned locations and branches; never force-push/rewrite/hard-reset; interfaces only,
+never adapters. Binding constraints of its own (recorded in the reframe decision): the arbiter
+is the only strong-model component; the arbiter never authors code or tests; landing on the
+user's branch is always an explicit human poll; hook-channel behavior must remain byte-identical
+when orchestrator config is present (parity suite) and `src/hooks/` must never import
+orchestrator code.

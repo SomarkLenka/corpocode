@@ -4,6 +4,26 @@
 // are filled by the call site at run time — keep them intact when editing, or the data won't appear.
 //
 // One id per LLM call site across the caretakers. Adding a new LLM call means adding its default here.
+import { UM_INTERROGATE_V0, UM_DECOMPOSE_V0 } from "../um/harvest/superpowers";
+
+/** Shared framing for one consequence-axis agent: analyze ONE option of ONE unmade decision through
+ *  ONE lens, grounded in the real codebase (read-only tools), and price it as a tiny JSON verdict.
+ *  severity: risk = a real hazard on this axis; warn = a notable cost/trade-off; info = neutral/fine. */
+function axisPrompt(lens: string, rubric: string): string {
+  return [
+    `You price ONE option of an unmade design decision through the ${lens} lens, before any code exists.`,
+    "Decision concept: {{concept}}",
+    "Question: {{question}}",
+    "Option under analysis: {{optionLabel}} — {{optionDescription}}",
+    "",
+    rubric,
+    "",
+    "Ground your judgment in the ACTUAL codebase (read files as needed); never invent facts. Be concrete",
+    "and specific to this option — a generic observation is worthless to the pilot.",
+    'Respond with ONLY JSON: {"summary": string (1-2 sentences), "severity": "info"|"warn"|"risk"}.',
+  ].join("\n");
+}
+
 export const BUILTIN_PROMPTS = {
   // router/ranker.ts — stage-2 moment categorizer. {{lineOfThought}} = the distilled intent/approach/
   // entities block; {{candidates}} = the bulleted candidate-file list.
@@ -141,6 +161,43 @@ export const BUILTIN_PROMPTS = {
     "Assess In-flight (I): does every external call (HTTP, DB, queue, cache) have a timeout, a bounded and jittered retry, and a defined fallback, and does the code keep flying when a dependency is down instead of crashing? Flag an await with no timeout, unbounded/unjittered retries, a cache miss that hard-fails the request, and 'crash and let the orchestrator restart' used as the recovery plan.",
   "verifier-testing":
     "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main.",
+
+  // um/loop.ts — the cockpit's interrogation conversation (harvested from obra/superpowers, vendored
+  // + version-pinned in src/um/harvest/superpowers.ts). {{task}} = the engagement; {{remainingSections}}
+  // = charter sections still open; {{grounding}} = graph/memory context; {{lastAnswer}} = the pilot's
+  // latest decision.
+  "um-interrogate": UM_INTERROGATE_V0,
+
+  // orchestrator decompose (consumed from Phase 2/3) — approved spec → task graph. {{spec}} = spec.json.
+  "um-decompose": UM_DECOMPOSE_V0,
+
+  // um/loop.ts — the consequence-axis agents: the MOLAR-EDIT review shape run PROSPECTIVELY over the
+  // option space of a decision the pilot has not yet made (one agent per option×axis). The five
+  // default axes each get a tuned rubric; `um-axis` is the fallback for user-configured axes.
+  "um-axis": axisPrompt(
+    "{{axis}}",
+    "Assess this option strictly through the {{axis}} lens: what does choosing it cost or risk on that axis, now and as the system grows?",
+  ),
+  "um-axis-performance": axisPrompt(
+    "PERFORMANCE",
+    "Assess the performance consequence: hot paths this option touches, allocation and IO amplification, latency vs throughput posture, and how its cost scales with input size and concurrency. A hazard that only appears at scale is still a hazard — name the threshold.",
+  ),
+  "um-axis-maintainability": axisPrompt(
+    "MAINTAINABILITY",
+    "Assess the maintainability cost (the M tenet, pointed forward): would this option keep changes isolated to the files that need them, with honest names and no magic values — or does it invite sprawl across unrelated modules, names that will lie as scope grows, and constants nobody will remember the meaning of?",
+  ),
+  "um-axis-extensibility": axisPrompt(
+    "EXTENSIBILITY",
+    "Assess the future-extensibility tax (the E tenet, pointed forward): does this option place behavior behind a seam that can be swapped, or does it hard-wire a concrete choice into call sites? Name the plausible future change this option makes expensive or forecloses.",
+  ),
+  "um-axis-failure-modes": axisPrompt(
+    "FAILURE MODES",
+    "Assess the failure modes (the In-flight tenet, pointed forward): under this option, what breaks on timeout, partial failure, malformed input, or concurrent use — and what is the blast radius when it does? An option whose failure story is 'crash and restart' is a risk.",
+  ),
+  "um-axis-idiom": axisPrompt(
+    "IDIOM",
+    "Assess the idiomatic-language reading: is this option how this language, framework, and THIS codebase's existing conventions would naturally express the intent — or will every future reader stumble on it? Ground the judgment in the real conventions you find in the repo, not textbook style.",
+  ),
 } as const;
 
 export type PromptId = keyof typeof BUILTIN_PROMPTS;

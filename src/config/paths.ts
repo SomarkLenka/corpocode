@@ -180,6 +180,33 @@ export function agentSessionFile(key: string, cwd?: string, env?: NodeJS.Process
   return join(agentSessionsDir(cwd, env), `${safeSessionId(key)}.json`);
 }
 
+/**
+ * Directory holding orchestrator runs. Each run gets its own folder (runDir) holding ALL of that
+ * run's state — spec.json, tasks.json, run.json, the decisions ledger, worktrees, and its NDJSON
+ * journal — mirroring sessionDir's "one unit's state in one folder, GC'd as a unit" design.
+ */
+export function runsDir(cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(projectStateDir(cwd, env), "runs");
+}
+
+/** One orchestrator run's folder under `runs/`. */
+export function runDir(runId: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(runsDir(cwd, env), safeSessionId(runId));
+}
+
+/** A named artifact inside a run's folder (e.g. "spec.json", "tasks.json", "run.json", "journal.ndjson"). */
+export function runFile(runId: string, name: string, cwd?: string, env?: NodeJS.ProcessEnv): string {
+  return join(runDir(runId, cwd, env), name);
+}
+
+/**
+ * The pilot's per-concept mastery records. GLOBAL (home-scoped), not project-local: mastery is a
+ * property of the user, not of a repo — the cockpit's question set must not reset in every new project.
+ */
+export function masteryFile(env?: NodeJS.ProcessEnv): string {
+  return join(corpocodeHome(env), "mastery.json");
+}
+
 function safeSessionId(sessionId: string): string {
   return sessionId.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80) || "session";
 }

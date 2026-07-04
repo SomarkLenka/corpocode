@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "task-1",
+      "description": "Add the session store with TTL eviction",
+      "files": ["src/agents/sessions.ts", "tests/agents/sessions.test.ts"],
+      "verifyCommand": "npx vitest run tests/agents/sessions.test.ts",
+      "acceptanceCriteria": ["expired records read as null", "eviction never throws"],
+      "status": "in_progress"
+    },
+    {
+      "id": "task-2",
+      "description": "Wire the store into the router handler",
+      "files": ["src/router/handler.ts"],
+      "verifyCommand": "npx vitest run tests/router/handler.test.ts",
+      "acceptanceCriteria": [],
+      "status": "pending"
+    }
+  ]
+}

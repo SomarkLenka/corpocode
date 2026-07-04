@@ -276,8 +276,8 @@ var require_tr46 = __commonJS({
       NONTRANSITIONAL: 1
     };
     function normalize(str2) {
-      return str2.split("\0").map(function(s2) {
-        return s2.normalize("NFC");
+      return str2.split("\0").map(function(s3) {
+        return s3.normalize("NFC");
       }).join("\0");
     }
     function findStatus(val) {
@@ -1814,19 +1814,19 @@ var require_URL = __commonJS({
       configurable: true
     });
     module2.exports = {
-      is(obj) {
-        return !!obj && obj[impl] instanceof Impl.implementation;
+      is(obj2) {
+        return !!obj2 && obj2[impl] instanceof Impl.implementation;
       },
       create(constructorArgs, privateData) {
-        let obj = Object.create(URL2.prototype);
-        this.setup(obj, constructorArgs, privateData);
-        return obj;
+        let obj2 = Object.create(URL2.prototype);
+        this.setup(obj2, constructorArgs, privateData);
+        return obj2;
       },
-      setup(obj, constructorArgs, privateData) {
+      setup(obj2, constructorArgs, privateData) {
         if (!privateData) privateData = {};
-        privateData.wrapper = obj;
-        obj[impl] = new Impl.implementation(constructorArgs, privateData);
-        obj[impl][utils.wrapperSymbol] = obj;
+        privateData.wrapper = obj2;
+        obj2[impl] = new Impl.implementation(constructorArgs, privateData);
+        obj2[impl][utils.wrapperSymbol] = obj2;
       },
       interface: URL2,
       expose: {
@@ -2221,14 +2221,14 @@ var require_lib2 = __commonJS({
       }
       return convert(buffer, "UTF-8", charset).toString();
     }
-    function isURLSearchParams(obj) {
-      if (typeof obj !== "object" || typeof obj.append !== "function" || typeof obj.delete !== "function" || typeof obj.get !== "function" || typeof obj.getAll !== "function" || typeof obj.has !== "function" || typeof obj.set !== "function") {
+    function isURLSearchParams(obj2) {
+      if (typeof obj2 !== "object" || typeof obj2.append !== "function" || typeof obj2.delete !== "function" || typeof obj2.get !== "function" || typeof obj2.getAll !== "function" || typeof obj2.has !== "function" || typeof obj2.set !== "function") {
         return false;
       }
-      return obj.constructor.name === "URLSearchParams" || Object.prototype.toString.call(obj) === "[object URLSearchParams]" || typeof obj.sort === "function";
+      return obj2.constructor.name === "URLSearchParams" || Object.prototype.toString.call(obj2) === "[object URLSearchParams]" || typeof obj2.sort === "function";
     }
-    function isBlob2(obj) {
-      return typeof obj === "object" && typeof obj.arrayBuffer === "function" && typeof obj.type === "string" && typeof obj.stream === "function" && typeof obj.constructor === "function" && typeof obj.constructor.name === "string" && /^(Blob|File)$/.test(obj.constructor.name) && /^(Blob|File)$/.test(obj[Symbol.toStringTag]);
+    function isBlob2(obj2) {
+      return typeof obj2 === "object" && typeof obj2.arrayBuffer === "function" && typeof obj2.type === "string" && typeof obj2.stream === "function" && typeof obj2.constructor === "function" && typeof obj2.constructor.name === "string" && /^(Blob|File)$/.test(obj2.constructor.name) && /^(Blob|File)$/.test(obj2[Symbol.toStringTag]);
     }
     function clone(instance) {
       let p1, p2;
@@ -2571,21 +2571,21 @@ var require_lib2 = __commonJS({
       configurable: true
     });
     function exportNodeCompatibleHeaders(headers) {
-      const obj = Object.assign({ __proto__: null }, headers[MAP]);
+      const obj2 = Object.assign({ __proto__: null }, headers[MAP]);
       const hostHeaderKey = find(headers[MAP], "Host");
       if (hostHeaderKey !== void 0) {
-        obj[hostHeaderKey] = obj[hostHeaderKey][0];
+        obj2[hostHeaderKey] = obj2[hostHeaderKey][0];
       }
-      return obj;
+      return obj2;
     }
-    function createHeadersLenient(obj) {
+    function createHeadersLenient(obj2) {
       const headers = new Headers6();
-      for (const name of Object.keys(obj)) {
+      for (const name of Object.keys(obj2)) {
         if (invalidTokenRegex.test(name)) {
           continue;
         }
-        if (Array.isArray(obj[name])) {
-          for (const val of obj[name]) {
+        if (Array.isArray(obj2[name])) {
+          for (const val of obj2[name]) {
             if (invalidHeaderCharRegex.test(val)) {
               continue;
             }
@@ -2595,8 +2595,8 @@ var require_lib2 = __commonJS({
               headers[MAP][name].push(val);
             }
           }
-        } else if (!invalidHeaderCharRegex.test(obj[name])) {
-          headers[MAP][name] = [obj[name]];
+        } else if (!invalidHeaderCharRegex.test(obj2[name])) {
+          headers[MAP][name] = [obj2[name]];
         }
       }
       return headers;
@@ -2909,9 +2909,9 @@ var require_lib2 = __commonJS({
           }
         });
         if (parseInt(process.version.substring(1)) < 14) {
-          req.on("socket", function(s2) {
-            s2.addListener("close", function(hadError) {
-              const hasDataListener = s2.listenerCount("data") > 0;
+          req.on("socket", function(s3) {
+            s3.addListener("close", function(hadError) {
+              const hasDataListener = s3.listenerCount("data") > 0;
               if (response && hasDataListener && !hadError && !(signal && signal.aborted)) {
                 const err = new Error("Premature close");
                 err.code = "ERR_STREAM_PREMATURE_CLOSE";
@@ -3052,8 +3052,8 @@ var require_lib2 = __commonJS({
     }
     function fixResponseChunkedTransferBadEnding(request, errorCallback) {
       let socket;
-      request.on("socket", function(s2) {
-        socket = s2;
+      request.on("socket", function(s3) {
+        socket = s3;
       });
       request.on("response", function(response) {
         const headers = response.headers;
@@ -3343,14 +3343,14 @@ function ge(e2, t2) {
 }
 function we(e2, t2) {
   const r2 = t2.elementSize, o2 = t2.bytesFilled - t2.bytesFilled % r2, n2 = Math.min(e2._queueTotalSize, t2.byteLength - t2.bytesFilled), a2 = t2.bytesFilled + n2, i2 = a2 - a2 % r2;
-  let l2 = n2, s2 = false;
-  i2 > o2 && (l2 = i2 - t2.bytesFilled, s2 = true);
+  let l2 = n2, s3 = false;
+  i2 > o2 && (l2 = i2 - t2.bytesFilled, s3 = true);
   const u2 = e2._queue;
   for (; l2 > 0; ) {
     const r3 = u2.peek(), o3 = Math.min(l2, r3.byteLength), n3 = t2.byteOffset + t2.bytesFilled;
     ie(t2.buffer, n3, r3.buffer, r3.byteOffset, o3), r3.byteLength === o3 ? u2.shift() : (r3.byteOffset += o3, r3.byteLength -= o3), e2._queueTotalSize -= o3, Se(e2, o3, t2), l2 -= o3;
   }
-  return s2;
+  return s3;
 }
 function Se(e2, t2, r2) {
   r2.bytesFilled += t2;
@@ -3655,7 +3655,7 @@ function Et(e2) {
 function kt(e2, t2, r2, o2, n2, a2) {
   const i2 = e2.getReader(), l2 = t2.getWriter();
   Vt(e2) && (e2._disturbed = true);
-  let s2, _2, g2, w2 = false, S2 = false, v2 = "readable", R2 = "writable", T2 = false, q2 = false;
+  let s3, _2, g2, w2 = false, S2 = false, v2 = "readable", R2 = "writable", T2 = false, q2 = false;
   const C2 = u((e3) => {
     g2 = e3;
   });
@@ -3678,7 +3678,7 @@ function kt(e2, t2, r2, o2, n2, a2) {
       return v2 = "closed", r2 ? L2() : z2(() => (Ge(t2) && (T2 = rt(t2), R2 = t2._state), T2 || "closed" === R2 ? c(void 0) : "erroring" === R2 || "errored" === R2 ? d(_2) : (T2 = true, l2.close())), false, void 0), null;
     }
     function A2(e3) {
-      return w2 || (v2 = "errored", s2 = e3, o2 ? L2(true, e3) : z2(() => l2.abort(e3), true, e3)), null;
+      return w2 || (v2 = "errored", s3 = e3, o2 ? L2(true, e3) : z2(() => l2.abort(e3), true, e3)), null;
     }
     function j2(e3) {
       return S2 || (R2 = "errored", _2 = e3, n2 ? L2(true, e3) : z2(() => i2.cancel(e3), true, e3)), null;
@@ -3686,7 +3686,7 @@ function kt(e2, t2, r2, o2, n2, a2) {
     if (void 0 !== a2 && (k2 = () => {
       const e3 = void 0 !== a2.reason ? a2.reason : new Wt("Aborted", "AbortError"), t3 = [];
       o2 || t3.push(() => "writable" === R2 ? l2.abort(e3) : c(void 0)), n2 || t3.push(() => "readable" === v2 ? i2.cancel(e3) : c(void 0)), z2(() => Promise.all(t3.map((e4) => e4())), true, e3);
-    }, a2.aborted ? k2() : a2.addEventListener("abort", k2)), Vt(e2) && (v2 = e2._state, s2 = e2._storedError), Ge(t2) && (R2 = t2._state, _2 = t2._storedError, T2 = rt(t2)), Vt(e2) && Ge(t2) && (q2 = true, g2()), "errored" === v2) A2(s2);
+    }, a2.aborted ? k2() : a2.addEventListener("abort", k2)), Vt(e2) && (v2 = e2._state, s3 = e2._storedError), Ge(t2) && (R2 = t2._state, _2 = t2._storedError, T2 = rt(t2)), Vt(e2) && Ge(t2) && (q2 = true, g2()), "errored" === v2) A2(s3);
     else if ("erroring" === R2 || "errored" === R2) j2(_2);
     else if ("closed" === v2) B2();
     else if (T2 || "closed" === R2) {
@@ -3728,7 +3728,7 @@ function Ot(e2, t2) {
       return false;
     }
   }(e2) ? function(e3) {
-    let t3, r2, o2, n2, a2, i2 = e3.getReader(), l2 = false, s2 = false, d2 = false, f2 = false, h2 = false, p2 = false;
+    let t3, r2, o2, n2, a2, i2 = e3.getReader(), l2 = false, s3 = false, d2 = false, f2 = false, h2 = false, p2 = false;
     const m2 = u((e4) => {
       a2 = e4;
     });
@@ -3746,8 +3746,8 @@ function Ot(e2, t2) {
         } catch (e5) {
           return o2.error(e5), n2.error(e5), a2(i2.cancel(e5)), null;
         }
-        return h2 || o2.enqueue(u2), p2 || n2.enqueue(c2), s2 = false, d2 ? S2() : f2 && v2(), null;
-      }, () => (s2 = false, null));
+        return h2 || o2.enqueue(u2), p2 || n2.enqueue(c2), s3 = false, d2 ? S2() : f2 && v2(), null;
+      }, () => (s3 = false, null));
     }
     function w2(t4, r3) {
       l2 || (i2.releaseLock(), i2 = e3.getReader({ mode: "byob" }), y2(i2), l2 = true);
@@ -3772,18 +3772,18 @@ function Ot(e2, t2) {
           }
           o3 || u2.byobRequest.respondWithNewView(l3), c2.enqueue(e5);
         }
-        return s2 = false, d2 ? S2() : f2 && v2(), null;
-      }, () => (s2 = false, null));
+        return s3 = false, d2 ? S2() : f2 && v2(), null;
+      }, () => (s3 = false, null));
     }
     function S2() {
-      if (s2) return d2 = true, c(void 0);
-      s2 = true;
+      if (s3) return d2 = true, c(void 0);
+      s3 = true;
       const e4 = o2.byobRequest;
       return null === e4 ? g2() : w2(e4.view, false), c(void 0);
     }
     function v2() {
-      if (s2) return f2 = true, c(void 0);
-      s2 = true;
+      if (s3) return f2 = true, c(void 0);
+      s3 = true;
       const e4 = n2.byobRequest;
       return null === e4 ? g2() : w2(e4.view, true), c(void 0);
     }
@@ -3809,16 +3809,16 @@ function Ot(e2, t2) {
     return y2(i2), [q2, C2];
   }(e2) : function(e3, t3) {
     const r2 = e3.getReader();
-    let o2, n2, a2, i2, l2, s2 = false, d2 = false, f2 = false, h2 = false;
+    let o2, n2, a2, i2, l2, s3 = false, d2 = false, f2 = false, h2 = false;
     const p2 = u((e4) => {
       l2 = e4;
     });
     function m2() {
-      return s2 ? (d2 = true, c(void 0)) : (s2 = true, b(r2.read(), (e4) => {
+      return s3 ? (d2 = true, c(void 0)) : (s3 = true, b(r2.read(), (e4) => {
         if (d2 = false, e4.done) return f2 || a2.close(), h2 || i2.close(), f2 && h2 || l2(void 0), null;
         const t4 = e4.value, r3 = t4, o3 = t4;
-        return f2 || a2.enqueue(r3), h2 || i2.enqueue(o3), s2 = false, d2 && m2(), null;
-      }, () => (s2 = false, null)), c(void 0));
+        return f2 || a2.enqueue(r3), h2 || i2.enqueue(o3), s3 = false, d2 && m2(), null;
+      }, () => (s3 = false, null)), c(void 0));
     }
     function y2(e4) {
       if (f2 = true, o2 = e4, h2) {
@@ -4426,21 +4426,21 @@ var init_ponyfill = __esm({
         const a2 = Me(r2);
         !function(e3, t3, r3, o3) {
           const n3 = Object.create(WritableStreamDefaultController.prototype);
-          let a3, i2, l2, s2;
+          let a3, i2, l2, s3;
           a3 = void 0 !== t3.start ? () => t3.start(n3) : () => {
           };
           i2 = void 0 !== t3.write ? (e4) => t3.write(e4, n3) : () => c(void 0);
           l2 = void 0 !== t3.close ? () => t3.close() : () => c(void 0);
-          s2 = void 0 !== t3.abort ? (e4) => t3.abort(e4) : () => c(void 0);
+          s3 = void 0 !== t3.abort ? (e4) => t3.abort(e4) : () => c(void 0);
           !function(e4, t4, r4, o4, n4, a4, i3, l3) {
             t4._controlledWritableStream = e4, e4._writableStreamController = t4, t4._queue = void 0, t4._queueTotalSize = void 0, ce(t4), t4._abortReason = void 0, t4._abortController = function() {
               if (Ue) return new AbortController();
             }(), t4._started = false, t4._strategySizeAlgorithm = l3, t4._strategyHWM = i3, t4._writeAlgorithm = o4, t4._closeAlgorithm = n4, t4._abortAlgorithm = a4;
-            const s3 = bt(t4);
-            nt(e4, s3);
+            const s4 = bt(t4);
+            nt(e4, s4);
             const u2 = r4();
             b(c(u2), () => (t4._started = true, dt(t4), null), (r5) => (t4._started = true, Ze(e4, r5), null));
-          }(e3, n3, a3, i2, l2, s2, r3, o3);
+          }(e3, n3, a3, i2, l2, s3, r3, o3);
         }(this, o2, $e(r2, 1), a2);
       }
       get locked() {
@@ -4763,7 +4763,7 @@ var init_ponyfill = __esm({
         }(e2, "First parameter");
         if (void 0 !== a2.readableType) throw new RangeError("Invalid readableType specified");
         if (void 0 !== a2.writableType) throw new RangeError("Invalid writableType specified");
-        const i2 = $e(n2, 0), l2 = Me(n2), s2 = $e(o2, 1), f2 = Me(o2);
+        const i2 = $e(n2, 0), l2 = Me(n2), s3 = $e(o2, 1), f2 = Me(o2);
         let b2;
         !function(e3, t3, r3, o3, n3, a3) {
           function i3() {
@@ -4781,7 +4781,7 @@ var init_ponyfill = __esm({
               return pr(r4, t5);
             }(e3, t4);
           }
-          function s3(t4) {
+          function s4(t4) {
             return function(e4, t5) {
               return cr(e4, t5), c(void 0);
             }(e3, t4);
@@ -4837,7 +4837,7 @@ var init_ponyfill = __esm({
                 e5._writableHasInFlightOperation = false, e5._writableState, Rr(e5, t6);
               }(e4, t5), t5;
             })), abort: (t5) => (e4._writableState = "errored", e4._writableStoredError = t5, n4(t5)) }, { highWaterMark: a4, size: i4 });
-          }(e3, i3, l3, u2, s3, r3, o3), e3._readableState = "readable", e3._readableStoredError = void 0, e3._readableCloseRequested = false, e3._readablePulling = false, e3._readable = function(e4, t4, r4, o4, n4, a4) {
+          }(e3, i3, l3, u2, s4, r3, o3), e3._readableState = "readable", e3._readableStoredError = void 0, e3._readableCloseRequested = false, e3._readablePulling = false, e3._readable = function(e4, t4, r4, o4, n4, a4) {
             return new ReadableStream3({ start: (r5) => (e4._readableController = r5, t4().catch((t5) => {
               Sr(e4, t5);
             })), pull: () => (e4._readablePulling = true, r4().catch((t5) => {
@@ -4846,7 +4846,7 @@ var init_ponyfill = __esm({
           }(e3, i3, d2, f3, n3, a3), e3._backpressure = void 0, e3._backpressureChangePromise = void 0, e3._backpressureChangePromise_resolve = void 0, fr(e3, true), e3._transformStreamController = void 0;
         }(this, u((e3) => {
           b2 = e3;
-        }), s2, f2, i2, l2), function(e3, t3) {
+        }), s3, f2, i2, l2), function(e3, t3) {
           const r3 = Object.create(TransformStreamDefaultController.prototype);
           let o3, n3;
           o3 = void 0 !== t3.transform ? (e4) => t3.transform(e4, r3) : (e4) => {
@@ -5315,8 +5315,8 @@ var init_esm = __esm({
 // node_modules/ms/index.js
 var require_ms = __commonJS({
   "node_modules/ms/index.js"(exports2, module2) {
-    var s2 = 1e3;
-    var m2 = s2 * 60;
+    var s3 = 1e3;
+    var m2 = s3 * 60;
     var h2 = m2 * 60;
     var d2 = h2 * 24;
     var w2 = d2 * 7;
@@ -5378,7 +5378,7 @@ var require_ms = __commonJS({
         case "secs":
         case "sec":
         case "s":
-          return n2 * s2;
+          return n2 * s3;
         case "milliseconds":
         case "millisecond":
         case "msecs":
@@ -5400,8 +5400,8 @@ var require_ms = __commonJS({
       if (msAbs >= m2) {
         return Math.round(ms / m2) + "m";
       }
-      if (msAbs >= s2) {
-        return Math.round(ms / s2) + "s";
+      if (msAbs >= s3) {
+        return Math.round(ms / s3) + "s";
       }
       return ms + "ms";
     }
@@ -5416,8 +5416,8 @@ var require_ms = __commonJS({
       if (msAbs >= m2) {
         return plural(ms, msAbs, m2, "minute");
       }
-      if (msAbs >= s2) {
-        return plural(ms, msAbs, s2, "second");
+      if (msAbs >= s3) {
+        return plural(ms, msAbs, s3, "second");
       }
       return ms + " ms";
     }
@@ -5782,10 +5782,10 @@ var require_agent = __commonJS({
       socket.on("agentRemove", onRemove);
     }
     module2.exports = Agent;
-    function inspect2(obj) {
+    function inspect2(obj2) {
       const res = {};
-      for (const key in obj) {
-        res[key] = obj[key].length;
+      for (const key in obj2) {
+        res[key] = obj2[key].length;
       }
       return res;
     }
@@ -7221,15 +7221,15 @@ async function* _iterSSEMessages(response, controller) {
   const iter = ReadableStreamToAsyncIterable(response.body);
   for await (const sseChunk of iterSSEChunks(iter)) {
     for (const line of lineDecoder.decode(sseChunk)) {
-      const sse = sseDecoder.decode(line);
-      if (sse)
-        yield sse;
+      const sse2 = sseDecoder.decode(line);
+      if (sse2)
+        yield sse2;
     }
   }
   for (const line of lineDecoder.flush()) {
-    const sse = sseDecoder.decode(line);
-    if (sse)
-      yield sse;
+    const sse2 = sseDecoder.decode(line);
+    if (sse2)
+      yield sse2;
   }
 }
 async function* iterSSEChunks(iterator) {
@@ -7283,30 +7283,30 @@ var init_streaming = __esm({
           consumed = true;
           let done = false;
           try {
-            for await (const sse of _iterSSEMessages(response, controller)) {
-              if (sse.event === "completion") {
+            for await (const sse2 of _iterSSEMessages(response, controller)) {
+              if (sse2.event === "completion") {
                 try {
-                  yield JSON.parse(sse.data);
+                  yield JSON.parse(sse2.data);
                 } catch (e2) {
-                  console.error(`Could not parse message into JSON:`, sse.data);
-                  console.error(`From chunk:`, sse.raw);
+                  console.error(`Could not parse message into JSON:`, sse2.data);
+                  console.error(`From chunk:`, sse2.raw);
                   throw e2;
                 }
               }
-              if (sse.event === "message_start" || sse.event === "message_delta" || sse.event === "message_stop" || sse.event === "content_block_start" || sse.event === "content_block_delta" || sse.event === "content_block_stop") {
+              if (sse2.event === "message_start" || sse2.event === "message_delta" || sse2.event === "message_stop" || sse2.event === "content_block_start" || sse2.event === "content_block_delta" || sse2.event === "content_block_stop") {
                 try {
-                  yield JSON.parse(sse.data);
+                  yield JSON.parse(sse2.data);
                 } catch (e2) {
-                  console.error(`Could not parse message into JSON:`, sse.data);
-                  console.error(`From chunk:`, sse.raw);
+                  console.error(`Could not parse message into JSON:`, sse2.data);
+                  console.error(`From chunk:`, sse2.raw);
                   throw e2;
                 }
               }
-              if (sse.event === "ping") {
+              if (sse2.event === "ping") {
                 continue;
               }
-              if (sse.event === "error") {
-                throw APIError.generate(void 0, `SSE Error: ${sse.data}`, sse.data, createResponseHeaders(response.headers));
+              if (sse2.event === "error") {
+                throw APIError.generate(void 0, `SSE Error: ${sse2.data}`, sse2.data, createResponseHeaders(response.headers));
               }
             }
             done = true;
@@ -7435,7 +7435,7 @@ var init_streaming = __esm({
         if (!line) {
           if (!this.event && !this.data.length)
             return null;
-          const sse = {
+          const sse2 = {
             event: this.event,
             data: this.data.join("\n"),
             raw: this.chunks
@@ -7443,7 +7443,7 @@ var init_streaming = __esm({
           this.event = null;
           this.data = [];
           this.chunks = [];
-          return sse;
+          return sse2;
         }
         this.chunks.push(line);
         if (line.startsWith(":")) {
@@ -7589,15 +7589,15 @@ function getBrowserInfo() {
   }
   return null;
 }
-function isEmptyObj(obj) {
-  if (!obj)
+function isEmptyObj(obj2) {
+  if (!obj2)
     return true;
-  for (const _k in obj)
+  for (const _k in obj2)
     return false;
   return true;
 }
-function hasOwn(obj, key) {
-  return Object.prototype.hasOwnProperty.call(obj, key);
+function hasOwn(obj2, key) {
+  return Object.prototype.hasOwnProperty.call(obj2, key);
 }
 function applyHeadersMut(targetHeaders, newHeaders) {
   for (const k2 in newHeaders) {
@@ -8108,8 +8108,8 @@ var init_core = __esm({
       __binaryResponse: true,
       __streamClass: true
     };
-    isRequestOptions = (obj) => {
-      return typeof obj === "object" && obj !== null && !isEmptyObj(obj) && Object.keys(obj).every((k2) => hasOwn(requestOptionsKeys, k2));
+    isRequestOptions = (obj2) => {
+      return typeof obj2 === "object" && obj2 !== null && !isEmptyObj(obj2) && Object.keys(obj2).every((k2) => hasOwn(requestOptionsKeys, k2));
     };
     getPlatformProperties = () => {
       if (typeof Deno !== "undefined" && Deno.build != null) {
@@ -11291,11 +11291,11 @@ var init_formats = __esm({
 });
 
 // node_modules/openai/internal/qs/utils.mjs
-function is_buffer(obj) {
-  if (!obj || typeof obj !== "object") {
+function is_buffer(obj2) {
+  if (!obj2 || typeof obj2 !== "object") {
     return false;
   }
-  return !!(obj.constructor && obj.constructor.isBuffer && obj.constructor.isBuffer(obj));
+  return !!(obj2.constructor && obj2.constructor.isBuffer && obj2.constructor.isBuffer(obj2));
 }
 function maybe_map(val, fn) {
   if (is_array(val)) {
@@ -11380,7 +11380,7 @@ function is_non_nullish_primitive(v2) {
   return typeof v2 === "string" || typeof v2 === "number" || typeof v2 === "boolean" || typeof v2 === "symbol" || typeof v2 === "bigint";
 }
 function inner_stringify(object, prefix, generateArrayPrefix, commaRoundTrip, allowEmptyArrays, strictNullHandling, skipNulls, encodeDotInKeys, encoder, filter, sort, allowDots, serializeDate, format2, formatter, encodeValuesOnly, charset, sideChannel) {
-  let obj = object;
+  let obj2 = object;
   let tmp_sc = sideChannel;
   let step = 0;
   let find_flag = false;
@@ -11399,68 +11399,68 @@ function inner_stringify(object, prefix, generateArrayPrefix, commaRoundTrip, al
     }
   }
   if (typeof filter === "function") {
-    obj = filter(prefix, obj);
-  } else if (obj instanceof Date) {
-    obj = serializeDate?.(obj);
-  } else if (generateArrayPrefix === "comma" && is_array2(obj)) {
-    obj = maybe_map(obj, function(value) {
+    obj2 = filter(prefix, obj2);
+  } else if (obj2 instanceof Date) {
+    obj2 = serializeDate?.(obj2);
+  } else if (generateArrayPrefix === "comma" && is_array2(obj2)) {
+    obj2 = maybe_map(obj2, function(value) {
       if (value instanceof Date) {
         return serializeDate?.(value);
       }
       return value;
     });
   }
-  if (obj === null) {
+  if (obj2 === null) {
     if (strictNullHandling) {
       return encoder && !encodeValuesOnly ? (
         // @ts-expect-error
         encoder(prefix, defaults.encoder, charset, "key", format2)
       ) : prefix;
     }
-    obj = "";
+    obj2 = "";
   }
-  if (is_non_nullish_primitive(obj) || is_buffer(obj)) {
+  if (is_non_nullish_primitive(obj2) || is_buffer(obj2)) {
     if (encoder) {
       const key_value = encodeValuesOnly ? prefix : encoder(prefix, defaults.encoder, charset, "key", format2);
       return [
         formatter?.(key_value) + "=" + // @ts-expect-error
-        formatter?.(encoder(obj, defaults.encoder, charset, "value", format2))
+        formatter?.(encoder(obj2, defaults.encoder, charset, "value", format2))
       ];
     }
-    return [formatter?.(prefix) + "=" + formatter?.(String(obj))];
+    return [formatter?.(prefix) + "=" + formatter?.(String(obj2))];
   }
   const values = [];
-  if (typeof obj === "undefined") {
+  if (typeof obj2 === "undefined") {
     return values;
   }
   let obj_keys;
-  if (generateArrayPrefix === "comma" && is_array2(obj)) {
+  if (generateArrayPrefix === "comma" && is_array2(obj2)) {
     if (encodeValuesOnly && encoder) {
-      obj = maybe_map(obj, encoder);
+      obj2 = maybe_map(obj2, encoder);
     }
-    obj_keys = [{ value: obj.length > 0 ? obj.join(",") || null : void 0 }];
+    obj_keys = [{ value: obj2.length > 0 ? obj2.join(",") || null : void 0 }];
   } else if (is_array2(filter)) {
     obj_keys = filter;
   } else {
-    const keys = Object.keys(obj);
+    const keys = Object.keys(obj2);
     obj_keys = sort ? keys.sort(sort) : keys;
   }
   const encoded_prefix = encodeDotInKeys ? String(prefix).replace(/\./g, "%2E") : String(prefix);
-  const adjusted_prefix = commaRoundTrip && is_array2(obj) && obj.length === 1 ? encoded_prefix + "[]" : encoded_prefix;
-  if (allowEmptyArrays && is_array2(obj) && obj.length === 0) {
+  const adjusted_prefix = commaRoundTrip && is_array2(obj2) && obj2.length === 1 ? encoded_prefix + "[]" : encoded_prefix;
+  if (allowEmptyArrays && is_array2(obj2) && obj2.length === 0) {
     return adjusted_prefix + "[]";
   }
   for (let j2 = 0; j2 < obj_keys.length; ++j2) {
     const key = obj_keys[j2];
     const value = (
       // @ts-ignore
-      typeof key === "object" && typeof key.value !== "undefined" ? key.value : obj[key]
+      typeof key === "object" && typeof key.value !== "undefined" ? key.value : obj2[key]
     );
     if (skipNulls && value === null) {
       continue;
     }
     const encoded_key = allowDots && encodeDotInKeys ? key.replace(/\./g, "%2E") : key;
-    const key_prefix = is_array2(obj) ? typeof generateArrayPrefix === "function" ? generateArrayPrefix(adjusted_prefix, encoded_key) : adjusted_prefix : adjusted_prefix + (allowDots ? "." + encoded_key : "[" + encoded_key + "]");
+    const key_prefix = is_array2(obj2) ? typeof generateArrayPrefix === "function" ? generateArrayPrefix(adjusted_prefix, encoded_key) : adjusted_prefix : adjusted_prefix + (allowDots ? "." + encoded_key : "[" + encoded_key + "]");
     sideChannel.set(object, step);
     const valueSideChannel = /* @__PURE__ */ new WeakMap();
     valueSideChannel.set(sentinel, sideChannel);
@@ -11474,7 +11474,7 @@ function inner_stringify(object, prefix, generateArrayPrefix, commaRoundTrip, al
       skipNulls,
       encodeDotInKeys,
       // @ts-ignore
-      generateArrayPrefix === "comma" && encodeValuesOnly && is_array2(obj) ? null : encoder,
+      generateArrayPrefix === "comma" && encodeValuesOnly && is_array2(obj2) ? null : encoder,
       filter,
       sort,
       allowDots,
@@ -11551,25 +11551,25 @@ function normalize_stringify_options(opts = defaults) {
   };
 }
 function stringify(object, opts = {}) {
-  let obj = object;
+  let obj2 = object;
   const options = normalize_stringify_options(opts);
   let obj_keys;
   let filter;
   if (typeof options.filter === "function") {
     filter = options.filter;
-    obj = filter("", obj);
+    obj2 = filter("", obj2);
   } else if (is_array2(options.filter)) {
     filter = options.filter;
     obj_keys = filter;
   }
   const keys = [];
-  if (typeof obj !== "object" || obj === null) {
+  if (typeof obj2 !== "object" || obj2 === null) {
     return "";
   }
   const generateArrayPrefix = array_prefix_generators[options.arrayFormat];
   const commaRoundTrip = generateArrayPrefix === "comma" && options.commaRoundTrip;
   if (!obj_keys) {
-    obj_keys = Object.keys(obj);
+    obj_keys = Object.keys(obj2);
   }
   if (options.sort) {
     obj_keys.sort(options.sort);
@@ -11577,11 +11577,11 @@ function stringify(object, opts = {}) {
   const sideChannel = /* @__PURE__ */ new WeakMap();
   for (let i2 = 0; i2 < obj_keys.length; ++i2) {
     const key = obj_keys[i2];
-    if (options.skipNulls && obj[key] === null) {
+    if (options.skipNulls && obj2[key] === null) {
       continue;
     }
     push_to_array(keys, inner_stringify(
-      obj[key],
+      obj2[key],
       key,
       // @ts-expect-error
       generateArrayPrefix,
@@ -12086,15 +12086,15 @@ async function* _iterSSEMessages2(response, controller) {
   const iter = ReadableStreamToAsyncIterable2(response.body);
   for await (const sseChunk of iterSSEChunks2(iter)) {
     for (const line of lineDecoder.decode(sseChunk)) {
-      const sse = sseDecoder.decode(line);
-      if (sse)
-        yield sse;
+      const sse2 = sseDecoder.decode(line);
+      if (sse2)
+        yield sse2;
     }
   }
   for (const line of lineDecoder.flush()) {
-    const sse = sseDecoder.decode(line);
-    if (sse)
-      yield sse;
+    const sse2 = sseDecoder.decode(line);
+    if (sse2)
+      yield sse2;
   }
 }
 async function* iterSSEChunks2(iterator) {
@@ -12148,20 +12148,20 @@ var init_streaming2 = __esm({
           consumed = true;
           let done = false;
           try {
-            for await (const sse of _iterSSEMessages2(response, controller)) {
+            for await (const sse2 of _iterSSEMessages2(response, controller)) {
               if (done)
                 continue;
-              if (sse.data.startsWith("[DONE]")) {
+              if (sse2.data.startsWith("[DONE]")) {
                 done = true;
                 continue;
               }
-              if (sse.event === null || sse.event.startsWith("response.") || sse.event.startsWith("transcript.")) {
+              if (sse2.event === null || sse2.event.startsWith("response.") || sse2.event.startsWith("transcript.")) {
                 let data;
                 try {
-                  data = JSON.parse(sse.data);
+                  data = JSON.parse(sse2.data);
                 } catch (e2) {
-                  console.error(`Could not parse message into JSON:`, sse.data);
-                  console.error(`From chunk:`, sse.raw);
+                  console.error(`Could not parse message into JSON:`, sse2.data);
+                  console.error(`From chunk:`, sse2.raw);
                   throw e2;
                 }
                 if (data && data.error) {
@@ -12171,16 +12171,16 @@ var init_streaming2 = __esm({
               } else {
                 let data;
                 try {
-                  data = JSON.parse(sse.data);
+                  data = JSON.parse(sse2.data);
                 } catch (e2) {
-                  console.error(`Could not parse message into JSON:`, sse.data);
-                  console.error(`From chunk:`, sse.raw);
+                  console.error(`Could not parse message into JSON:`, sse2.data);
+                  console.error(`From chunk:`, sse2.raw);
                   throw e2;
                 }
-                if (sse.event == "error") {
+                if (sse2.event == "error") {
                   throw new APIError2(void 0, data.error, data.message, void 0);
                 }
-                yield { event: sse.event, data };
+                yield { event: sse2.event, data };
               }
             }
             done = true;
@@ -12309,7 +12309,7 @@ var init_streaming2 = __esm({
         if (!line) {
           if (!this.event && !this.data.length)
             return null;
-          const sse = {
+          const sse2 = {
             event: this.event,
             data: this.data.join("\n"),
             raw: this.chunks
@@ -12317,7 +12317,7 @@ var init_streaming2 = __esm({
           this.event = null;
           this.data = [];
           this.chunks = [];
-          return sse;
+          return sse2;
         }
         this.chunks.push(line);
         if (line.startsWith(":")) {
@@ -12495,15 +12495,15 @@ function getBrowserInfo2() {
   }
   return null;
 }
-function isEmptyObj2(obj) {
-  if (!obj)
+function isEmptyObj2(obj2) {
+  if (!obj2)
     return true;
-  for (const _k in obj)
+  for (const _k in obj2)
     return false;
   return true;
 }
-function hasOwn2(obj, key) {
-  return Object.prototype.hasOwnProperty.call(obj, key);
+function hasOwn2(obj2, key) {
+  return Object.prototype.hasOwnProperty.call(obj2, key);
 }
 function applyHeadersMut2(targetHeaders, newHeaders) {
   for (const k2 in newHeaders) {
@@ -12547,8 +12547,8 @@ function debug2(action, ...args) {
     console.log(`OpenAI:DEBUG:${action}`, ...modifiedArgs);
   }
 }
-function isObj(obj) {
-  return obj != null && typeof obj === "object" && !Array.isArray(obj);
+function isObj(obj2) {
+  return obj2 != null && typeof obj2 === "object" && !Array.isArray(obj2);
 }
 var __classPrivateFieldSet10, __classPrivateFieldGet11, _AbstractPage_client2, APIPromise2, APIClient2, AbstractPage2, PagePromise2, createResponseHeaders2, requestOptionsKeys2, isRequestOptions2, getPlatformProperties2, normalizeArch2, normalizePlatform2, _platformHeaders2, getPlatformHeaders2, safeJSON2, startsWithSchemeRegexp2, isAbsoluteURL2, sleep2, validatePositiveInteger2, castToError2, readEnv2, SENSITIVE_HEADERS, uuid42, isRunningInBrowser2, isHeadersProtocol2, getHeader2, toFloat32Array;
 var init_core2 = __esm({
@@ -13024,8 +13024,8 @@ var init_core2 = __esm({
       __binaryResponse: true,
       __streamClass: true
     };
-    isRequestOptions2 = (obj) => {
-      return typeof obj === "object" && obj !== null && !isEmptyObj2(obj) && Object.keys(obj).every((k2) => hasOwn2(requestOptionsKeys2, k2));
+    isRequestOptions2 = (obj2) => {
+      return typeof obj2 === "object" && obj2 !== null && !isEmptyObj2(obj2) && Object.keys(obj2).every((k2) => hasOwn2(requestOptionsKeys2, k2));
     };
     getPlatformProperties2 = () => {
       if (typeof Deno !== "undefined" && Deno.build != null) {
@@ -14995,21 +14995,21 @@ var init_parser3 = __esm({
       const parseObj = () => {
         index2++;
         skipBlank();
-        const obj = {};
+        const obj2 = {};
         try {
           while (jsonString[index2] !== "}") {
             skipBlank();
             if (index2 >= length && Allow.OBJ & allow)
-              return obj;
+              return obj2;
             const key = parseStr();
             skipBlank();
             index2++;
             try {
               const value = parseAny();
-              Object.defineProperty(obj, key, { value, writable: true, enumerable: true, configurable: true });
+              Object.defineProperty(obj2, key, { value, writable: true, enumerable: true, configurable: true });
             } catch (e2) {
               if (Allow.OBJ & allow)
-                return obj;
+                return obj2;
               else
                 throw e2;
             }
@@ -15019,12 +15019,12 @@ var init_parser3 = __esm({
           }
         } catch (e2) {
           if (Allow.OBJ & allow)
-            return obj;
+            return obj2;
           else
             markPartialJSON("Expected '}' at end of object");
         }
         index2++;
-        return obj;
+        return obj2;
       };
       const parseArr = () => {
         index2++;
@@ -15183,7 +15183,7 @@ ${str(snapshot)}`);
 function str(x2) {
   return JSON.stringify(x2);
 }
-function assertIsEmpty(obj) {
+function assertIsEmpty(obj2) {
   return;
 }
 function assertNever2(_x) {
@@ -18321,8 +18321,8 @@ var require_fetch_umd = __commonJS({
         formData: "FormData" in g2,
         arrayBuffer: "ArrayBuffer" in g2
       };
-      function isDataView(obj) {
-        return obj && DataView.prototype.isPrototypeOf(obj);
+      function isDataView(obj2) {
+        return obj2 && DataView.prototype.isPrototypeOf(obj2);
       }
       if (support.arrayBuffer) {
         var viewClasses = [
@@ -18336,8 +18336,8 @@ var require_fetch_umd = __commonJS({
           "[object Float32Array]",
           "[object Float64Array]"
         ];
-        var isArrayBufferView = ArrayBuffer.isView || function(obj) {
-          return obj && viewClasses.indexOf(Object.prototype.toString.call(obj)) > -1;
+        var isArrayBufferView = ArrayBuffer.isView || function(obj2) {
+          return obj2 && viewClasses.indexOf(Object.prototype.toString.call(obj2)) > -1;
         };
       }
       function normalizeName(name) {
@@ -18853,11 +18853,11 @@ function getPlatform() {
 }
 function normalizeHeaders(headers) {
   if (headers instanceof Headers) {
-    const obj = {};
+    const obj2 = {};
     headers.forEach((value, key) => {
-      obj[key] = value;
+      obj2[key] = value;
     });
-    return obj;
+    return obj2;
   } else if (Array.isArray(headers)) {
     return Object.fromEntries(headers);
   } else {
@@ -18872,9 +18872,9 @@ var init_browser = __esm({
     defaultHost = `http://127.0.0.1:${defaultPort}`;
     version = "0.5.18";
     __defProp$1 = Object.defineProperty;
-    __defNormalProp$1 = (obj, key, value) => key in obj ? __defProp$1(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-    __publicField$1 = (obj, key, value) => {
-      __defNormalProp$1(obj, typeof key !== "symbol" ? key + "" : key, value);
+    __defNormalProp$1 = (obj2, key, value) => key in obj2 ? __defProp$1(obj2, key, { enumerable: true, configurable: true, writable: true, value }) : obj2[key] = value;
+    __publicField$1 = (obj2, key, value) => {
+      __defNormalProp$1(obj2, typeof key !== "symbol" ? key + "" : key, value);
       return value;
     };
     ResponseError = class _ResponseError extends Error {
@@ -19048,9 +19048,9 @@ var init_browser = __esm({
       return formattedHost;
     };
     __defProp2 = Object.defineProperty;
-    __defNormalProp = (obj, key, value) => key in obj ? __defProp2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-    __publicField = (obj, key, value) => {
-      __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+    __defNormalProp = (obj2, key, value) => key in obj2 ? __defProp2(obj2, key, { enumerable: true, configurable: true, writable: true, value }) : obj2[key] = value;
+    __publicField = (obj2, key, value) => {
+      __defNormalProp(obj2, typeof key !== "symbol" ? key + "" : key, value);
       return value;
     };
     Ollama$1 = class Ollama {
@@ -19439,6 +19439,18 @@ function agentSessionsDir(cwd6, env) {
 function agentSessionFile(key, cwd6, env) {
   return (0, import_node_path.join)(agentSessionsDir(cwd6, env), `${safeSessionId(key)}.json`);
 }
+function runsDir(cwd6, env) {
+  return (0, import_node_path.join)(projectStateDir(cwd6, env), "runs");
+}
+function runDir(runId, cwd6, env) {
+  return (0, import_node_path.join)(runsDir(cwd6, env), safeSessionId(runId));
+}
+function runFile(runId, name, cwd6, env) {
+  return (0, import_node_path.join)(runDir(runId, cwd6, env), name);
+}
+function masteryFile(env) {
+  return (0, import_node_path.join)(corpocodeHome(env), "mastery.json");
+}
 function safeSessionId(sessionId) {
   return sessionId.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80) || "session";
 }
@@ -19577,26 +19589,26 @@ var util;
   }
   util2.assertNever = assertNever3;
   util2.arrayToEnum = (items) => {
-    const obj = {};
+    const obj2 = {};
     for (const item of items) {
-      obj[item] = item;
+      obj2[item] = item;
     }
-    return obj;
+    return obj2;
   };
-  util2.getValidEnumValues = (obj) => {
-    const validKeys = util2.objectKeys(obj).filter((k2) => typeof obj[obj[k2]] !== "number");
+  util2.getValidEnumValues = (obj2) => {
+    const validKeys = util2.objectKeys(obj2).filter((k2) => typeof obj2[obj2[k2]] !== "number");
     const filtered = {};
     for (const k2 of validKeys) {
-      filtered[k2] = obj[k2];
+      filtered[k2] = obj2[k2];
     }
     return util2.objectValues(filtered);
   };
-  util2.objectValues = (obj) => {
-    return util2.objectKeys(obj).map(function(e2) {
-      return obj[e2];
+  util2.objectValues = (obj2) => {
+    return util2.objectKeys(obj2).map(function(e2) {
+      return obj2[e2];
     });
   };
-  util2.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object) => {
+  util2.objectKeys = typeof Object.keys === "function" ? (obj2) => Object.keys(obj2) : (object) => {
     const keys = [];
     for (const key in object) {
       if (Object.prototype.hasOwnProperty.call(object, key)) {
@@ -19717,8 +19729,8 @@ var ZodIssueCode = util.arrayToEnum([
   "not_multiple_of",
   "not_finite"
 ]);
-var quotelessJson = (obj) => {
-  const json = JSON.stringify(obj, null, 2);
+var quotelessJson = (obj2) => {
+  const json = JSON.stringify(obj2, null, 2);
   return json.replace(/"([^"]+)":/g, "$1:");
 };
 var ZodError = class _ZodError extends Error {
@@ -19988,12 +20000,12 @@ var ParseStatus = class _ParseStatus {
   }
   static mergeArray(status, results) {
     const arrayValue = [];
-    for (const s2 of results) {
-      if (s2.status === "aborted")
+    for (const s3 of results) {
+      if (s3.status === "aborted")
         return INVALID;
-      if (s2.status === "dirty")
+      if (s3.status === "dirty")
         status.dirty();
-      arrayValue.push(s2.value);
+      arrayValue.push(s3.value);
     }
     return { status: status.value, value: arrayValue };
   }
@@ -23501,6 +23513,9 @@ var AGENT_TASK_KINDS = [
   "pre-write-guidance",
   "review",
   "housekeeping",
+  "interrogate",
+  "consequence",
+  "implement",
   "general"
 ];
 var AGENT_BACKEND_KEYS = ["anthropic-cli", "agent-engine"];
@@ -23522,7 +23537,9 @@ var componentNameSchema = external_exports.enum([
   "compactor",
   "filter",
   "verifier",
-  "toolbox"
+  "toolbox",
+  "um",
+  "arbiter"
 ]);
 var effortSchema = external_exports.enum(["minimal", "medium", "high"]);
 var difficultySchema = external_exports.enum(["trivial", "medium", "hard"]);
@@ -23543,12 +23560,21 @@ var componentsSchema = external_exports.object({
   compactor: external_exports.string().default("default"),
   filter: external_exports.string().default("default"),
   verifier: external_exports.string().default("default"),
-  toolbox: external_exports.string().default("default")
+  toolbox: external_exports.string().default("default"),
+  um: external_exports.string().default("default"),
+  arbiter: external_exports.string().default("default")
 }).default({});
 var effortChoiceSchema = external_exports.object({
   component: external_exports.string().optional(),
   model: external_exports.string().optional(),
   effort: effortSchema
+});
+var roleConfigSchema = external_exports.object({
+  component: componentNameSchema.optional(),
+  model: external_exports.string().optional(),
+  effort: effortSchema.default("medium"),
+  max_turns: external_exports.number().int().positive().optional(),
+  timeout_ms: external_exports.number().int().positive().optional()
 });
 var configSchema = external_exports.object({
   // Config schema generation. A config that predates this field defaults to 1; because each block
@@ -23644,6 +23670,59 @@ var configSchema = external_exports.object({
     router_router: external_exports.boolean().default(true)
     // the triage gate; false routes everything to the full router
   }).default({}),
+  // The orchestrator mode (`corpocode start`) — the primary product; see docs/narrative/08.
+  // `enabled` is true because the CLI command is the real gate; `initialized` is the RELEASE gate:
+  // `start` refuses until `corpocode init` has run the orchestrator onboarding (arbiter model, poll
+  // granularity, budget), bypassed for local testing via CORPOCODE_DEV=1 or --dev. Budget nulls mean
+  // UNCAPPED (the local-testing default) — init writes real values. The verify block deliberately has
+  // no allow_direct_patch: the arbiter never authors code; that is not a knob.
+  orchestrator: external_exports.object({
+    enabled: external_exports.boolean().default(true),
+    initialized: external_exports.boolean().default(false),
+    interrogation: external_exports.object({
+      interface: external_exports.enum(["terminal", "web", "auto"]).default("terminal"),
+      // "web" lands Phase 2
+      granularity: external_exports.enum(["every-fork", "major-forks", "minimal"]).default("every-fork"),
+      consequence_axes: external_exports.array(external_exports.string()).default(["performance", "maintainability", "extensibility", "failure-modes", "idiom"]),
+      fanout_width: external_exports.number().int().positive().default(4),
+      max_polls: external_exports.number().int().positive().default(40),
+      // interrogation-fatigue guard
+      teach: external_exports.boolean().default(true),
+      // Phase-5 knobs; the seam records from day one but never adapts until enabled.
+      mastery: external_exports.object({
+        enabled: external_exports.boolean().default(false),
+        alpha: external_exports.number().default(0.15),
+        theta_teach: external_exports.number().default(0.4),
+        theta_assume: external_exports.number().default(0.8),
+        debounce_k: external_exports.number().int().positive().default(3)
+      }).default({})
+    }).default({}),
+    roles: external_exports.record(roleConfigSchema).default({
+      interrogate: { effort: "medium", timeout_ms: 6e4 },
+      consequence: { effort: "minimal", timeout_ms: 3e4 },
+      implement: { effort: "medium", max_turns: 40, timeout_ms: 6e5 },
+      arbiter: { component: "arbiter", model: "claude-fable-5", effort: "high" },
+      housekeeping: { effort: "minimal" }
+    }),
+    swarm: external_exports.object({
+      max_parallel_writers: external_exports.number().int().positive().default(3),
+      worktrees: external_exports.boolean().default(true)
+      // false ⇒ single-writer serial (the Phase-3 shipping config)
+    }).default({}),
+    verify: external_exports.object({
+      cadence: external_exports.enum(["per-task", "per-wave", "final"]).default("per-wave"),
+      mode: external_exports.enum(["gate", "verify-rescue"]).default("gate"),
+      max_redispatch: external_exports.number().int().nonnegative().default(2),
+      rescue_max_output_tokens: external_exports.number().int().positive().default(800)
+    }).default({}),
+    budget: external_exports.object({
+      max_run_usd: external_exports.number().positive().nullable().default(null),
+      spec_usd: external_exports.number().positive().nullable().default(null),
+      verify_usd: external_exports.number().positive().nullable().default(null),
+      build_usd: external_exports.number().positive().nullable().default(null)
+    }).default({}),
+    runs_ttl_days: external_exports.number().int().positive().default(14)
+  }).default({}),
   // Off by default — the foundation of the privacy posture. When enabled, only the whitelisted
   // aggregate fields in src/telemetry/whitelist.ts are ever transmitted, to `endpoint`, batched.
   telemetry: external_exports.object({
@@ -23690,16 +23769,16 @@ function collectLeafPaths(node, path, out) {
     collectLeafPaths(child, [...path, key], out);
   }
 }
-function getAt(obj, path) {
-  let cur = obj;
+function getAt(obj2, path) {
+  let cur = obj2;
   for (const key of path) {
     if (cur === null || typeof cur !== "object") return void 0;
     cur = cur[key];
   }
   return cur;
 }
-function setAt(obj, path, value) {
-  let cur = obj;
+function setAt(obj2, path, value) {
+  let cur = obj2;
   for (let i2 = 0; i2 < path.length - 1; i2++) {
     const key = path[i2];
     cur = cur[key];
@@ -23723,7 +23802,7 @@ function coerce2(current, raw) {
       if (Array.isArray(parsed)) return parsed;
     } catch {
     }
-    return raw.split(",").map((s2) => s2.trim()).filter((s2) => s2.length > 0);
+    return raw.split(",").map((s3) => s3.trim()).filter((s3) => s3.length > 0);
   }
   return raw;
 }
@@ -23848,7 +23927,123 @@ var import_node_fs5 = require("node:fs");
 var import_node_fs4 = require("node:fs");
 var import_node_path3 = require("node:path");
 
+// src/um/harvest/superpowers.ts
+var UM_INTERROGATE_V0 = `You are the Upper-Management interrogator: one directed design conversation that turns a task
+statement into a spec complete enough for AUTONOMOUS execution. Explore intent, requirements,
+and design before any implementation exists. Anything left unspecified now becomes a silent
+guess during the build \u2014 your job is to leave nothing to interpretation.
+
+TASK
+{{task}}
+
+SECTIONS STILL OPEN (drive until every one is complete)
+{{remainingSections}}
+
+CODEBASE GROUNDING (real files, memories, and prior decisions \u2014 ground every proposal here; never invent structure the codebase does not have)
+{{grounding}}
+
+PILOT'S LAST ANSWER (fold it into the spec before moving on; empty on the first turn)
+{{lastAnswer}}
+
+THE CHARTER \u2014 seven sections; each must reach complete before the spec can be approved:
+- api-spec: entities, contracts, endpoints, data shapes \u2014 the precise surface the build implements.
+- capability-expansion: what is being added and how it grafts onto the existing codebase, grounded in the files above, not imagined.
+- future-plans: the features the architecture must NOT foreclose \u2014 seams to keep open, not speculative code to write.
+- parallelization: which tasks are independent so the swarm can fan out \u2014 emit taskSeeds here, with dependsOn edges.
+- compartmentalization: service and module boundaries, each with exactly one reason to change.
+- scale-path: what must hold when the load is real, decided up front rather than retrofitted.
+- reusable-systems: the shared substrate factored out once instead of rebuilt per feature.
+
+HOW TO WORK
+- Ask ONE question at a time. If a topic needs more exploration, break it into several forks
+  across turns rather than one compound question.
+- Prefer concrete multiple-choice forks over open questions: 2-4 real options, each with a short
+  label and a description carrying its trade-off. Always name your recommended option via
+  "suggested" and make the recommendation defensible from the grounding.
+- Mark "major": true only for architecture-shaping forks (data model, boundaries, contracts,
+  dependency choices, error strategy). Naming, formatting, and local-detail forks are
+  "major": false \u2014 the granularity dial filters on this flag.
+- If the task spans multiple independent subsystems, surface a decomposition fork FIRST. Do not
+  spend questions refining details of a project that needs splitting.
+- YAGNI ruthlessly: propose cutting unnecessary features; never widen scope the pilot did not ask for.
+- Every acceptance criterion must carry a verify method; prefer deterministic commands over
+  manual checks.
+- Record only what the pilot decided or what the grounding establishes. Never invent a decision
+  the pilot has not made \u2014 an unresolved fork is asked, not assumed.
+
+RESPONSE FORMAT \u2014 respond with EXACTLY ONE JSON object per turn. No prose, no code fences,
+nothing before or after the object. Three moves exist:
+
+1. Ask the pilot a decision fork:
+{"move":"fork","fork":{"id":"<kebab-slug>","section":"<one of the 7 section ids>","concept":"<concept name>","question":"...","major":true,"suggested":"<option id>","options":[{"id":"a","label":"...","description":"..."},{"id":"b","label":"...","description":"..."}]}}
+
+2. Record decided material into a section (payload is an ADDITIVE Spec fragment \u2014 any of
+entities/contracts/constraints/futureSeams/compartments/scalePath/reusableSystems/acceptance/taskSeeds;
+set "complete": true only when the section needs nothing more):
+{"move":"content","section":"<one of the 7 section ids>","complete":false,"payload":{"entities":[],"contracts":[],"constraints":[],"futureSeams":[],"compartments":[],"scalePath":[],"reusableSystems":[],"acceptance":[],"taskSeeds":[]}}
+
+3. End the interrogation (only when every section is complete):
+{"move":"done"}
+
+"section" is always exactly one of: api-spec, capability-expansion, future-plans,
+parallelization, compartmentalization, scale-path, reusable-systems.
+A malformed response is a failed turn \u2014 emit the single JSON object and nothing else.`;
+var UM_DECOMPOSE_V0 = `You are the Upper-Management decomposer. Turn the approved spec below into a task graph the
+swarm executes with zero further human input. Assume each task's implementer is a skilled
+developer with ZERO context on this codebase and questionable taste: a task must carry
+everything they need, because they see only their own task.
+
+APPROVED SPEC
+{{spec}}
+
+TASK GRAPH RULES
+- Granular tasks: each task is the smallest unit that carries its own verify cycle and is worth
+  a fresh reviewer's gate. Fold setup, configuration, and docs into the task whose deliverable
+  needs them; split only where a reviewer could reject one task while approving its neighbor.
+- Exact file paths always: every task lists the real files it creates or modifies. Files that
+  change together belong in one task; split by responsibility, not by technical layer.
+- dependsOn is the parallelization contract: name the exact ids of prerequisite tasks and
+  nothing more \u2014 every edge you omit is a task the swarm can run in parallel, and every edge
+  you invent serializes the build. The graph must be acyclic.
+- Every task gets a DETERMINISTIC verifyCommand \u2014 an exact command (test runner, typecheck,
+  build step) whose pass/fail needs no human judgment. Derive it from the spec's acceptance
+  verify methods where one applies. Preserve any verifyCommand the spec already fixed for a
+  seed; author one only where it is absent.
+- Interfaces travel in the description: state what the task consumes from earlier tasks and
+  what later tasks rely on \u2014 exact names, signatures, and types, since neighbors cannot see
+  each other. Names and types used across tasks must match exactly.
+- Map every acceptance criterion to at least one task via acceptanceRefs; a criterion no task
+  covers is a spec-coverage failure.
+- DRY. YAGNI. Test-first where the verifyCommand is a test.
+
+NO PLACEHOLDERS \u2014 these are plan failures, never write them:
+- "TBD", "TODO", "implement later", "fill in details"
+- "add appropriate error handling" / "add validation" / "handle edge cases"
+- "similar to task N" (repeat the content \u2014 tasks are read out of order)
+- references to types, functions, or files no task defines
+
+SELF-REVIEW before responding: (1) spec coverage \u2014 every spec requirement points to a task;
+(2) placeholder scan \u2014 none of the phrases above survive; (3) type consistency \u2014 signatures and
+names referenced across tasks match exactly. Fix issues inline, then respond.
+
+RESPONSE FORMAT \u2014 respond with EXACTLY ONE JSON object, no prose, no code fences:
+{"taskSeeds":[{"id":"<kebab-slug>","title":"...","description":"...","files":["exact/path.ts"],"dependsOn":["<earlier id>"],"verifyCommand":"<exact command>","acceptanceRefs":["<acceptance id>"]}]}`;
+
 // src/prompts/registry.ts
+function axisPrompt(lens, rubric) {
+  return [
+    `You price ONE option of an unmade design decision through the ${lens} lens, before any code exists.`,
+    "Decision concept: {{concept}}",
+    "Question: {{question}}",
+    "Option under analysis: {{optionLabel}} \u2014 {{optionDescription}}",
+    "",
+    rubric,
+    "",
+    "Ground your judgment in the ACTUAL codebase (read files as needed); never invent facts. Be concrete",
+    "and specific to this option \u2014 a generic observation is worthless to the pilot.",
+    'Respond with ONLY JSON: {"summary": string (1-2 sentences), "severity": "info"|"warn"|"risk"}.'
+  ].join("\n");
+}
 var BUILTIN_PROMPTS = {
   // router/ranker.ts — stage-2 moment categorizer. {{lineOfThought}} = the distilled intent/approach/
   // entities block; {{candidates}} = the bulleted candidate-file list.
@@ -23963,8 +24158,45 @@ var BUILTIN_PROMPTS = {
   "verifier-extensibility": "Assess Extensibility (E): is new behavior placed behind an abstraction that can be swapped, with core logic separated from the concrete implementation, so an alternative can be added without editing call sites? Flag a concrete vendor or implementation hard-wired into business logic where an interface seam belongs.",
   "verifier-documentation": "Assess Documentation (D): is the WHY recorded for any non-obvious choice (the constraint, the alternative considered, the trade-off, an ADR link), do comments explain intent rather than restate the code, and does this change leave no doc stale? Flag comments that merely restate the line below, an ADR-worthy decision made with no durable record, and a doc the code now contradicts.",
   "verifier-in-flight": "Assess In-flight (I): does every external call (HTTP, DB, queue, cache) have a timeout, a bounded and jittered retry, and a defined fallback, and does the code keep flying when a dependency is down instead of crashing? Flag an await with no timeout, unbounded/unjittered retries, a cache miss that hard-fails the request, and 'crash and let the orchestrator restart' used as the recovery plan.",
-  "verifier-testing": "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main."
+  "verifier-testing": "Assess Testing (T): does a bug fix arrive with a regression test that fails WITHOUT the fix, are failure paths (timeout, 5xx, malformed input) tested as deliberately as the happy path, and do tests assert caller-visible behavior rather than internals or call counts? Flag new logic with no test, untested error paths, and any .only/.skip shipped to main.",
+  // um/loop.ts — the cockpit's interrogation conversation (harvested from obra/superpowers, vendored
+  // + version-pinned in src/um/harvest/superpowers.ts). {{task}} = the engagement; {{remainingSections}}
+  // = charter sections still open; {{grounding}} = graph/memory context; {{lastAnswer}} = the pilot's
+  // latest decision.
+  "um-interrogate": UM_INTERROGATE_V0,
+  // orchestrator decompose (consumed from Phase 2/3) — approved spec → task graph. {{spec}} = spec.json.
+  "um-decompose": UM_DECOMPOSE_V0,
+  // um/loop.ts — the consequence-axis agents: the MOLAR-EDIT review shape run PROSPECTIVELY over the
+  // option space of a decision the pilot has not yet made (one agent per option×axis). The five
+  // default axes each get a tuned rubric; `um-axis` is the fallback for user-configured axes.
+  "um-axis": axisPrompt(
+    "{{axis}}",
+    "Assess this option strictly through the {{axis}} lens: what does choosing it cost or risk on that axis, now and as the system grows?"
+  ),
+  "um-axis-performance": axisPrompt(
+    "PERFORMANCE",
+    "Assess the performance consequence: hot paths this option touches, allocation and IO amplification, latency vs throughput posture, and how its cost scales with input size and concurrency. A hazard that only appears at scale is still a hazard \u2014 name the threshold."
+  ),
+  "um-axis-maintainability": axisPrompt(
+    "MAINTAINABILITY",
+    "Assess the maintainability cost (the M tenet, pointed forward): would this option keep changes isolated to the files that need them, with honest names and no magic values \u2014 or does it invite sprawl across unrelated modules, names that will lie as scope grows, and constants nobody will remember the meaning of?"
+  ),
+  "um-axis-extensibility": axisPrompt(
+    "EXTENSIBILITY",
+    "Assess the future-extensibility tax (the E tenet, pointed forward): does this option place behavior behind a seam that can be swapped, or does it hard-wire a concrete choice into call sites? Name the plausible future change this option makes expensive or forecloses."
+  ),
+  "um-axis-failure-modes": axisPrompt(
+    "FAILURE MODES",
+    "Assess the failure modes (the In-flight tenet, pointed forward): under this option, what breaks on timeout, partial failure, malformed input, or concurrent use \u2014 and what is the blast radius when it does? An option whose failure story is 'crash and restart' is a risk."
+  ),
+  "um-axis-idiom": axisPrompt(
+    "IDIOM",
+    "Assess the idiomatic-language reading: is this option how this language, framework, and THIS codebase's existing conventions would naturally express the intent \u2014 or will every future reader stumble on it? Ground the judgment in the real conventions you find in the repo, not textbook style."
+  )
 };
+function isPromptId(id) {
+  return Object.prototype.hasOwnProperty.call(BUILTIN_PROMPTS, id);
+}
 function allPromptIds() {
   return Object.keys(BUILTIN_PROMPTS);
 }
@@ -23992,7 +24224,15 @@ var PROMPT_META = {
   "verifier-extensibility": { path: "verifier/tenets/extensibility.md", source: "src/verifier/tenets/extensibility.ts", effect: "the Extensibility (E) standard the verifier enforces" },
   "verifier-documentation": { path: "verifier/tenets/documentation.md", source: "src/verifier/tenets/documentation.ts", effect: "the Documentation (D) standard the verifier enforces" },
   "verifier-in-flight": { path: "verifier/tenets/in-flight.md", source: "src/verifier/tenets/in-flight.ts", effect: "the In-flight (I) standard the verifier enforces" },
-  "verifier-testing": { path: "verifier/tenets/testing.md", source: "src/verifier/tenets/testing.ts", effect: "the Testing (T) standard the verifier enforces" }
+  "verifier-testing": { path: "verifier/tenets/testing.md", source: "src/verifier/tenets/testing.ts", effect: "the Testing (T) standard the verifier enforces" },
+  "um-interrogate": { path: "um/interrogate.md", source: "src/um/loop.ts", effect: "how the cockpit drives the spec conversation (harvested superpowers v0)" },
+  "um-decompose": { path: "um/decompose.md", source: "src/orchestrator/decompose.ts (Phase 2/3)", effect: "how an approved spec becomes a task graph" },
+  "um-axis": { path: "um/axis/generic.md", source: "src/um/loop.ts", effect: "the fallback rubric for a user-configured consequence axis" },
+  "um-axis-performance": { path: "um/axis/performance.md", source: "src/um/loop.ts", effect: "how an option's performance consequence is priced in a poll" },
+  "um-axis-maintainability": { path: "um/axis/maintainability.md", source: "src/um/loop.ts", effect: "how an option's maintainability cost is priced in a poll" },
+  "um-axis-extensibility": { path: "um/axis/extensibility.md", source: "src/um/loop.ts", effect: "how an option's extensibility tax is priced in a poll" },
+  "um-axis-failure-modes": { path: "um/axis/failure-modes.md", source: "src/um/loop.ts", effect: "how an option's failure modes are priced in a poll" },
+  "um-axis-idiom": { path: "um/axis/idiom.md", source: "src/um/loop.ts", effect: "how an option's idiomatic fit is priced in a poll" }
 };
 function promptRelPath(id) {
   return PROMPT_META[id].path;
@@ -24082,20 +24322,20 @@ function parseTranscriptSlice(text) {
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    let obj;
+    let obj2;
     try {
-      obj = JSON.parse(trimmed);
+      obj2 = JSON.parse(trimmed);
     } catch {
       continue;
     }
-    const message = extractMessage(obj);
+    const message = extractMessage(obj2);
     if (message) out.push(message);
   }
   return out;
 }
-function extractMessage(obj) {
-  if (!obj || typeof obj !== "object") return null;
-  const o2 = obj;
+function extractMessage(obj2) {
+  if (!obj2 || typeof obj2 !== "object") return null;
+  const o2 = obj2;
   const wrapped = o2.message ?? o2;
   const roleRaw = String(wrapped.role ?? o2.type ?? "");
   const role = roleRaw === "assistant" ? "assistant" : roleRaw === "system" ? "system" : roleRaw === "tool" ? "tool" : "user";
@@ -24117,8 +24357,8 @@ function coerceContent(content) {
 function formatMessages(messages) {
   return messages.map((m2) => `${m2.role}: ${m2.content}`).join("\n");
 }
-function looksLikePath(s2) {
-  return /[\\/.]/.test(s2) && /\.[a-z0-9]+$/i.test(s2);
+function looksLikePath(s3) {
+  return /[\\/.]/.test(s3) && /\.[a-z0-9]+$/i.test(s3);
 }
 function createSessionReader(opts) {
   const env = opts.env;
@@ -24219,9 +24459,9 @@ function shortSession(id) {
 function indent(text, pad) {
   return text.split(/\r?\n/).map((l2) => pad + l2).join("\n");
 }
-function cap(s2) {
-  return s2.length <= MAX_ENTRY_CHARS ? s2 : `${s2.slice(0, MAX_ENTRY_CHARS)}
-\u2026 (truncated ${s2.length - MAX_ENTRY_CHARS} chars)`;
+function cap(s3) {
+  return s3.length <= MAX_ENTRY_CHARS ? s3 : `${s3.slice(0, MAX_ENTRY_CHARS)}
+\u2026 (truncated ${s3.length - MAX_ENTRY_CHARS} chars)`;
 }
 function coerceText(v2) {
   if (typeof v2 === "string") return v2;
@@ -24246,14 +24486,14 @@ function renderTranscriptSlice(text) {
   for (const raw of text.split(/\r?\n/)) {
     const trimmed = raw.trim();
     if (!trimmed) continue;
-    let obj;
+    let obj2;
     try {
-      obj = JSON.parse(trimmed);
+      obj2 = JSON.parse(trimmed);
     } catch {
       continue;
     }
-    if (!obj || typeof obj !== "object") continue;
-    const top = obj;
+    if (!obj2 || typeof obj2 !== "object") continue;
+    const top = obj2;
     const msg = top.message && typeof top.message === "object" ? top.message : top;
     const roleRaw = String(msg.role ?? top.type ?? "");
     const role = roleRaw === "assistant" ? "assistant" : roleRaw === "system" ? "system" : "user";
@@ -24534,7 +24774,7 @@ ${content}
 </${tag}>`;
 }
 function joinBlocks(blocks) {
-  return blocks.filter((b2) => Boolean(b2)).map((b2) => typeof b2 === "string" ? b2 : tagged(b2.tag, b2.content)).filter((s2) => s2.trim().length > 0).join("\n\n");
+  return blocks.filter((b2) => Boolean(b2)).map((b2) => typeof b2 === "string" ? b2 : tagged(b2.tag, b2.content)).filter((s3) => s3.trim().length > 0).join("\n\n");
 }
 function emptyResponse() {
   return "{}";
@@ -24716,10 +24956,10 @@ async function withTimeout(raw, input, timeoutMs, providerId) {
 }
 function extractJson(text) {
   const stripped = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  const tryParse = (s2) => {
+  const tryParse = (s3) => {
     try {
-      JSON.parse(s2);
-      return s2;
+      JSON.parse(s3);
+      return s3;
     } catch {
       return null;
     }
@@ -24930,13 +25170,13 @@ function buildCliPrompt(system, messages) {
 ${convo}` : convo;
 }
 function parseClaudeCliResponse(stdout, fallbackModel) {
-  const obj = JSON.parse(stdout);
+  const obj2 = JSON.parse(stdout);
   return {
-    text: obj.result ?? "",
-    inputTokens: obj.usage?.input_tokens ?? 0,
-    outputTokens: obj.usage?.output_tokens ?? 0,
-    finishReason: obj.is_error ? "error" : "stop",
-    model: obj.model ?? fallbackModel
+    text: obj2.result ?? "",
+    inputTokens: obj2.usage?.input_tokens ?? 0,
+    outputTokens: obj2.usage?.output_tokens ?? 0,
+    finishReason: obj2.is_error ? "error" : "stop",
+    model: obj2.model ?? fallbackModel
   };
 }
 function buildCliArgs(model) {
@@ -25649,7 +25889,7 @@ function buildGraph(files, parse = extractFile) {
 // src/backends/graph/native.ts
 var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "bin", "coverage", "graphify-out", ".next", "build", ".turbo"]);
 var SOURCE_RE = /\.(ts|tsx|js|jsx|mjs|cjs|py)$/i;
-var tokenize2 = (s2) => s2.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+var tokenize2 = (s3) => s3.toLowerCase().match(/[a-z0-9]+/g) ?? [];
 function defaultLoadFiles(repoRoot) {
   const out = [];
   const walk = (dir, depth) => {
@@ -25694,9 +25934,9 @@ function fileStore(path) {
     }
   };
 }
-function djb2(s2) {
+function djb2(s3) {
   let h2 = 5381;
-  for (let i2 = 0; i2 < s2.length; i2++) h2 = (Math.imul(h2, 33) ^ s2.charCodeAt(i2)) >>> 0;
+  for (let i2 = 0; i2 < s3.length; i2++) h2 = (Math.imul(h2, 33) ^ s3.charCodeAt(i2)) >>> 0;
   return h2.toString(36);
 }
 function createNativeGraph(opts) {
@@ -26118,10 +26358,10 @@ var import_node_path13 = require("node:path");
 
 // src/backends/memory/embedder.ts
 var DEFAULT_DIM = 256;
-function hash32(s2) {
+function hash32(s3) {
   let h2 = 2166136261;
-  for (let i2 = 0; i2 < s2.length; i2++) {
-    h2 ^= s2.charCodeAt(i2);
+  for (let i2 = 0; i2 < s3.length; i2++) {
+    h2 ^= s3.charCodeAt(i2);
     h2 = Math.imul(h2, 16777619);
   }
   return h2 >>> 0;
@@ -26155,7 +26395,7 @@ function cosineSimilarity(a2, b2) {
 }
 
 // src/backends/context/native.ts
-var estTokens = (s2) => Math.ceil(s2.length / 4);
+var estTokens = (s3) => Math.ceil(s3.length / 4);
 function truncationSummarizer() {
   return {
     async summarize(text, target) {
@@ -26650,18 +26890,18 @@ function createAnthropicCliAgent(opts = {}) {
     try {
       const { stdout } = await run2("claude", args, stdin, controller.signal);
       clearTimeout(timer);
-      const obj = JSON.parse(stdout);
-      const text = obj.result ?? "";
+      const obj2 = JSON.parse(stdout);
+      const text = obj2.result ?? "";
       const usage = {
-        inputTokens: obj.usage?.input_tokens ?? 0,
-        outputTokens: obj.usage?.output_tokens ?? 0,
-        costUsd: obj.total_cost_usd ?? 0,
+        inputTokens: obj2.usage?.input_tokens ?? 0,
+        outputTokens: obj2.usage?.output_tokens ?? 0,
+        costUsd: obj2.total_cost_usd ?? 0,
         latencyMs: now() - started,
-        model: obj.model ?? model.model
+        model: obj2.model ?? model.model
       };
-      const sessionId = newSessionId ?? obj.session_id;
+      const sessionId = newSessionId ?? obj2.session_id;
       const session = sessionId ? { id: sessionId, persisted: Boolean(newSessionId) } : void 0;
-      if (obj.is_error) {
+      if (obj2.is_error) {
         return { ok: false, text, usage, model, session, error: { kind: "invalid_response", message: text || "claude reported is_error", retryable: false } };
       }
       if (call.schema) {
@@ -26842,7 +27082,7 @@ function buildContext(config, opts = {}) {
 // src/router/heuristics.ts
 var import_node_fs18 = require("node:fs");
 var import_node_path15 = require("node:path");
-var tokenize3 = (s2) => s2.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+var tokenize3 = (s3) => s3.toLowerCase().match(/[a-z0-9]+/g) ?? [];
 function isTrivialPrompt(prompt) {
   const p2 = prompt.trim().toLowerCase();
   if (p2.length <= 3) return true;
@@ -27063,7 +27303,7 @@ var plannerOutputJsonSchema = {
 
 // src/retrieval/templates/common.ts
 function foldQuery(cues, prompt) {
-  return [cues.query, prompt].map((s2) => (s2 ?? "").trim()).filter(Boolean).join(" \u2014 ").slice(0, 400);
+  return [cues.query, prompt].map((s3) => (s3 ?? "").trim()).filter(Boolean).join(" \u2014 ").slice(0, 400);
 }
 function basename3(path) {
   return path.split(/[\\/]/).pop() ?? path;
@@ -27592,7 +27832,7 @@ async function runChecks(checks, opts) {
     }
   }
   const settled2 = await Promise.allSettled(tasks);
-  return settled2.flatMap((s2) => s2.status === "fulfilled" ? [s2.value] : []);
+  return settled2.flatMap((s3) => s3.status === "fulfilled" ? [s3.value] : []);
 }
 
 // src/molar/engine.ts
@@ -27662,7 +27902,7 @@ function createMolarEditEngine(opts) {
     },
     async review(designContext) {
       const settled2 = await Promise.allSettled(active.map((t2) => reviewOne(t2, designContext)));
-      return settled2.flatMap((s2) => s2.status === "fulfilled" ? [s2.value] : []);
+      return settled2.flatMap((s3) => s3.status === "fulfilled" ? [s3.value] : []);
     }
   };
 }
@@ -27762,11 +28002,11 @@ async function classifyRelevant(input, deps) {
     const byName = new Map(input.candidates.map((e2) => [e2.name, e2]));
     const seen = /* @__PURE__ */ new Set();
     const result = [];
-    for (const s2 of parsed.data.selected) {
-      const entry = byName.get(s2.name);
-      if (!entry || seen.has(s2.name)) continue;
-      seen.add(s2.name);
-      result.push({ name: s2.name, reason: s2.reason, entry });
+    for (const s3 of parsed.data.selected) {
+      const entry = byName.get(s3.name);
+      if (!entry || seen.has(s3.name)) continue;
+      seen.add(s3.name);
+      result.push({ name: s3.name, reason: s3.reason, entry });
       if (result.length >= input.limit) break;
     }
     return result;
@@ -27791,7 +28031,7 @@ function formatToolboxBlock(picks, agentContext) {
   const lines = [];
   if (picks.skills.length) {
     lines.push("Relevant skills for this task \u2014 invoke them by name as needed:");
-    for (const s2 of picks.skills) lines.push(`- ${s2.name}${s2.reason ? ` \u2014 ${s2.reason}` : ""}`);
+    for (const s3 of picks.skills) lines.push(`- ${s3.name}${s3.reason ? ` \u2014 ${s3.reason}` : ""}`);
   }
   if (picks.agents.length) {
     if (lines.length) lines.push("");
@@ -28634,7 +28874,7 @@ session ${o2.sessionId}
     },
     async planPromotion(_repoRoot, since) {
       const out = await git(run2, repoRoot, ["diff", "--name-only", `${since}..${trace}`]);
-      const files = out.split("\n").map((s2) => s2.trim()).filter(Boolean);
+      const files = out.split("\n").map((s3) => s3.trim()).filter(Boolean);
       const buckets = /* @__PURE__ */ new Map();
       for (const f2 of files) {
         const key = groupBy(f2);
@@ -28658,7 +28898,7 @@ session ${o2.sessionId}
     },
     async conflicts(_repoRoot) {
       const out = await git(run2, repoRoot, ["diff", "--name-only", "--diff-filter=U"]);
-      return out.split("\n").map((s2) => s2.trim()).filter(Boolean);
+      return out.split("\n").map((s3) => s3.trim()).filter(Boolean);
     }
   };
 }
@@ -28676,7 +28916,7 @@ async function tracedFiles(ctx) {
   if (!g2.enabled) return [];
   try {
     const out = await git(spawnRunner, ctx.repoRoot, ["diff", "--name-only", `${g2.clean_branch}..${g2.trace_branch}`]);
-    return out.split("\n").map((s2) => s2.trim()).filter(Boolean).map((f2) => (0, import_node_path19.join)(ctx.repoRoot, f2));
+    return out.split("\n").map((s3) => s3.trim()).filter(Boolean).map((f2) => (0, import_node_path19.join)(ctx.repoRoot, f2));
   } catch {
     return [];
   }
@@ -28869,11 +29109,11 @@ function extractExportedSymbols(source) {
   return names;
 }
 function extractSignature(source, symbol) {
-  const s2 = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const s3 = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const patterns = [
-    new RegExp(`(?:export\\s+)?(?:default\\s+)?(?:async\\s+)?function\\s+${s2}\\s*\\([^)]*\\)[^{\\n]*`),
-    new RegExp(`(?:export\\s+)?const\\s+${s2}\\s*(?::[^=\\n]+)?=\\s*(?:async\\s*)?\\([^)]*\\)[^=\\n]*=>`),
-    new RegExp(`(?:export\\s+)?(?:abstract\\s+)?class\\s+${s2}\\b[^{\\n]*`)
+    new RegExp(`(?:export\\s+)?(?:default\\s+)?(?:async\\s+)?function\\s+${s3}\\s*\\([^)]*\\)[^{\\n]*`),
+    new RegExp(`(?:export\\s+)?const\\s+${s3}\\s*(?::[^=\\n]+)?=\\s*(?:async\\s*)?\\([^)]*\\)[^=\\n]*=>`),
+    new RegExp(`(?:export\\s+)?(?:abstract\\s+)?class\\s+${s3}\\b[^{\\n]*`)
   ];
   for (const re2 of patterns) {
     const m2 = source.match(re2);
@@ -29313,9 +29553,9 @@ function backupRelOf(root, file) {
 function gateToolbox(deps) {
   const read = deps.readFile ?? ((p2) => (0, import_node_fs28.readFileSync)(p2, "utf8"));
   const write = deps.writeFile ?? ((p2, c2) => (0, import_node_fs28.writeFileSync)(p2, c2));
-  const copy = deps.copyFile ?? ((s2, d2) => {
+  const copy = deps.copyFile ?? ((s3, d2) => {
     (0, import_node_fs28.mkdirSync)((0, import_node_path22.dirname)(d2), { recursive: true });
-    (0, import_node_fs28.copyFileSync)(s2, d2);
+    (0, import_node_fs28.copyFileSync)(s3, d2);
   });
   const byPath = new Map(loadCatalog(deps.catalogPath).entries.map((e2) => [e2.absPath, e2]));
   let gated = 0;
@@ -29357,9 +29597,9 @@ function gateToolbox(deps) {
   return { gated, skipped, catalog };
 }
 function restoreToolbox(deps) {
-  const copy = deps.copyFile ?? ((s2, d2) => {
+  const copy = deps.copyFile ?? ((s3, d2) => {
     (0, import_node_fs28.mkdirSync)((0, import_node_path22.dirname)(d2), { recursive: true });
-    (0, import_node_fs28.copyFileSync)(s2, d2);
+    (0, import_node_fs28.copyFileSync)(s3, d2);
   });
   let restored = 0;
   for (const e2 of loadCatalog(deps.catalogPath).entries) {
@@ -29837,7 +30077,7 @@ async function provisionGraphify(opts) {
     const build = await run2("graphify", ["."], { cwd: opts.repoRoot });
     steps.push({ name: "build graph", ok: build.code === 0, detail: build.code === 0 ? "built" : build.stderr.trim() });
   }
-  return { component: "graphify", ok: steps.every((s2) => s2.ok), steps };
+  return { component: "graphify", ok: steps.every((s3) => s3.ok), steps };
 }
 
 // src/install/backends/openviking.ts
@@ -29923,7 +30163,7 @@ async function provisionOpenViking(opts) {
   }
   const health = await store.health();
   steps.push({ name: "health check", ok: health.up, detail: health.up ? `up${health.version ? ` (${health.version})` : ""}` : "unreachable" });
-  return { component: "openviking", ok: steps.every((s2) => s2.ok), steps };
+  return { component: "openviking", ok: steps.every((s3) => s3.ok), steps };
 }
 
 // src/install/provision.ts
@@ -29992,9 +30232,9 @@ function makeAdapter(cfg) {
   return {
     id: cfg.id,
     detect: (env) => (0, import_node_fs34.existsSync)(home(env)),
-    hookEvents: () => cfg.specs.map((s2) => s2.event),
+    hookEvents: () => cfg.specs.map((s3) => s3.event),
     paths: (env) => ({ home: home(env), settingsFile: (0, import_node_path28.join)(home(env), cfg.settingsRel), shimDir: (0, import_node_path28.join)(home(env), cfg.shimSubdir) }),
-    register: (settings, ctx) => registerJsonHooks(settings, cfg.specs.filter((s2) => ctx.events.includes(s2.event)), ctx.commandFor),
+    register: (settings, ctx) => registerJsonHooks(settings, cfg.specs.filter((s3) => ctx.events.includes(s3.event)), ctx.commandFor),
     unregister: (settings) => unregisterJsonHooks(settings),
     responseEnvelope: (out) => serializeForPlatform(out, cfg.id),
     assets: () => ({ agents: cfg.agents, skills: cfg.skills })
@@ -30287,23 +30527,1237 @@ async function runUninstallCommand(argv) {
   }
 }
 
-// src/commands/doctor.ts
+// src/commands/start.ts
+var import_node_fs39 = require("node:fs");
+
+// src/orchestrator/context.ts
+function buildOrchestratorAgents(config, opts) {
+  return buildAgentRegistry({
+    backends: {
+      "anthropic-cli": createAnthropicCliAgent({ repoRoot: opts.repoRoot }),
+      "agent-engine": createAgentEngineBackend()
+    },
+    taskBackends: config.agents.task_backends,
+    defaultBackend: config.agents.default_backend
+  });
+}
+function resolveRoleModel(config, role) {
+  const rc = config.orchestrator.roles[role];
+  const componentKey = rc?.component ?? "um";
+  const providerKey = config.components[componentKey] ?? "default";
+  const provider = config.providers[providerKey];
+  const model = rc?.model ?? provider?.model;
+  if (!model) return void 0;
+  return { providerKey, model };
+}
+
+// src/orchestrator/budget.ts
+function createBudgetGuard(budget) {
+  const caps = {
+    maxRunUsd: budget.max_run_usd,
+    perPhase: {
+      spec: budget.spec_usd,
+      verify: budget.verify_usd,
+      build: budget.build_usd
+    }
+  };
+  const ledger = { spec: 0, verify: 0, build: 0 };
+  return {
+    caps,
+    charge(phase, usd) {
+      if (!(usd > 0)) return;
+      ledger[phase] += usd;
+    },
+    spent(phase) {
+      if (phase) return ledger[phase];
+      return ledger.spec + ledger.verify + ledger.build;
+    },
+    wouldExceed(phase, projectedUsd = 0) {
+      const projected = projectedUsd > 0 ? projectedUsd : 0;
+      const phaseCap = caps.perPhase[phase];
+      if (phaseCap !== null && ledger[phase] + projected > phaseCap) return true;
+      const total = ledger.spec + ledger.verify + ledger.build;
+      if (caps.maxRunUsd !== null && total + projected > caps.maxRunUsd) return true;
+      return false;
+    }
+  };
+}
+
+// src/orchestrator/run.ts
 var import_node_fs36 = require("node:fs");
+var RUN_STATUSES = [
+  "interrogating",
+  "specified",
+  "planned",
+  "building",
+  "verifying",
+  "rescuing",
+  "promoting",
+  "done",
+  "failed",
+  "paused"
+];
+var runRecordSchema = external_exports.object({
+  id: external_exports.string().min(1),
+  task: external_exports.string(),
+  status: external_exports.enum(RUN_STATUSES),
+  createdAt: external_exports.number(),
+  updatedAt: external_exports.number(),
+  pausedReason: external_exports.string().optional(),
+  resumeStatus: external_exports.enum(RUN_STATUSES).optional()
+});
+var PHASE_EDGES = {
+  interrogating: ["specified"],
+  specified: ["planned"],
+  planned: ["building"],
+  building: ["verifying"],
+  verifying: ["rescuing", "promoting"],
+  rescuing: ["verifying"],
+  promoting: ["done"]
+};
+function createRun(id, task, now) {
+  return { id, task, status: "interrogating", createdAt: now, updatedAt: now };
+}
+function advance(run2, event, now) {
+  const rejected = () => ({ ...run2, updatedAt: now });
+  if (run2.status === "done" || run2.status === "failed") return rejected();
+  switch (event.type) {
+    case "fail":
+      return { ...run2, status: "failed", pausedReason: event.reason, resumeStatus: void 0, updatedAt: now };
+    case "pause": {
+      if (run2.status === "paused") return rejected();
+      return { ...run2, status: "paused", pausedReason: event.reason, resumeStatus: run2.status, updatedAt: now };
+    }
+    case "resume": {
+      if (run2.status !== "paused" || !run2.resumeStatus) return rejected();
+      return { ...run2, status: run2.resumeStatus, pausedReason: void 0, resumeStatus: void 0, updatedAt: now };
+    }
+    case "spec-approved": {
+      if (run2.status !== "interrogating") return rejected();
+      return { ...run2, status: "specified", updatedAt: now };
+    }
+    case "phase": {
+      if (run2.status === "paused") return rejected();
+      const legal = PHASE_EDGES[run2.status] ?? [];
+      if (!legal.includes(event.to)) return rejected();
+      return { ...run2, status: event.to, updatedAt: now };
+    }
+  }
+}
+function newRunId(now, random = Math.random) {
+  const d2 = new Date(now());
+  const pad = (n2, w2 = 2) => String(n2).padStart(w2, "0");
+  const stamp = `${d2.getUTCFullYear()}${pad(d2.getUTCMonth() + 1)}${pad(d2.getUTCDate())}${pad(d2.getUTCHours())}${pad(d2.getUTCMinutes())}${pad(d2.getUTCSeconds())}`;
+  const hex = Math.floor(random() * 65536).toString(16).padStart(4, "0");
+  return `run-${stamp}-${hex}`;
+}
+function saveRun(run2, cwd6, env) {
+  try {
+    ensureDir(runDir(run2.id, cwd6, env));
+    (0, import_node_fs36.writeFileSync)(runFile(run2.id, "run.json", cwd6, env), JSON.stringify(run2, null, 2), "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+function loadRun(runId, cwd6, env) {
+  try {
+    const parsed = runRecordSchema.safeParse(JSON.parse((0, import_node_fs36.readFileSync)(runFile(runId, "run.json", cwd6, env), "utf8")));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+function listRuns(cwd6, env) {
+  let names;
+  try {
+    names = (0, import_node_fs36.readdirSync)(runsDir(cwd6, env));
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const name of names) {
+    const rec = loadRun(name, cwd6, env);
+    if (rec) out.push(rec);
+  }
+  out.sort((a2, b2) => b2.createdAt - a2.createdAt || (a2.id < b2.id ? 1 : -1));
+  return out;
+}
+
+// src/um/types.ts
+var SPEC_SECTIONS = [
+  "api-spec",
+  // entities, contracts, endpoints, data shapes
+  "capability-expansion",
+  // what grafts onto the existing codebase (grounded in the KnowledgeGraph)
+  "future-plans",
+  // seams the architecture must not foreclose
+  "parallelization",
+  // which tasks are independent, so the swarm can fan out
+  "compartmentalization",
+  // service boundaries, one reason to change each
+  "scale-path",
+  // what must hold when the load is real
+  "reusable-systems"
+  // shared substrate factored out once
+];
+
+// src/um/spec-schema.ts
+var axisFindingSchema = external_exports.object({
+  axis: external_exports.string(),
+  optionId: external_exports.string(),
+  summary: external_exports.string(),
+  severity: external_exports.enum(["info", "warn", "risk"]),
+  ok: external_exports.boolean()
+});
+var answerSchema = external_exports.object({
+  pollId: external_exports.string(),
+  optionId: external_exports.string().optional(),
+  freeText: external_exports.string().optional(),
+  source: external_exports.enum(["pilot", "delegated", "default"])
+});
+var specSectionIdSchema = external_exports.enum(SPEC_SECTIONS);
+var decisionRecordSchema = external_exports.object({
+  pollId: external_exports.string(),
+  section: specSectionIdSchema,
+  concept: external_exports.string(),
+  question: external_exports.string(),
+  options: external_exports.array(
+    external_exports.object({ id: external_exports.string(), label: external_exports.string(), findings: external_exports.array(axisFindingSchema).default([]) })
+  ),
+  answer: answerSchema,
+  at: external_exports.number()
+});
+var acceptanceSchema = external_exports.object({
+  id: external_exports.string(),
+  criterion: external_exports.string(),
+  verify: external_exports.object({
+    method: external_exports.enum(["command", "test", "manual"]),
+    command: external_exports.string().optional()
+    // required in spirit for method=command|test; validated in decompose
+  })
+});
+var taskSeedSchema = external_exports.object({
+  id: external_exports.string(),
+  title: external_exports.string(),
+  description: external_exports.string(),
+  files: external_exports.array(external_exports.string()).default([]),
+  dependsOn: external_exports.array(external_exports.string()).default([]),
+  verifyCommand: external_exports.string().optional(),
+  // authored at decompose when absent; never silently dropped
+  acceptanceRefs: external_exports.array(external_exports.string()).default([])
+});
+var specSchema = external_exports.object({
+  version: external_exports.literal(1).default(1),
+  runId: external_exports.string(),
+  task: external_exports.string(),
+  // the original task statement handed to `corpocode start`
+  entities: external_exports.array(external_exports.object({ name: external_exports.string(), description: external_exports.string(), fields: external_exports.array(external_exports.string()).default([]) })).default([]),
+  contracts: external_exports.array(
+    external_exports.object({
+      name: external_exports.string(),
+      kind: external_exports.enum(["api", "function", "event", "cli", "schema"]),
+      signature: external_exports.string(),
+      description: external_exports.string()
+    })
+  ).default([]),
+  constraints: external_exports.array(external_exports.string()).default([]),
+  futureSeams: external_exports.array(external_exports.string()).default([]),
+  compartments: external_exports.array(external_exports.object({ name: external_exports.string(), responsibility: external_exports.string(), reasonToChange: external_exports.string() })).default([]),
+  scalePath: external_exports.array(external_exports.string()).default([]),
+  reusableSystems: external_exports.array(external_exports.object({ name: external_exports.string(), purpose: external_exports.string() })).default([]),
+  acceptance: external_exports.array(acceptanceSchema).default([]),
+  taskSeeds: external_exports.array(taskSeedSchema).default([]),
+  decisions: external_exports.array(decisionRecordSchema).default([]),
+  /** The section ledger at completion — every lamp must be "complete" before the approve poll. */
+  sections: external_exports.record(specSectionIdSchema, external_exports.enum(["open", "in-progress", "complete"])).default({}),
+  approvedAt: external_exports.number().optional()
+  // set when the pilot answers the final approve poll
+});
+function renderSpecMarkdown(spec) {
+  const lines = [`# Spec \u2014 ${spec.task}`, "", `Run: ${spec.runId}`, ""];
+  const section = (title, rows) => {
+    if (!rows.length) return;
+    lines.push(`## ${title}`, "", ...rows, "");
+  };
+  section(
+    "Entities",
+    spec.entities.map((e2) => `- **${e2.name}** \u2014 ${e2.description}${e2.fields.length ? ` (${e2.fields.join(", ")})` : ""}`)
+  );
+  section(
+    "Contracts",
+    spec.contracts.map((c2) => `- **${c2.name}** (${c2.kind}): \`${c2.signature}\` \u2014 ${c2.description}`)
+  );
+  section("Constraints", spec.constraints.map((c2) => `- ${c2}`));
+  section("Future seams (must not foreclose)", spec.futureSeams.map((s3) => `- ${s3}`));
+  section(
+    "Compartments",
+    spec.compartments.map((c2) => `- **${c2.name}** \u2014 ${c2.responsibility} (changes when: ${c2.reasonToChange})`)
+  );
+  section("Path to scale", spec.scalePath.map((s3) => `- ${s3}`));
+  section("Reusable systems", spec.reusableSystems.map((r2) => `- **${r2.name}** \u2014 ${r2.purpose}`));
+  section(
+    "Acceptance",
+    spec.acceptance.map((a2) => `- [${a2.id}] ${a2.criterion} \u2014 verify: ${a2.verify.method}${a2.verify.command ? ` (\`${a2.verify.command}\`)` : ""}`)
+  );
+  section(
+    "Task seeds",
+    spec.taskSeeds.map(
+      (t2) => `- [${t2.id}] **${t2.title}** \u2014 ${t2.description}${t2.dependsOn.length ? ` (after ${t2.dependsOn.join(", ")})` : ""}`
+    )
+  );
+  section(
+    "Decisions",
+    spec.decisions.map((d2) => {
+      const chosen = d2.answer.optionId ? d2.options.find((o2) => o2.id === d2.answer.optionId)?.label ?? d2.answer.optionId : d2.answer.freeText ?? "(unanswered)";
+      return `- [${d2.section}] ${d2.question} \u2192 **${chosen}** (${d2.answer.source})`;
+    })
+  );
+  return `${lines.join("\n").trimEnd()}
+`;
+}
+
+// src/um/interrogator.ts
+var sectionPayloadSchema = external_exports.object({
+  entities: specSchema.shape.entities.removeDefault().optional(),
+  contracts: specSchema.shape.contracts.removeDefault().optional(),
+  constraints: external_exports.array(external_exports.string()).optional(),
+  futureSeams: external_exports.array(external_exports.string()).optional(),
+  compartments: specSchema.shape.compartments.removeDefault().optional(),
+  scalePath: external_exports.array(external_exports.string()).optional(),
+  reusableSystems: specSchema.shape.reusableSystems.removeDefault().optional(),
+  acceptance: external_exports.array(acceptanceSchema).optional(),
+  taskSeeds: external_exports.array(taskSeedSchema).optional()
+});
+function initialState(runId, task) {
+  const sections = Object.fromEntries(SPEC_SECTIONS.map((s3) => [s3, "open"]));
+  return { spec: specSchema.parse({ runId, task, sections }), polls: 0 };
+}
+function bumpStatus(spec, section, complete) {
+  const current = spec.sections[section];
+  const next = complete ? "complete" : current === "complete" ? "complete" : "in-progress";
+  return { ...spec.sections, [section]: next };
+}
+function recordDecision(state, record) {
+  return {
+    spec: {
+      ...state.spec,
+      decisions: [...state.spec.decisions, record],
+      sections: bumpStatus(state.spec, record.section, false)
+    },
+    polls: state.polls + 1
+  };
+}
+function mergeKeyed(existing, incoming, key) {
+  const out = [...existing];
+  if (!incoming) return out;
+  const index2 = new Map(out.map((item, i2) => [key(item), i2]));
+  for (const item of incoming) {
+    const at2 = index2.get(key(item));
+    if (at2 === void 0) {
+      index2.set(key(item), out.length);
+      out.push(item);
+    } else {
+      out[at2] = item;
+    }
+  }
+  return out;
+}
+function recordContent(state, section, payload, complete) {
+  const spec = state.spec;
+  return {
+    spec: {
+      ...spec,
+      entities: mergeKeyed(spec.entities, payload.entities, (e2) => e2.name),
+      contracts: mergeKeyed(spec.contracts, payload.contracts, (c2) => c2.name),
+      constraints: mergeKeyed(spec.constraints, payload.constraints, (s3) => s3),
+      futureSeams: mergeKeyed(spec.futureSeams, payload.futureSeams, (s3) => s3),
+      compartments: mergeKeyed(spec.compartments, payload.compartments, (c2) => c2.name),
+      scalePath: mergeKeyed(spec.scalePath, payload.scalePath, (s3) => s3),
+      reusableSystems: mergeKeyed(spec.reusableSystems, payload.reusableSystems, (r2) => r2.name),
+      acceptance: mergeKeyed(spec.acceptance, payload.acceptance, (a2) => a2.id),
+      taskSeeds: mergeKeyed(spec.taskSeeds, payload.taskSeeds, (t2) => t2.id),
+      sections: bumpStatus(spec, section, complete)
+    },
+    polls: state.polls
+  };
+}
+function nextOpenSection(state) {
+  for (const section of SPEC_SECTIONS) {
+    if (state.spec.sections[section] !== "complete") return section;
+  }
+  return null;
+}
+function isComplete(state) {
+  return nextOpenSection(state) === null;
+}
+
+// src/um/consequences.ts
+var AXIS_FINDING_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string", description: "one or two sentences: the concrete trade-off on this axis" },
+    severity: { type: "string", enum: ["info", "warn", "risk"] }
+  },
+  required: ["summary", "severity"],
+  additionalProperties: false
+};
+function consequencePlan(fork, cfg) {
+  const tasks = [];
+  for (const option of fork.options) {
+    for (const axis of cfg.axes) {
+      tasks.push({
+        id: `${option.id}::${axis}`,
+        call: {
+          component: cfg.component,
+          taskKind: "consequence",
+          task: cfg.renderPrompt(axis, option),
+          inputs: cfg.files ? { files: cfg.files } : void 0,
+          model: cfg.model,
+          effort: cfg.effort,
+          schema: AXIS_FINDING_JSON_SCHEMA,
+          tools: "read-only",
+          session: "ephemeral",
+          timeoutMs: cfg.timeoutMs
+        }
+      });
+    }
+  }
+  return { tasks, fanoutWidth: cfg.fanoutWidth, judge: (results) => results };
+}
+
+// src/um/poll-synth.ts
+var SEVERITY_RANK = { info: 0, warn: 1, risk: 2 };
+function isPayload(v2) {
+  if (typeof v2 !== "object" || v2 === null) return false;
+  const p2 = v2;
+  return typeof p2.summary === "string" && (p2.severity === "info" || p2.severity === "warn" || p2.severity === "risk");
+}
+function synthesizePoll(fork, results, opts) {
+  const byId = new Map(results.map((r2) => [r2.id, r2.result]));
+  const options = fork.options.map((option) => ({
+    id: option.id,
+    label: option.label,
+    description: option.description,
+    findings: opts.axes.map((axis) => {
+      const result = byId.get(`${option.id}::${axis}`);
+      if (result?.ok && isPayload(result.data)) {
+        return { axis, optionId: option.id, summary: result.data.summary, severity: result.data.severity, ok: true };
+      }
+      return { axis, optionId: option.id, summary: "unanalyzed", severity: "info", ok: false };
+    })
+  }));
+  const wins = new Map(options.map((o2) => [o2.id, 0]));
+  for (const axis of opts.axes) {
+    const ranks = options.map((o2) => {
+      const finding = o2.findings.find((f2) => f2.axis === axis);
+      return { id: o2.id, rank: SEVERITY_RANK[finding?.severity ?? "info"] };
+    });
+    const best = Math.min(...ranks.map((r2) => r2.rank));
+    const winners = ranks.filter((r2) => r2.rank === best);
+    if (winners.length === ranks.length) continue;
+    for (const w2 of winners) wins.set(w2.id, (wins.get(w2.id) ?? 0) + 1);
+  }
+  const most = Math.max(0, ...wins.values());
+  const leaders = options.filter((o2) => most > 0 && wins.get(o2.id) === most);
+  const recommended = leaders.length === 1 ? leaders[0] : void 0;
+  if (recommended) recommended.recommended = true;
+  return {
+    id: fork.id,
+    concept: fork.concept,
+    question: fork.question,
+    options,
+    teaching: opts.teaching,
+    allowFreeText: true,
+    allowDelegate: opts.allowDelegate,
+    defaultOptionId: recommended?.id
+  };
+}
+function renderTeaching(fork, findings) {
+  const lines = [`This decision exercises "${fork.concept}".`, fork.question, ""];
+  for (const option of fork.options) {
+    const analyzed = findings.filter((f2) => f2.optionId === option.id && f2.ok);
+    const digest = analyzed.length ? analyzed.map((f2) => `${f2.axis} (${f2.severity}): ${f2.summary}`).join(" | ") : "no analyzed consequences";
+    lines.push(`- ${option.label}: ${digest}`);
+  }
+  return { concept: fork.concept, body: lines.join("\n") };
+}
+
+// src/um/loop.ts
+var moveSchema = external_exports.discriminatedUnion("move", [
+  external_exports.object({
+    move: external_exports.literal("fork"),
+    fork: external_exports.object({
+      id: external_exports.string().min(1),
+      section: specSectionIdSchema,
+      concept: external_exports.string().min(1),
+      question: external_exports.string().min(1),
+      major: external_exports.boolean(),
+      suggested: external_exports.string().optional(),
+      options: external_exports.array(external_exports.object({ id: external_exports.string().min(1), label: external_exports.string(), description: external_exports.string().optional() })).min(1)
+    })
+  }),
+  external_exports.object({ move: external_exports.literal("content"), section: specSectionIdSchema, complete: external_exports.boolean(), payload: sectionPayloadSchema }),
+  external_exports.object({ move: external_exports.literal("done") })
+]);
+var MOVE_INSTRUCTION = 'Reply with EXACTLY ONE JSON object and nothing else, in one of these shapes:\n{"move":"fork","fork":{"id":"<kebab-slug>","section":"<section id>","concept":"<concept name>","question":"...","major":true|false,"suggested":"<option id>","options":[{"id":"a","label":"...","description":"..."}]}}\n{"move":"content","section":"<section id>","complete":true|false,"payload":{<additive spec fragment>}}\n{"move":"done"}';
+var RETRY_NOTE = "\nYour previous reply was not one valid move JSON object. Reply again with exactly one JSON object matching the protocol above.";
+function extractJson3(text) {
+  if (!text) return void 0;
+  const stripped = text.replace(/```(?:json)?/gi, "").trim();
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start < 0 || end <= start) return void 0;
+  try {
+    return JSON.parse(stripped.slice(start, end + 1));
+  } catch {
+    return void 0;
+  }
+}
+function parseMove(result) {
+  if (!result.ok) return null;
+  const raw = result.data ?? extractJson3(result.text);
+  const parsed = moveSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+async function runCockpit(deps) {
+  const now = deps.now ?? (() => Date.now());
+  const log = deps.log ?? (() => {
+  });
+  const interrogation = deps.orchestration.interrogation;
+  const roles = deps.orchestration.roles;
+  const grounding = (deps.files ?? []).join("\n");
+  const interrogate = deps.forTask("interrogate");
+  let state = deps.resumeState ?? initialState(deps.runId, deps.task);
+  let sessionId;
+  let lastAnswer;
+  let stalls = 0;
+  const pause = (reason) => {
+    log({ event: "cockpit_pause", run_id: deps.runId, reason, polls: state.polls });
+    return { status: "paused", state, reason };
+  };
+  const nextMove = async (remainingSections) => {
+    const prompt = deps.prompts.interrogate({ task: deps.task, remainingSections, grounding, lastAnswer });
+    lastAnswer = void 0;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const call = {
+        component: "um",
+        taskKind: "interrogate",
+        task: `${prompt}
+
+${MOVE_INSTRUCTION}${attempt > 0 ? RETRY_NOTE : ""}`,
+        inputs: deps.files ? { files: deps.files } : void 0,
+        model: deps.roleModels?.interrogate,
+        effort: roles.interrogate?.effort ?? "medium",
+        timeoutMs: roles.interrogate?.timeout_ms,
+        tools: "read-only",
+        session: sessionId ? { reuse: sessionId } : { persist: true }
+      };
+      const result = await interrogate.invoke(call);
+      deps.budget.charge("spec", result.usage.costUsd);
+      if (result.session?.id) sessionId = result.session.id;
+      const move = parseMove(result);
+      if (move) return move;
+    }
+    return null;
+  };
+  while (true) {
+    if (deps.budget.wouldExceed("spec")) return pause("budget");
+    const remainingSections = SPEC_SECTIONS.filter((s3) => state.spec.sections[s3] !== "complete");
+    const move = await nextMove(remainingSections);
+    if (!move) return pause("interrogator-malformed");
+    if (move.move === "content") {
+      stalls = 0;
+      state = recordContent(state, move.section, move.payload, move.complete);
+      log({ event: "cockpit_move", move: "content", section: move.section, complete: move.complete });
+      continue;
+    }
+    if (move.move === "fork") {
+      stalls = 0;
+      const fork = {
+        id: move.fork.id,
+        section: move.fork.section,
+        concept: move.fork.concept,
+        question: move.fork.question,
+        options: move.fork.options,
+        major: move.fork.major
+      };
+      log({ event: "cockpit_move", move: "fork", fork_id: fork.id, section: fork.section, major: fork.major });
+      const ask = interrogation.granularity === "every-fork" || interrogation.granularity === "major-forks" && fork.major;
+      if (!ask) {
+        const chosen = fork.options.find((o2) => o2.id === move.fork.suggested) ?? fork.options[0];
+        const answer3 = { pollId: fork.id, optionId: chosen.id, source: "delegated" };
+        state = recordDecision(state, {
+          pollId: fork.id,
+          section: fork.section,
+          concept: fork.concept,
+          question: fork.question,
+          options: fork.options.map((o2) => ({ id: o2.id, label: o2.label, findings: [] })),
+          answer: answer3,
+          at: now()
+        });
+        lastAnswer = `Fork "${fork.id}" was auto-resolved to "${chosen.label}" (delegated by poll granularity).`;
+        log({ event: "cockpit_poll", poll_id: fork.id, asked: false, source: "delegated", option: chosen.id });
+        continue;
+      }
+      if (state.polls >= interrogation.max_polls) return pause("max_polls");
+      if (deps.budget.wouldExceed("spec")) return pause("budget");
+      const plan = consequencePlan(fork, {
+        axes: interrogation.consequence_axes,
+        fanoutWidth: interrogation.fanout_width,
+        component: "um",
+        model: deps.roleModels?.consequence,
+        effort: roles.consequence?.effort ?? "minimal",
+        timeoutMs: roles.consequence?.timeout_ms,
+        files: deps.files,
+        renderPrompt: (axis, option) => deps.prompts.axis(axis, {
+          question: fork.question,
+          optionLabel: option.label,
+          optionDescription: option.description,
+          concept: fork.concept
+        })
+      });
+      const fanout = await run(plan, { forTask: deps.forTask, log: deps.log, now: deps.now });
+      deps.budget.charge("spec", fanout.usage.costUsd);
+      let poll = synthesizePoll(fork, fanout.tasks, {
+        axes: interrogation.consequence_axes,
+        allowDelegate: true
+      });
+      if (interrogation.teach && deps.mastery.treatment(fork.concept) === "teach-then-poll") {
+        poll = { ...poll, teaching: renderTeaching(fork, poll.options.flatMap((o2) => o2.findings)) };
+      }
+      const answer2 = await deps.interactor.ask(poll);
+      if (!answer2) return pause("interactor-lost");
+      state = recordDecision(state, {
+        pollId: poll.id,
+        section: fork.section,
+        concept: fork.concept,
+        question: fork.question,
+        // Findings embed in the ledger so the spec records not just WHAT was chosen but what the
+        // pilot knew when choosing it.
+        options: poll.options.map((o2) => ({ id: o2.id, label: o2.label, findings: o2.findings })),
+        answer: answer2,
+        at: now()
+      });
+      deps.mastery.observe(fork.concept, {
+        confident: answer2.source === "pilot",
+        delegated: answer2.source !== "pilot"
+      });
+      const chosenLabel = answer2.optionId ? fork.options.find((o2) => o2.id === answer2.optionId)?.label ?? answer2.optionId : void 0;
+      lastAnswer = answer2.freeText ? `On "${fork.question}" the pilot answered in their own words: ${answer2.freeText}` : `On "${fork.question}" the pilot chose "${chosenLabel}".`;
+      log({ event: "cockpit_poll", poll_id: poll.id, asked: true, source: answer2.source, option: answer2.optionId });
+      continue;
+    }
+    if (!isComplete(state)) {
+      stalls += 1;
+      log({ event: "cockpit_move", move: "done", premature: true, stalls });
+      if (stalls >= 3) return pause("interrogator-stalled");
+      lastAnswer = `The spec is NOT complete. Sections remaining: ${remainingSections.join(", ")}. Keep interrogating.`;
+      continue;
+    }
+    log({ event: "cockpit_move", move: "done", premature: false });
+    let answer;
+    if (deps.autoApprove) {
+      answer = { pollId: "approve-spec", optionId: "approve", freeText: "--yes", source: "pilot" };
+    } else {
+      const approvePoll = {
+        id: "approve-spec",
+        concept: "spec-approval",
+        question: "Approve this spec and hand it to the swarm, or request revisions?",
+        options: [
+          { id: "approve", label: "Approve", findings: [] },
+          { id: "revise", label: "Revise", findings: [] }
+        ],
+        allowFreeText: true,
+        allowDelegate: false,
+        defaultOptionId: void 0
+      };
+      answer = await deps.interactor.ask(approvePoll);
+    }
+    if (!answer) return pause("interactor-lost");
+    if (answer.optionId === "approve") {
+      state = { ...state, spec: { ...state.spec, approvedAt: now() } };
+      log({ event: "cockpit_approved", run_id: deps.runId, polls: state.polls, decisions: state.spec.decisions.length });
+      return { status: "approved", state };
+    }
+    stalls = 0;
+    lastAnswer = `The pilot wants revisions before approving${answer.freeText ? `: ${answer.freeText}` : ""}. Continue interrogating.`;
+  }
+}
+
+// src/um/mastery.ts
+var import_node_fs37 = require("node:fs");
 var import_node_path30 = require("node:path");
+var masteryFileSchema = external_exports.object({
+  version: external_exports.literal(1),
+  concepts: external_exports.record(
+    external_exports.object({
+      concept: external_exports.string(),
+      observations: external_exports.array(
+        external_exports.object({ at: external_exports.number(), confident: external_exports.boolean(), delegated: external_exports.boolean() })
+      )
+    })
+  )
+});
+function createMasteryModel(opts) {
+  const path = opts.file ?? masteryFile(opts.env);
+  const now = opts.now ?? Date.now;
+  const read = opts.readFile ?? ((p2) => {
+    try {
+      return (0, import_node_fs37.readFileSync)(p2, "utf8");
+    } catch {
+      return null;
+    }
+  });
+  const write = opts.writeFile ?? ((p2, text) => {
+    try {
+      ensureDir((0, import_node_path30.dirname)(p2));
+      (0, import_node_fs37.writeFileSync)(p2, text);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  function load() {
+    const text = read(path);
+    if (text === null) return { version: 1, concepts: {} };
+    try {
+      return masteryFileSchema.parse(JSON.parse(text));
+    } catch {
+      return { version: 1, concepts: {} };
+    }
+  }
+  return {
+    treatment() {
+      return opts.teach ? "teach-then-poll" : "poll";
+    },
+    observe(concept, outcome) {
+      try {
+        const shape = load();
+        const record = shape.concepts[concept] ?? { concept, observations: [] };
+        record.observations.push({
+          at: now(),
+          confident: outcome.confident,
+          delegated: outcome.delegated
+        });
+        shape.concepts[concept] = record;
+        write(path, JSON.stringify(shape, null, 2));
+      } catch {
+      }
+    }
+  };
+}
+
+// src/interact/terminal.ts
+var import_promises = require("node:readline/promises");
+var SEVERITY_WIDTH = 4;
+function findingRow(f2, axisWidth) {
+  const sev = f2.ok ? f2.severity : "?";
+  const summary = f2.ok ? f2.summary : "unanalyzed";
+  return `       ${f2.axis.padEnd(axisWidth)}  ${sev.padEnd(SEVERITY_WIDTH)}  ${summary}`;
+}
+function renderOption(opt, index2) {
+  const lines = [`  ${index2 + 1}. ${opt.label}${opt.recommended ? "  (recommended)" : ""}`];
+  if (opt.description) lines.push(`     ${opt.description}`);
+  if (opt.findings.length > 0) {
+    const axisWidth = Math.max(...opt.findings.map((f2) => f2.axis.length));
+    for (const f2 of opt.findings) lines.push(findingRow(f2, axisWidth));
+  }
+  return lines;
+}
+function renderTeaching2(poll) {
+  if (!poll.teaching) return [];
+  return [`\u2500\u2500 teaching: ${poll.teaching.concept} ${"\u2500".repeat(Math.max(4, 60 - poll.teaching.concept.length))}`, poll.teaching.body, "\u2500".repeat(74), ""];
+}
+function renderHint(poll) {
+  const parts = [`pick 1-${poll.options.length}`];
+  if (poll.allowDelegate) parts.push(`"d" to delegate`);
+  if (poll.allowFreeText) parts.push("or type your answer");
+  return `  (${parts.join(", ")})`;
+}
+function renderPoll(poll) {
+  const lines = [...renderTeaching2(poll), poll.question, ""];
+  poll.options.forEach((opt, i2) => lines.push(...renderOption(opt, i2)));
+  lines.push("", renderHint(poll));
+  return `${lines.join("\n")}
+`;
+}
+function delegatedOptionId(poll) {
+  return poll.options.find((o2) => o2.recommended)?.id ?? poll.defaultOptionId ?? poll.options[0]?.id;
+}
+function resolveDefault(poll) {
+  return poll.defaultOptionId ? { pollId: poll.id, optionId: poll.defaultOptionId, source: "default" } : null;
+}
+function createTerminalInteractor(opts = {}) {
+  const input = opts.input ?? process.stdin;
+  const output = opts.output ?? process.stdout;
+  let closed = false;
+  let rl = null;
+  const pending = [];
+  let waiter = null;
+  const signalClosed = () => {
+    closed = true;
+    waiter?.(null);
+    waiter = null;
+  };
+  try {
+    rl = (0, import_promises.createInterface)({ input, output });
+    rl.on("line", (line) => {
+      if (waiter) {
+        const w2 = waiter;
+        waiter = null;
+        w2(line);
+      } else pending.push(line);
+    });
+    rl.on("close", signalClosed);
+    input.on("error", signalClosed);
+  } catch {
+    signalClosed();
+  }
+  const write = (text) => {
+    try {
+      output.write(text);
+    } catch {
+    }
+  };
+  function readLine(prompt) {
+    write(prompt);
+    if (pending.length > 0) return Promise.resolve(pending.shift());
+    if (closed || !rl) return Promise.resolve(null);
+    return new Promise((resolve2) => {
+      waiter = resolve2;
+    });
+  }
+  return {
+    async ask(poll) {
+      try {
+        write(renderPoll(poll));
+        for (; ; ) {
+          const line = await readLine("> ");
+          if (line === null) return resolveDefault(poll);
+          const text = line.trim();
+          if (text === "d" && poll.allowDelegate) {
+            const optionId = delegatedOptionId(poll);
+            return optionId ? { pollId: poll.id, optionId, source: "delegated" } : resolveDefault(poll);
+          }
+          if (/^\d+$/.test(text)) {
+            const picked = poll.options[Number(text) - 1];
+            if (picked) return { pollId: poll.id, optionId: picked.id, source: "pilot" };
+            write(`  no option ${text} \u2014${renderHint(poll).slice(2)}
+`);
+            continue;
+          }
+          if (text && poll.allowFreeText) return { pollId: poll.id, freeText: text, source: "pilot" };
+          write(`${renderHint(poll)}
+`);
+        }
+      } catch {
+        return resolveDefault(poll);
+      }
+    },
+    say(block) {
+      write(`${block}
+`);
+    },
+    async close() {
+      if (closed) return;
+      signalClosed();
+      try {
+        rl?.close();
+      } catch {
+      }
+    }
+  };
+}
+
+// src/interact/scripted.ts
+var import_node_fs38 = require("node:fs");
+var scriptedAnswersSchema = external_exports.object({
+  answers: external_exports.array(
+    external_exports.object({
+      poll: external_exports.string().optional(),
+      concept: external_exports.string().optional(),
+      option: external_exports.string().optional(),
+      freeText: external_exports.string().optional(),
+      delegate: external_exports.boolean().optional()
+    })
+  )
+});
+function loadAnswersFile(path, readFile) {
+  const read = readFile ?? ((p2) => {
+    try {
+      return (0, import_node_fs38.readFileSync)(p2, "utf8");
+    } catch {
+      return null;
+    }
+  });
+  const raw = read(path);
+  if (raw === null) return null;
+  try {
+    const parsed = scriptedAnswersSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+function delegatedOptionId2(poll) {
+  return poll.options.find((o2) => o2.recommended)?.id ?? poll.defaultOptionId ?? poll.options[0]?.id;
+}
+function resolveDefault2(poll) {
+  return poll.defaultOptionId ? { pollId: poll.id, optionId: poll.defaultOptionId, source: "default" } : null;
+}
+function ruleMatches(rule, poll) {
+  if (rule.poll !== void 0 && rule.poll !== poll.id) return false;
+  if (rule.concept !== void 0 && !poll.concept.includes(rule.concept)) return false;
+  return true;
+}
+function resolveRule(rule, poll) {
+  if (rule.delegate) {
+    const optionId = delegatedOptionId2(poll);
+    return optionId ? { pollId: poll.id, optionId, source: "delegated" } : null;
+  }
+  if (rule.option !== void 0) {
+    const picked = poll.options.find((o2) => o2.id === rule.option || o2.label === rule.option);
+    return picked ? { pollId: poll.id, optionId: picked.id, source: "pilot" } : null;
+  }
+  if (rule.freeText !== void 0 && poll.allowFreeText) {
+    return { pollId: poll.id, freeText: rule.freeText, source: "pilot" };
+  }
+  return null;
+}
+function createScriptedInteractor(script, opts) {
+  const consumed = /* @__PURE__ */ new Set();
+  return {
+    async ask(poll) {
+      try {
+        for (let i2 = 0; i2 < script.answers.length; i2++) {
+          if (consumed.has(i2) || !ruleMatches(script.answers[i2], poll)) continue;
+          consumed.add(i2);
+          return resolveRule(script.answers[i2], poll) ?? resolveDefault2(poll);
+        }
+        return resolveDefault2(poll);
+      } catch {
+        return resolveDefault2(poll);
+      }
+    },
+    say(block) {
+      try {
+        opts?.output?.(block);
+      } catch {
+      }
+    },
+    async close() {
+    }
+  };
+}
+
+// src/um/harvest/tasks-schema.ts
+var taskEntrySchema = external_exports.object({
+  id: external_exports.string(),
+  // superpowers plan files carry only a description — no title — so title must default rather
+  // than reject the very artifact this mirror exists to read.
+  title: external_exports.string().default(""),
+  description: external_exports.string().default(""),
+  files: external_exports.array(external_exports.string()).default([]),
+  verifyCommand: external_exports.string().optional(),
+  acceptanceCriteria: external_exports.array(external_exports.string()).default([]),
+  dependsOn: external_exports.array(external_exports.string()).default([]),
+  status: external_exports.enum(["pending", "in_progress", "completed"]).default("pending"),
+  modelTier: external_exports.string().optional(),
+  budgetUsd: external_exports.number().optional(),
+  specRefs: external_exports.array(external_exports.string()).default([])
+}).strip();
+var tasksFileSchema = external_exports.object({
+  version: external_exports.literal(1).default(1),
+  tasks: external_exports.array(taskEntrySchema).default([])
+}).strip();
+function emitTasksFile(spec) {
+  const seedIds = new Set(spec.taskSeeds.map((s3) => s3.id));
+  const unknownDeps = [];
+  for (const seed of spec.taskSeeds) {
+    for (const dep of seed.dependsOn) {
+      if (!seedIds.has(dep)) unknownDeps.push(`${seed.id} -> ${dep}`);
+    }
+  }
+  if (unknownDeps.length > 0) {
+    return { ok: false, error: `dependsOn names unknown task seeds: ${unknownDeps.join(", ")}` };
+  }
+  const edges = new Map(spec.taskSeeds.map((s3) => [s3.id, s3.dependsOn]));
+  const state = /* @__PURE__ */ new Map();
+  for (const root of seedIds) {
+    if (state.has(root)) continue;
+    const stack = [{ id: root, next: 0 }];
+    state.set(root, "visiting");
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1];
+      const deps = edges.get(frame.id) ?? [];
+      if (frame.next < deps.length) {
+        const dep = deps[frame.next++];
+        const mark = state.get(dep);
+        if (mark === "visiting") {
+          const path = stack.map((f2) => f2.id).slice(stack.findIndex((f2) => f2.id === dep));
+          return { ok: false, error: `dependsOn cycle: ${[...path, dep].join(" -> ")}` };
+        }
+        if (mark === void 0) {
+          state.set(dep, "visiting");
+          stack.push({ id: dep, next: 0 });
+        }
+      } else {
+        state.set(frame.id, "done");
+        stack.pop();
+      }
+    }
+  }
+  const criterionById = new Map(spec.acceptance.map((a2) => [a2.id, a2.criterion]));
+  const tasks = spec.taskSeeds.map((seed) => ({
+    id: seed.id,
+    title: seed.title,
+    description: seed.description,
+    files: [...seed.files],
+    // A ref with no matching acceptance entry stays in specRefs (the audit trail keeps it) but
+    // resolves to no criterion text — fail-open, not fail-loud, until Phase 2's validators.
+    ...seed.verifyCommand !== void 0 ? { verifyCommand: seed.verifyCommand } : {},
+    acceptanceCriteria: seed.acceptanceRefs.flatMap((ref) => {
+      const criterion = criterionById.get(ref);
+      return criterion === void 0 ? [] : [criterion];
+    }),
+    dependsOn: [...seed.dependsOn],
+    status: "pending",
+    specRefs: [...seed.acceptanceRefs]
+  }));
+  return { ok: true, file: { version: 1, tasks } };
+}
+
+// src/commands/start.ts
+function parseStartFlags(argv) {
+  const flags = { specOnly: false, dev: false, yes: false, list: false };
+  for (let i2 = 0; i2 < argv.length; i2++) {
+    const a2 = argv[i2];
+    if (a2 === "--spec-only") flags.specOnly = true;
+    else if (a2 === "--dev") flags.dev = true;
+    else if (a2 === "--yes") flags.yes = true;
+    else if (a2 === "--list") flags.list = true;
+    else if (a2 === "--answers") flags.answers = argv[++i2];
+    else if (a2 === "--resume") flags.resume = argv[++i2];
+    else if (a2 === "--status") flags.status = argv[++i2];
+    else if (!a2.startsWith("--") && flags.task === void 0) flags.task = a2;
+  }
+  return flags;
+}
+function cockpitPrompts(opts) {
+  const resolver = createPromptResolver(opts);
+  return {
+    interrogate: (vars) => resolver.resolve("um-interrogate", {
+      task: vars.task,
+      remainingSections: vars.remainingSections.join(", "),
+      grounding: vars.grounding || "(no grounding available)",
+      lastAnswer: vars.lastAnswer ?? "(none yet)"
+    }),
+    axis: (axis, vars) => {
+      const specific = `um-axis-${axis}`;
+      const fill = {
+        axis,
+        concept: vars.concept,
+        question: vars.question,
+        optionLabel: vars.optionLabel,
+        optionDescription: vars.optionDescription ?? "(no further description)"
+      };
+      return isPromptId(specific) ? resolver.resolve(specific, fill) : resolver.resolve("um-axis", fill);
+    }
+  };
+}
+function loadSpecState(runId, cwd6, env) {
+  try {
+    const raw = JSON.parse((0, import_node_fs39.readFileSync)(runFile(runId, "spec.json", cwd6, env), "utf8"));
+    const spec = specSchema.parse(raw);
+    return { spec, polls: spec.decisions.length };
+  } catch {
+    return null;
+  }
+}
+function writeArtifacts(runId, spec, cwd6, env) {
+  ensureDir(runDir(runId, cwd6, env));
+  (0, import_node_fs39.writeFileSync)(runFile(runId, "spec.json", cwd6, env), `${JSON.stringify(spec, null, 2)}
+`);
+  (0, import_node_fs39.writeFileSync)(runFile(runId, "spec.md", cwd6, env), renderSpecMarkdown(spec));
+}
+function decisionSummary(spec) {
+  const by = { pilot: 0, delegated: 0, default: 0 };
+  for (const d2 of spec.decisions) by[d2.answer.source]++;
+  return `${spec.decisions.length} decision(s) \u2014 ${by.pilot} pilot, ${by.delegated} delegated, ${by.default} defaulted`;
+}
+async function runStartCommand(argv, env = process.env) {
+  const flags = parseStartFlags(argv);
+  const out = (s3) => void process.stdout.write(`${s3}
+`);
+  const err = (s3) => void process.stderr.write(`${s3}
+`);
+  const cwd6 = process.cwd();
+  if (flags.list) {
+    const runs = listRuns(cwd6, env);
+    if (runs.length === 0) return out('no runs yet \u2014 `corpocode start "<task>"` begins one');
+    for (const r2 of runs) out(`${r2.id}  ${r2.status.padEnd(13)} ${r2.task.slice(0, 60)}`);
+    return;
+  }
+  if (flags.status) {
+    const run3 = loadRun(flags.status, cwd6, env);
+    if (!run3) {
+      err(`no run "${flags.status}" \u2014 see \`corpocode start --list\``);
+      process.exitCode = 1;
+      return;
+    }
+    out(`${run3.id}: ${run3.status}${run3.pausedReason ? ` (${run3.pausedReason})` : ""} \u2014 ${run3.task}`);
+    return;
+  }
+  let config;
+  try {
+    config = loadConfig({ env });
+  } catch (e2) {
+    err(`config invalid: ${e2 instanceof Error ? e2.message : String(e2)}`);
+    process.exitCode = 1;
+    return;
+  }
+  if (!config.orchestrator.enabled) {
+    err("the orchestrator is disabled (config.orchestrator.enabled = false)");
+    process.exitCode = 1;
+    return;
+  }
+  const dev = flags.dev || env.CORPOCODE_DEV === "1";
+  if (!config.orchestrator.initialized && !dev) {
+    err("corpocode start is gated until onboarding: run `corpocode init` (or use --dev / CORPOCODE_DEV=1 for local testing)");
+    process.exitCode = 1;
+    return;
+  }
+  let run2;
+  let resumeState;
+  if (flags.resume) {
+    const existing = loadRun(flags.resume, cwd6, env);
+    if (!existing || existing.status !== "paused") {
+      err(existing ? `run ${existing.id} is ${existing.status}, not paused` : `no run "${flags.resume}"`);
+      process.exitCode = 1;
+      return;
+    }
+    run2 = advance(existing, { type: "resume" }, Date.now());
+    resumeState = loadSpecState(run2.id, cwd6, env) ?? void 0;
+    if (!resumeState) out("no spec checkpoint found \u2014 the interrogation restarts (decided forks were not persisted)");
+  } else {
+    if (!flags.task || !flags.task.trim()) {
+      err('usage: corpocode start "<task>" [--spec-only] [--answers <file>] [--yes] [--dev]');
+      process.exitCode = 1;
+      return;
+    }
+    run2 = createRun(newRunId(() => Date.now()), flags.task, Date.now());
+  }
+  if (!saveRun(run2, cwd6, env)) {
+    err(`cannot persist run state under ${runDir(run2.id, cwd6, env)} \u2014 refusing to start an untrackable run`);
+    process.exitCode = 1;
+    return;
+  }
+  const logger = createLogger({
+    file: logFile(cwd6, env),
+    enabled: config.logging.enabled,
+    sessionFile: runFile(run2.id, "journal.ndjson", cwd6, env)
+  });
+  let files = [];
+  try {
+    const project = projectKey(cwd6);
+    const graph = buildKnowledgeGraph(config, { repoRoot: cwd6 });
+    const memory = buildMemoryStore(config, { project, env, repoRoot: cwd6 });
+    const candidates = await gather(
+      { kind: "prompt", prompt: run2.task, sessionId: run2.id, transcriptPath: "" },
+      { graph, memory, project, limit: 12, logger }
+    );
+    files = candidates.files.map((f2) => f2.path);
+  } catch {
+    files = [];
+  }
+  let interactor;
+  if (flags.answers) {
+    const script = loadAnswersFile(flags.answers);
+    if (!script) {
+      err(`cannot read answers file: ${flags.answers}`);
+      process.exitCode = 1;
+      return;
+    }
+    interactor = createScriptedInteractor(script, { output: (block) => out(block) });
+  } else {
+    interactor = createTerminalInteractor();
+  }
+  const onSignal = () => void interactor.close();
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+  const budget = createBudgetGuard(config.orchestrator.budget);
+  const agents = buildOrchestratorAgents(config, { repoRoot: cwd6 });
+  out(`run ${run2.id} \u2014 interrogating: ${run2.task}`);
+  try {
+    const outcome = await runCockpit({
+      forTask: (kind3) => agents.forTask(kind3),
+      interactor,
+      mastery: createMasteryModel({
+        env,
+        teach: config.orchestrator.interrogation.teach,
+        enabled: config.orchestrator.interrogation.mastery.enabled
+      }),
+      prompts: cockpitPrompts({ cwd: cwd6, env }),
+      orchestration: config.orchestrator,
+      runId: run2.id,
+      task: run2.task,
+      files,
+      roleModels: {
+        interrogate: resolveRoleModel(config, "interrogate"),
+        consequence: resolveRoleModel(config, "consequence")
+      },
+      budget,
+      autoApprove: flags.yes,
+      resumeState,
+      log: (line) => logger.log({ event: String(line.event ?? "cockpit"), ...line })
+    });
+    writeArtifacts(run2.id, outcome.state.spec, cwd6, env);
+    if (outcome.status === "approved") {
+      run2 = advance(run2, { type: "spec-approved" }, Date.now());
+      const tasks = emitTasksFile(outcome.state.spec);
+      if (tasks.ok) {
+        (0, import_node_fs39.writeFileSync)(runFile(run2.id, "tasks.json", cwd6, env), `${JSON.stringify(tasks.file, null, 2)}
+`);
+      } else {
+        err(`spec approved, but the task graph did not validate: ${tasks.error}`);
+        err("spec.json/spec.md are written; fix the seeds and re-run decompose in a later phase");
+      }
+      saveRun(run2, cwd6, env);
+      out(`spec approved \u2014 ${decisionSummary(outcome.state.spec)}; spent $${budget.spent().toFixed(2)}`);
+      out(`artifacts: ${runDir(run2.id, cwd6, env)} (spec.json, spec.md${tasks.ok ? ", tasks.json" : ""})`);
+      out("run parked at `specified` \u2014 the implementation swarm lands in Phase 3");
+    } else {
+      run2 = advance(run2, { type: "pause", reason: outcome.reason ?? "paused" }, Date.now());
+      saveRun(run2, cwd6, env);
+      out(`paused (${outcome.reason ?? "unknown"}) \u2014 ${decisionSummary(outcome.state.spec)}; spent $${budget.spent().toFixed(2)}`);
+      out(`resume with: corpocode start --resume ${run2.id}`);
+      process.exitCode = 1;
+    }
+  } finally {
+    process.removeListener("SIGINT", onSignal);
+    process.removeListener("SIGTERM", onSignal);
+    await interactor.close();
+  }
+}
+
+// src/commands/doctor.ts
+var import_node_fs40 = require("node:fs");
+var import_node_path31 = require("node:path");
 var REPAIR_INSTALL = "corpocode install --repair";
 var REPAIR_PROVISION = "corpocode provision";
 function readJsonOr3(path, fallback) {
   try {
-    return JSON.parse((0, import_node_fs36.readFileSync)(path, "utf8").replace(/^﻿/, ""));
+    return JSON.parse((0, import_node_fs40.readFileSync)(path, "utf8").replace(/^﻿/, ""));
   } catch {
     return fallback;
   }
 }
 function defaultSecretsState(env) {
   const path = secretsFile(env);
-  if (!(0, import_node_fs36.existsSync)(path)) return "absent";
+  if (!(0, import_node_fs40.existsSync)(path)) return "absent";
   try {
-    (0, import_node_fs36.readFileSync)(path, "utf8");
+    (0, import_node_fs40.readFileSync)(path, "utf8");
     return "ok";
   } catch {
     return "unreadable";
@@ -30315,13 +31769,13 @@ function pluginInstalled(home) {
     if (depth > 3) return false;
     let entries;
     try {
-      entries = (0, import_node_fs36.readdirSync)(dir, { withFileTypes: true });
+      entries = (0, import_node_fs40.readdirSync)(dir, { withFileTypes: true });
     } catch {
       return false;
     }
     for (const e2 of entries) {
       if (e2.name.toLowerCase().includes("corpocode")) return true;
-      if (e2.isDirectory() && walk((0, import_node_path30.join)(dir, e2.name), depth + 1)) return true;
+      if (e2.isDirectory() && walk((0, import_node_path31.join)(dir, e2.name), depth + 1)) return true;
     }
     return false;
   };
@@ -30336,9 +31790,9 @@ function defaultMemoryWritable(cwd6, env) {
   try {
     const dir = memoryDir(cwd6, env);
     ensureDir(dir);
-    const probe = (0, import_node_path30.join)(dir, ".doctor-probe");
-    (0, import_node_fs36.writeFileSync)(probe, "ok");
-    (0, import_node_fs36.rmSync)(probe, { force: true });
+    const probe = (0, import_node_path31.join)(dir, ".doctor-probe");
+    (0, import_node_fs40.writeFileSync)(probe, "ok");
+    (0, import_node_fs40.rmSync)(probe, { force: true });
     return true;
   } catch {
     return false;
@@ -30410,7 +31864,7 @@ async function runDoctor(deps = {}) {
   const cs = config?.backends.contextStore ?? "native";
   if (kg === "graphify") {
     const graphifyOk = await (deps.graphifyVersion ?? (async () => (await spawnRunner("graphify", ["--version"])).code === 0))();
-    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs36.existsSync)((0, import_node_path30.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
+    const graphPresent = (deps.graphPresent ?? (() => (0, import_node_fs40.existsSync)((0, import_node_path31.join)(deps.repoRoot ?? process.cwd(), "graphify-out", "graph.json"))))();
     if (!graphifyOk) {
       checks.push({ name: "graphify", status: "fail", detail: "graphify CLI not found on PATH", repair: REPAIR_PROVISION });
     } else if (!graphPresent) {
@@ -30419,7 +31873,7 @@ async function runDoctor(deps = {}) {
       checks.push({ name: "graphify", status: "ok", detail: "CLI present and graph built" });
     }
   } else {
-    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs36.existsSync)((0, import_node_path30.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
+    const built = (deps.nativeGraphBuilt ?? (() => (0, import_node_fs40.existsSync)((0, import_node_path31.join)(corpocodeHome(env), "graphs", `${projectKey(deps.repoRoot ?? process.cwd())}.json`))))();
     checks.push({
       name: "knowledge graph",
       status: "ok",
@@ -30452,6 +31906,29 @@ async function runDoctor(deps = {}) {
     const summary = plugins.map((p2) => `${p2.name} (${p2.plugin.templates?.length ?? 0} template(s), ${p2.plugin.tenets?.length ?? 0} tenet(s))`).join("; ");
     checks.push({ name: "plugins", status: "ok", detail: `${plugins.length} discovered \u2014 ${summary}` });
   }
+  if (config) {
+    checks.push(
+      config.orchestrator.initialized ? { name: "orchestrator", status: "ok", detail: "onboarded (`corpocode start` is unlocked)" } : {
+        name: "orchestrator",
+        status: "warn",
+        detail: "not onboarded \u2014 `corpocode start` is gated (CORPOCODE_DEV=1 bypasses for local testing)",
+        repair: "corpocode init"
+      }
+    );
+  }
+  const engineOnPath = deps.engineOnPath ?? (async (bin) => (await spawnRunner(bin, ["--version"])).code === 0);
+  const engines = [];
+  for (const bin of ["claude", "codex", "opencode"]) {
+    if (await engineOnPath(bin)) engines.push(bin);
+  }
+  checks.push(
+    engines.length > 0 ? { name: "engines", status: "ok", detail: `on PATH: ${engines.join(", ")}` } : {
+      name: "engines",
+      status: "warn",
+      detail: "no coding engine (claude/codex/opencode) on PATH \u2014 agents cannot spawn",
+      repair: "install the `claude` CLI (or point providers at a keyed API)"
+    }
+  );
   return checks;
 }
 var MARK = { ok: "\u2713", warn: "\u26A0", fail: "\u2717" };
@@ -30471,7 +31948,7 @@ ${failed === 0 ? "All required checks passed." : `${failed} check(s) failed.`}
 }
 
 // src/commands/stats.ts
-var import_node_fs37 = require("node:fs");
+var import_node_fs41 = require("node:fs");
 
 // src/cost/tracker.ts
 var UNKNOWN = "unknown";
@@ -30557,7 +32034,7 @@ function computeStats(lines, opts = {}) {
 }
 function readLogLines() {
   try {
-    return (0, import_node_fs37.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs41.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -30607,16 +32084,497 @@ function runStatsCommand(argv, env) {
 `);
 }
 
+// src/commands/why.ts
+var import_node_fs42 = require("node:fs");
+
+// src/log/explain.ts
+function s2(v2) {
+  return v2 === void 0 || v2 === null ? "" : String(v2);
+}
+function obj(v2) {
+  return typeof v2 === "object" && v2 !== null ? v2 : {};
+}
+function labelFor(rec) {
+  if (rec.event === "pattern") return s2(rec.pattern) || "pattern";
+  if (rec.event === "inject") return "injector";
+  return typeof rec.component === "string" ? rec.component : s2(rec.event);
+}
+function describe2(rec) {
+  switch (rec.event) {
+    case "router": {
+      if (rec.stage2_invoked === false) return "Trivial prompt \u2014 skipped analysis (free).";
+      const d2 = obj(rec.decision);
+      const extras = [];
+      if (d2.dispatch_retrieval) extras.push("dispatched retrieval");
+      if (d2.breakpoint) extras.push("flagged a design breakpoint");
+      const files = obj(rec.stage1_candidates).files;
+      if (Array.isArray(files) && files.length > 0) extras.push(`${files.length} candidate files`);
+      const head = `Classified as ${s2(d2.type)} / ${s2(d2.complexity)} at ${s2(d2.effort)} effort`;
+      return `${head}${extras.length ? `; ${extras.join(", ")}` : ""}.`;
+    }
+    case "delegation":
+      return `Suggested delegating to ${s2(rec.delegate_to)} (${s2(rec.mode)}).`;
+    case "filter": {
+      const verb = rec.decision === "deny" ? "Denied" : rec.decision === "allow" ? "Allowed" : "Asked about";
+      const matched = rec.matched ? ` (matched ${s2(rec.matched)})` : "";
+      const reason = rec.reason ? ` \u2014 ${s2(rec.reason)}` : "";
+      const advisory = rec.enforced === false ? " [advisory]" : "";
+      return `${verb} \`${s2(rec.tool)}\`${matched}${reason}${advisory}.`;
+    }
+    case "inject": {
+      let base = rec.sliced ? `Sliced ${s2(rec.file)} to the relevant section` : `Read ${s2(rec.file)} whole`;
+      if (!rec.sliced && !rec.purpose_known) base += " (purpose unknown)";
+      const warnings = Number(rec.warnings ?? 0);
+      if (warnings > 0) base += `; injected ${warnings} warning(s)`;
+      return `${base}.`;
+    }
+    case "verifier":
+      return `${s2(rec.file)} \u2014 ${s2(rec.violations)} of ${s2(rec.checks)} tenets flagged ${rec.blocked ? "(BLOCKED)" : "(advisory)"}.`;
+    case "review":
+      return `Design review: ${s2(rec.concerns)} concern(s) across ${s2(rec.tenets)} tenets.`;
+    case "retrieval":
+      return `Gathered ${s2(rec.refs)} refs from ${s2(rec.items_succeeded)} of ${s2(rec.checklist_items)} sources.`;
+    case "toolbox":
+      return rec.trigger === "sessionstart" ? `Session-start toolbox: ${s2(rec.gated)} gated, ${s2(rec.skipped)} skipped.` : `Surfaced ${s2(rec.skills)} skills, ${s2(rec.agents)} agents (${s2(rec.trigger)}).`;
+    case "pattern": {
+      if (rec.decision === "skipped") return `Skipped (${s2(rec.reason)}).`;
+      let base = rec.pattern === "pre-write" ? `Ran: pre-write guidance \u2014 ${s2(rec.warnings)} warning(s), injected ${s2(rec.injected_tokens)} tokens` : `Ran: fanned out ${s2(rec.files_fanned)} file-relevance agents, ${s2(rec.survivors)} files implicated, injected ${s2(rec.injected_tokens)} tokens of cited lines`;
+      if (rec.reason && rec.reason !== "ran") base += `; hit the ${s2(rec.reason)} path`;
+      return `${base}.`;
+    }
+    case "orchestrate":
+      return `Agent fan-out: ${s2(rec.succeeded)}/${s2(rec.calls)} agents ran, ${s2(rec.surviving)} survived.`;
+    case "agent_item":
+      return `${s2(rec.task_kind)} agent on ${s2(rec.id)} \u2014 ${rec.ok ? "ok" : "failed"}.`;
+    case "compaction":
+      return rec.error ? `Compaction failed open (${s2(rec.error)}).` : `Compaction: preserved ${s2(rec.preserved)}, compacted ${s2(rec.compacted)} via ${s2(rec.backend)}.`;
+    case "git":
+      return rec.op === "promote" ? `Promoted ${s2(rec.applied)} of ${s2(rec.planned)} commits to the clean branch (${s2(rec.mode)}).` : `Trace-committed ${Array.isArray(rec.files) ? rec.files.join(", ") : s2(rec.files)}.`;
+    case "docs":
+      return `Regenerated docs: ${s2(rec.files)} files, ${s2(rec.symbols)} symbols.`;
+    case "gather_source_degraded":
+      return `${s2(rec.source)} unavailable (${s2(rec.reason)}) \u2014 degraded to empty.`;
+    case "hook_error":
+      return `${s2(rec.hook)} hook failed open (${s2(rec.error)}).`;
+    case "agent_session_put_failed":
+      return `Failed to persist an agent session (${s2(rec.reason)}).`;
+    case "agent_sessions_evicted":
+      return `Evicted ${s2(rec.removed)} cached agent session(s); ${s2(rec.remaining)} remain.`;
+    default:
+      return null;
+  }
+}
+function explain(rec) {
+  const text = describe2(rec);
+  if (text === null) return null;
+  return { label: labelFor(rec), text };
+}
+
+// src/commands/why.ts
+var SESSIONLESS_ATTRIBUTION_NOTE = "Some engine-level events carry no session id; they are attributed to this session by timestamp, not identity.";
+function toLine(rec, text, sessionless) {
+  const line = { ts: rec.ts ?? "", component: labelFor(rec), event: s2(rec.event), text };
+  if (sessionless) line.sessionless = true;
+  return line;
+}
+var parseTs = (ts) => ts ? Date.parse(ts) : NaN;
+function computeWhy(lines, opts = {}) {
+  const now = opts.now ?? Date.now();
+  const cutoff = opts.days ? now - opts.days * 864e5 : 0;
+  const records = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let rec;
+    try {
+      rec = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (cutoff) {
+      const ts = parseTs(rec.ts);
+      if (Number.isNaN(ts) || ts < cutoff) continue;
+    }
+    records.push(rec);
+  }
+  const withSession = records.filter((r2) => typeof r2.session_id === "string");
+  const distinct = new Set(withSession.map((r2) => r2.session_id));
+  let sessionId = null;
+  if (opts.session) {
+    sessionId = [...distinct].find((id) => id === opts.session || id.startsWith(opts.session)) ?? null;
+  } else {
+    let best = -Infinity;
+    for (const r2 of withSession) {
+      const ts = parseTs(r2.ts);
+      if (!Number.isNaN(ts) && ts >= best) {
+        best = ts;
+        sessionId = r2.session_id;
+      }
+    }
+  }
+  if (!sessionId) {
+    return { sessionId: null, lines: [], otherEvents: 0, sessionsSeen: distinct.size };
+  }
+  const inSession = records.filter((r2) => r2.session_id === sessionId);
+  const stamps = inSession.map((r2) => parseTs(r2.ts)).filter((n2) => !Number.isNaN(n2));
+  const startedMs = stamps.length ? Math.min(...stamps) : NaN;
+  const endedMs = stamps.length ? Math.max(...stamps) : NaN;
+  const out = [];
+  let otherEvents = 0;
+  for (const rec of inSession) {
+    const text = describe2(rec);
+    if (text) out.push(toLine(rec, text, false));
+    else otherEvents += 1;
+  }
+  let attributedSessionless = 0;
+  if (!Number.isNaN(startedMs)) {
+    for (const rec of records) {
+      if (typeof rec.session_id === "string") continue;
+      const ts = parseTs(rec.ts);
+      if (Number.isNaN(ts) || ts < startedMs || ts > endedMs) continue;
+      const text = describe2(rec);
+      if (!text) continue;
+      out.push(toLine(rec, text, true));
+      attributedSessionless += 1;
+    }
+  }
+  out.sort((a2, b2) => parseTs(a2.ts) - parseTs(b2.ts));
+  const report = {
+    sessionId,
+    lines: out,
+    otherEvents,
+    sessionsSeen: distinct.size
+  };
+  if (!Number.isNaN(startedMs)) {
+    report.started = inSession.find((r2) => parseTs(r2.ts) === startedMs)?.ts;
+    report.ended = inSession.find((r2) => parseTs(r2.ts) === endedMs)?.ts;
+  }
+  if (attributedSessionless > 0) report.note = SESSIONLESS_ATTRIBUTION_NOTE;
+  return report;
+}
+function readLogLines2(env) {
+  try {
+    return (0, import_node_fs42.readFileSync)(logFile(void 0, env), "utf8").split("\n");
+  } catch {
+    return [];
+  }
+}
+function loggingDisabled(env) {
+  try {
+    return loadConfig({ env }).logging.enabled === false;
+  } catch {
+    return false;
+  }
+}
+function parseFlags3(argv) {
+  const flags = { json: false };
+  for (let i2 = 0; i2 < argv.length; i2++) {
+    if (argv[i2] === "--json") flags.json = true;
+    else if (argv[i2] === "--session") flags.session = argv[++i2];
+    else if (argv[i2] === "--days") {
+      const n2 = Number(argv[++i2]);
+      if (Number.isFinite(n2) && n2 > 0) flags.days = n2;
+    }
+  }
+  return flags;
+}
+var shortId = (id) => id.slice(0, 8);
+var clock = (ts) => ts && !Number.isNaN(Date.parse(ts)) ? new Date(ts).toISOString().slice(11, 19) : "??:??:??";
+function runWhyCommand(argv, env) {
+  const flags = parseFlags3(argv);
+  const report = computeWhy(readLogLines2(env), { session: flags.session, days: flags.days });
+  if (flags.json) {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}
+`);
+    return;
+  }
+  if (!report.sessionId) {
+    process.stdout.write(loggingDisabled(env) ? "Logging is disabled (logging.enabled: false).\n" : "No CorpoCode decisions logged yet.\n");
+    return;
+  }
+  const width = Math.max(0, ...report.lines.map((l2) => l2.component.length));
+  const span = report.started && report.ended ? ` \xB7 ${clock(report.started)}\u2013${clock(report.ended)}` : "";
+  process.stdout.write(`Why \u2014 session ${shortId(report.sessionId)} \xB7 ${report.lines.length} decisions${span}
+
+`);
+  for (const l2 of report.lines) {
+    const mark = l2.sessionless ? "~" : " ";
+    process.stdout.write(`  ${clock(l2.ts)} ${mark}${l2.component.padEnd(width)}  ${l2.text}
+`);
+  }
+  if (report.otherEvents > 0) process.stdout.write(`
+  (+${report.otherEvents} lower-level event(s) not shown)
+`);
+  if (report.note) process.stdout.write(`
+  note: ${report.note}  (~ marks time-attributed lines)
+`);
+  if (report.sessionsSeen > 1) process.stdout.write(`
+  ${report.sessionsSeen - 1} older session(s) in the log; use --session <id>.
+`);
+  if ((0, import_node_fs42.existsSync)(flowLogFile(void 0, env))) process.stdout.write(`
+Full narrative: ${flowLogFile(void 0, env)}
+`);
+}
+
+// src/commands/monitor.ts
+var import_node_child_process7 = require("node:child_process");
+
+// src/monitor/server.ts
+var import_node_http = require("node:http");
+var import_node_fs44 = require("node:fs");
+
+// src/monitor/tail.ts
+var import_node_fs43 = require("node:fs");
+function createTailer(file) {
+  let offset = 0;
+  function read() {
+    let size;
+    try {
+      size = (0, import_node_fs43.statSync)(file).size;
+    } catch {
+      return "";
+    }
+    if (size < offset) offset = 0;
+    if (size === offset) return "";
+    const fd = (0, import_node_fs43.openSync)(file, "r");
+    try {
+      const len = size - offset;
+      const buf = Buffer.alloc(len);
+      (0, import_node_fs43.readSync)(fd, buf, 0, len, offset);
+      offset = size;
+      return buf.toString("utf8");
+    } finally {
+      (0, import_node_fs43.closeSync)(fd);
+    }
+  }
+  return {
+    read,
+    get offset() {
+      return offset;
+    }
+  };
+}
+function createLineBuffer() {
+  let pending = "";
+  return {
+    push(chunk) {
+      pending += chunk;
+      const parts = pending.split("\n");
+      pending = parts.pop() ?? "";
+      return parts.filter((l2) => l2.length > 0);
+    }
+  };
+}
+
+// src/monitor/flow-parse.ts
+var MARKER = `${RULE}
+\u25B6 `;
+var HEADER_DONE = new RegExp(`^${RULE}\\n\u25B6 [^\\n]*\\n${RULE}\\n`);
+var SEP = "  \xB7  ";
+function parseHeader(text) {
+  const m2 = text.match(new RegExp(`^${RULE}\\n\u25B6 ([^\\n]*)\\n`));
+  const headerLine = m2?.[1] ?? "";
+  const parts = headerLine.split(SEP);
+  const hookName = parts[0] ?? "";
+  const sessionPart = parts.length >= 3 ? parts[parts.length - 1] : void 0;
+  const ts = parts.length >= 3 ? parts[parts.length - 2] : void 0;
+  const detail = parts.length >= 4 ? parts.slice(1, parts.length - 2).join(SEP) : void 0;
+  const sessionId = sessionPart?.startsWith("session ") ? sessionPart.slice("session ".length) : sessionPart;
+  return { hookName, detail, ts, sessionId, text };
+}
+function startIndices(buffer) {
+  const starts = [];
+  let from = 0;
+  for (; ; ) {
+    const i2 = buffer.indexOf(MARKER, from);
+    if (i2 < 0) break;
+    starts.push(i2);
+    from = i2 + MARKER.length;
+  }
+  return starts;
+}
+function createFlowParser() {
+  let buffer = "";
+  return {
+    push(chunk) {
+      buffer += chunk;
+      const starts = startIndices(buffer);
+      if (starts.length === 0) return [];
+      const blocks = [];
+      let consumed = 0;
+      for (let i2 = 0; i2 < starts.length; i2++) {
+        const isLast = i2 === starts.length - 1;
+        const segEnd = isLast ? buffer.length : starts[i2 + 1];
+        const seg = buffer.slice(starts[i2], segEnd);
+        if (!isLast) {
+          blocks.push(parseHeader(seg));
+          consumed = segEnd;
+        } else if (HEADER_DONE.test(seg)) {
+          blocks.push(parseHeader(seg));
+          consumed = segEnd;
+        } else {
+          consumed = starts[i2];
+        }
+      }
+      buffer = buffer.slice(consumed);
+      return blocks;
+    }
+  };
+}
+
+// src/monitor/server.ts
+function parseRow(line) {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return { raw: line };
+  }
+}
+function eventRow(line) {
+  const row = parseRow(line);
+  const why = explain(row);
+  return why ? { ...row, _why: why } : row;
+}
+function sse(res, event, data) {
+  res.write(`event: ${event}
+data: ${JSON.stringify(data)}
+
+`);
+}
+function servePage(res, htmlPath, warn) {
+  let html;
+  try {
+    html = (0, import_node_fs44.readFileSync)(htmlPath, "utf8");
+  } catch {
+    warn(`monitor: could not read page at ${htmlPath}`);
+    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    res.end(`Monitor page not found at ${htmlPath}.
+Run \`corpocode monitor\` from a built repo checkout.`);
+    return;
+  }
+  res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+  res.end(html);
+}
+function serveStream(req, res, opts, pollMs, warn) {
+  res.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache",
+    connection: "keep-alive"
+  });
+  const flowTailer = createTailer(opts.flowFile);
+  const ndjsonTailer = createTailer(opts.ndjsonFile);
+  const flowParser = createFlowParser();
+  const lineBuffer = createLineBuffer();
+  const safeRead = (tailer, label) => {
+    try {
+      return tailer.read();
+    } catch (err) {
+      warn(`monitor: ${label} stream read failed: ${String(err)}`);
+      return "";
+    }
+  };
+  const initialBlocks = flowParser.push(safeRead(flowTailer, "flow"));
+  for (const b2 of initialBlocks.slice(-opts.lines)) sse(res, "flow", b2);
+  const initialLines = lineBuffer.push(safeRead(ndjsonTailer, "ndjson"));
+  for (const l2 of initialLines.slice(-opts.lines)) sse(res, "event", eventRow(l2));
+  sse(res, "ready", { flow: Math.min(initialBlocks.length, opts.lines), events: Math.min(initialLines.length, opts.lines) });
+  const timer = setInterval(() => {
+    for (const b2 of flowParser.push(safeRead(flowTailer, "flow"))) sse(res, "flow", b2);
+    for (const l2 of lineBuffer.push(safeRead(ndjsonTailer, "ndjson"))) sse(res, "event", eventRow(l2));
+  }, pollMs);
+  const stop = () => clearInterval(timer);
+  req.on("close", stop);
+  res.on("close", stop);
+}
+function createMonitorServer(opts) {
+  const pollMs = opts.pollMs ?? 500;
+  const warn = opts.onWarn ?? ((m2) => process.stderr.write(`${m2}
+`));
+  return (0, import_node_http.createServer)((req, res) => {
+    const path = (req.url ?? "/").split("?")[0];
+    if (path === "/") return servePage(res, opts.htmlPath, warn);
+    if (path === "/stream") return serveStream(req, res, opts, pollMs, warn);
+    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.end("not found");
+  });
+}
+
+// src/monitor/page.ts
+var import_node_path32 = require("node:path");
+function monitorPagePath() {
+  return (0, import_node_path32.join)(__dirname, "..", "src", "monitor", "app.html");
+}
+
+// src/commands/monitor.ts
+var DEFAULT_PORT = 4319;
+var HOST = "127.0.0.1";
+function parseFlags4(argv) {
+  const flags = { open: true, lines: 200 };
+  for (let i2 = 0; i2 < argv.length; i2++) {
+    const a2 = argv[i2];
+    if (a2 === "--no-open") flags.open = false;
+    else if (a2 === "--port") {
+      const n2 = Number(argv[++i2]);
+      if (Number.isInteger(n2) && n2 > 0 && n2 < 65536) flags.port = n2;
+    } else if (a2 === "--lines") {
+      const n2 = Number(argv[++i2]);
+      if (Number.isFinite(n2) && n2 > 0) flags.lines = Math.floor(n2);
+    }
+  }
+  return flags;
+}
+function openBrowser(url) {
+  const platform = process.platform;
+  const [cmd, args] = platform === "win32" ? ["cmd", ["/c", "start", "", url]] : platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
+  try {
+    (0, import_node_child_process7.spawn)(cmd, args, { stdio: "ignore", detached: true, shell: false }).unref();
+  } catch {
+  }
+}
+function ready(server, flags) {
+  const addr = server.address();
+  const port = typeof addr === "object" && addr ? addr.port : DEFAULT_PORT;
+  const url = `http://${HOST}:${port}`;
+  process.stdout.write(`corpocode monitor \u2192 ${url}  (Ctrl-C to stop)
+`);
+  if (flags.open) openBrowser(url);
+}
+function runMonitorCommand(argv, env = process.env) {
+  const flags = parseFlags4(argv);
+  const server = createMonitorServer({
+    flowFile: flowLogFile(void 0, env),
+    ndjsonFile: logFile(void 0, env),
+    htmlPath: monitorPagePath(),
+    lines: flags.lines
+  });
+  const explicitPort = flags.port !== void 0;
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE" && !explicitPort) {
+      server.listen(0, HOST, () => ready(server, flags));
+      return;
+    }
+    const detail = err.code === "EADDRINUSE" ? `port ${flags.port} is already in use` : String(err);
+    process.stderr.write(`corpocode monitor: ${detail}
+`);
+    process.exitCode = 1;
+  });
+  server.listen(flags.port ?? DEFAULT_PORT, HOST, () => ready(server, flags));
+  const shutdown = () => {
+    server.close(() => process.exit(0));
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+}
+
 // src/commands/skillify.ts
 var import_node_process4 = require("node:process");
 
 // src/loops/skillgen.ts
-var import_node_fs38 = require("node:fs");
+var import_node_fs45 = require("node:fs");
 var import_node_os6 = require("node:os");
-var import_node_path31 = require("node:path");
+var import_node_path33 = require("node:path");
 function candidatesDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path31.join)((0, import_node_os6.homedir)(), ".claude");
-  return (0, import_node_path31.join)(base, "memdir", "corpocode-candidates");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path33.join)((0, import_node_os6.homedir)(), ".claude");
+  return (0, import_node_path33.join)(base, "memdir", "corpocode-candidates");
 }
 var zCandidates = external_exports.object({
   candidates: external_exports.array(external_exports.object({ name: external_exports.string(), description: external_exports.string(), body: external_exports.string() }))
@@ -30655,24 +32613,24 @@ async function generateSkillCandidates(deps) {
   }
   const dir = deps.dir ?? candidatesDir(deps.env);
   ensureDir(dir);
-  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs38.writeFileSync)(p2, c2));
+  const write = deps.writeFileFn ?? ((p2, c2) => (0, import_node_fs45.writeFileSync)(p2, c2));
   const names = [];
   for (const c2 of candidates.slice(0, deps.maxCandidates ?? 5)) {
     const slug = slugify(c2.name);
     if (!slug) continue;
-    write((0, import_node_path31.join)(dir, `${slug}.md`), renderMemo(c2, slug));
+    write((0, import_node_path33.join)(dir, `${slug}.md`), renderMemo(c2, slug));
     names.push(slug);
   }
   return { mined: mems.length, written: names.length, names };
 }
 
 // src/loops/skillify.ts
-var import_node_fs39 = require("node:fs");
+var import_node_fs46 = require("node:fs");
 var import_node_os7 = require("node:os");
-var import_node_path32 = require("node:path");
+var import_node_path34 = require("node:path");
 function skillsDir(env = process.env) {
-  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path32.join)((0, import_node_os7.homedir)(), ".claude");
-  return (0, import_node_path32.join)(base, "skills");
+  const base = env.CLAUDE_CONFIG_DIR ?? (0, import_node_path34.join)((0, import_node_os7.homedir)(), ".claude");
+  return (0, import_node_path34.join)(base, "skills");
 }
 function parseFrontmatter(text) {
   const m2 = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -30692,28 +32650,28 @@ function promoteCandidates(opts = {}) {
   const to = opts.toDir ?? skillsDir(opts.env);
   let files;
   try {
-    files = (0, import_node_fs39.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
+    files = (0, import_node_fs46.readdirSync)(from).filter((f2) => f2.endsWith(".md"));
   } catch {
     return { promoted: [], skipped: [] };
   }
   const promoted = [];
   const skipped = [];
   for (const f2 of files) {
-    const path = (0, import_node_path32.join)(from, f2);
-    const raw = (0, import_node_fs39.readFileSync)(path, "utf8");
+    const path = (0, import_node_path34.join)(from, f2);
+    const raw = (0, import_node_fs46.readFileSync)(path, "utf8");
     const { fm } = parseFrontmatter(raw);
     const slug = fm.name ? slugify(fm.name) : "";
     if (!slug || !fm.description) {
       skipped.push(f2);
       continue;
     }
-    const skillDir = (0, import_node_path32.join)(to, slug);
+    const skillDir = (0, import_node_path34.join)(to, slug);
     ensureDir(skillDir);
-    (0, import_node_fs39.writeFileSync)((0, import_node_path32.join)(skillDir, "SKILL.md"), raw);
+    (0, import_node_fs46.writeFileSync)((0, import_node_path34.join)(skillDir, "SKILL.md"), raw);
     promoted.push(slug);
     if (opts.removeAfter !== false) {
       try {
-        (0, import_node_fs39.rmSync)(path);
+        (0, import_node_fs46.rmSync)(path);
       } catch {
       }
     }
@@ -30763,7 +32721,7 @@ async function runSkillifyCommand(argv, env = process.env) {
 }
 
 // src/commands/review.ts
-var import_node_fs40 = require("node:fs");
+var import_node_fs47 = require("node:fs");
 var MIN_FIRES = 5;
 var LOW_CONFIDENCE = 0.5;
 function computeReview(lines, opts = {}) {
@@ -30841,14 +32799,14 @@ function buildProposals(tenets, verifierChecks, turns, stage2, config) {
   }
   return proposals;
 }
-function readLogLines2() {
+function readLogLines3() {
   try {
-    return (0, import_node_fs40.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs47.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
 }
-function parseFlags3(argv) {
+function parseFlags5(argv) {
   const flags = { json: false, days: 7 };
   for (let i2 = 0; i2 < argv.length; i2++) {
     if (argv[i2] === "--json") flags.json = true;
@@ -30860,14 +32818,14 @@ function parseFlags3(argv) {
   return flags;
 }
 function runReviewCommand(argv, env) {
-  const flags = parseFlags3(argv);
+  const flags = parseFlags5(argv);
   let config;
   try {
     config = loadConfig({ env });
   } catch {
     config = void 0;
   }
-  const report = computeReview(readLogLines2(), { days: flags.days, ...config ? { config } : {} });
+  const report = computeReview(readLogLines3(), { days: flags.days, ...config ? { config } : {} });
   if (flags.json) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}
 `);
@@ -30897,7 +32855,7 @@ function runReviewCommand(argv, env) {
 }
 
 // src/commands/telemetry.ts
-var import_node_fs41 = require("node:fs");
+var import_node_fs48 = require("node:fs");
 
 // src/telemetry/whitelist.ts
 var TELEMETRY_SCHEMA = "corpocode-telemetry/1";
@@ -30969,7 +32927,7 @@ function buildTelemetryPayload(lines, config) {
 var NEVER_COLLECTED = "prompts, code, file contents, file paths, transcripts, memory contents, and repository identity";
 function readRawConfig(env) {
   try {
-    const parsed = JSON.parse((0, import_node_fs41.readFileSync)(configFile(env), "utf8"));
+    const parsed = JSON.parse((0, import_node_fs48.readFileSync)(configFile(env), "utf8"));
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
@@ -30980,12 +32938,12 @@ function setTelemetryEnabled(enabled, env) {
   const tel = raw.telemetry && typeof raw.telemetry === "object" ? raw.telemetry : {};
   raw.telemetry = { ...tel, enabled };
   ensureDir(corpocodeHome(env));
-  (0, import_node_fs41.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
+  (0, import_node_fs48.writeFileSync)(configFile(env), `${JSON.stringify(raw, null, 2)}
 `);
 }
-function readLogLines3() {
+function readLogLines4() {
   try {
-    return (0, import_node_fs41.readFileSync)(logFile(), "utf8").split("\n");
+    return (0, import_node_fs48.readFileSync)(logFile(), "utf8").split("\n");
   } catch {
     return [];
   }
@@ -31011,7 +32969,7 @@ Set telemetry.endpoint in your config to choose where it is sent. Preview anytim
   }
   if (sub === "preview") {
     const config2 = loadConfig({ env });
-    const payload = buildTelemetryPayload(readLogLines3(), config2);
+    const payload = buildTelemetryPayload(readLogLines4(), config2);
     process.stdout.write("This is the EXACT payload that would be sent (only whitelisted aggregate fields):\n");
     process.stdout.write(`${JSON.stringify(payload, null, 2)}
 `);
@@ -31024,8 +32982,8 @@ Set telemetry.endpoint in your config to choose where it is sent. Preview anytim
 }
 
 // src/commands/docs.ts
-var import_node_fs42 = require("node:fs");
-var import_node_path33 = require("node:path");
+var import_node_fs49 = require("node:fs");
+var import_node_path35 = require("node:path");
 
 // src/docs-site/config-reference.ts
 function typeOf(value) {
@@ -31033,8 +32991,8 @@ function typeOf(value) {
   if (value === null) return "null";
   return typeof value;
 }
-function flatten(obj, prefix, rows) {
-  for (const [key, value] of Object.entries(obj)) {
+function flatten(obj2, prefix, rows) {
+  for (const [key, value] of Object.entries(obj2)) {
     const path = prefix ? `${prefix}.${key}` : key;
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
       flatten(value, path, rows);
@@ -31063,14 +33021,17 @@ ${body}
 
 // src/cli-commands.ts
 var COMMANDS = [
+  { name: "start", usage: 'start "<task>" [--answers <file>] [--yes] [--dev] [--resume <id>] [--list] [--status <id>]', summary: "Run the orchestrator: cockpit interrogation \u2192 spec + tasks artifacts" },
   { name: "install", usage: "install [--platform <name>] [--all] [--dry-run] [--skip-backends] [--repair]", summary: "Register hooks into a coding-agent platform" },
   { name: "provision", usage: "provision [--repair]", summary: "Install/start backends (graphify, OpenViking)" },
   { name: "uninstall", usage: "uninstall [--purge]", summary: "Remove shims and config (optionally Python tools)" },
-  { name: "init", usage: "init [--force]", summary: "Scaffold config + a secrets file with key placeholders (no npm needed)" },
+  { name: "init", usage: "init [--force] [--no-orchestrator]", summary: "Scaffold config + secrets, then the orchestrator onboarding (unlocks `start`)" },
   { name: "prompts", usage: "prompts [--force]", summary: "Scaffold editable per-component system prompts into ~/.corpocode/prompts" },
   { name: "hook", usage: "hook <name> [--platform <id>]", summary: "Dispatch a hook (invoked by installed shims)" },
   { name: "doctor", usage: "doctor", summary: "Run health checks and print repair hints" },
   { name: "stats", usage: "stats [--json] [--days N]", summary: "Report cost, savings, latency, and error rates" },
+  { name: "why", usage: "why [--session <id>] [--days N] [--json]", summary: "Explain the decisions CorpoCode made in a session" },
+  { name: "monitor", usage: "monitor [--port N] [--no-open] [--lines N]", summary: "Open a live window onto corpocode's actions (flow + events)" },
   { name: "skillify", usage: "skillify [--promote]", summary: "Mine memories into skill candidates; --promote installs them" },
   { name: "review", usage: "review [--json] [--days N]", summary: "Audit the log; propose (never apply) config tweaks" },
   { name: "telemetry", usage: "telemetry <on|off|preview>", summary: "Opt-in aggregate telemetry; preview shows the exact payload" },
@@ -31098,8 +33059,8 @@ function runDocsCommand(argv) {
   const commands = generateCommandReference();
   if (out) {
     ensureDir(out);
-    (0, import_node_fs42.writeFileSync)((0, import_node_path33.join)(out, "config-reference.md"), config);
-    (0, import_node_fs42.writeFileSync)((0, import_node_path33.join)(out, "command-reference.md"), commands);
+    (0, import_node_fs49.writeFileSync)((0, import_node_path35.join)(out, "config-reference.md"), config);
+    (0, import_node_fs49.writeFileSync)((0, import_node_path35.join)(out, "command-reference.md"), commands);
     process.stdout.write(`Wrote config-reference.md and command-reference.md to ${out}
 `);
     return;
@@ -31110,7 +33071,7 @@ ${commands}
 }
 
 // src/commands/init.ts
-var import_node_fs43 = require("node:fs");
+var import_node_fs50 = require("node:fs");
 var import_node_process5 = require("node:process");
 function placeholderFor(key) {
   return `REPLACE_WITH_YOUR_${key}`;
@@ -31144,24 +33105,24 @@ function runInitCommand(argv, env = process.env) {
   const force = argv.includes("--force");
   ensureDir(corpocodeHome(env));
   const cfgPath = configFile(env);
-  if ((0, import_node_fs43.existsSync)(cfgPath) && !force) {
+  if ((0, import_node_fs50.existsSync)(cfgPath) && !force) {
     process.stdout.write(`\xB7 config already exists, leaving it: ${cfgPath}
 `);
   } else {
-    (0, import_node_fs43.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
+    (0, import_node_fs50.writeFileSync)(cfgPath, `${JSON.stringify(defaultConfig(), null, 2)}
 `);
     process.stdout.write(`wrote default config: ${cfgPath}
 `);
   }
   const keys = defaultKeyNames();
   const secPath = secretsFile(env);
-  if ((0, import_node_fs43.existsSync)(secPath) && !force) {
+  if ((0, import_node_fs50.existsSync)(secPath) && !force) {
     process.stdout.write(`\xB7 secrets already exists, not touching it: ${secPath}
 `);
   } else {
-    (0, import_node_fs43.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
+    (0, import_node_fs50.writeFileSync)(secPath, renderSecretsTemplate(keys), { mode: 384 });
     try {
-      (0, import_node_fs43.chmodSync)(secPath, 384);
+      (0, import_node_fs50.chmodSync)(secPath, 384);
     } catch {
     }
     process.stdout.write(
@@ -31202,10 +33163,101 @@ Next: open ${secPath} and replace the placeholder${plural} with your real key${p
 `
   );
 }
+var ARBITER_POLL = {
+  id: "onboard-arbiter",
+  concept: "arbiter-model",
+  question: "Which strong model should verify the swarm's work (the arbiter \u2014 the only expensive role)?",
+  options: [
+    { id: "fable", label: "claude-fable-5 (recommended)", description: "The most capable judge; verdicts are output-capped so cost stays bounded.", findings: [], recommended: true },
+    { id: "opus", label: "claude-opus-4", description: "Strong and cheaper per token.", findings: [] }
+  ],
+  allowFreeText: true,
+  // any exact model id
+  allowDelegate: false,
+  defaultOptionId: "fable"
+};
+var GRANULARITY_POLL = {
+  id: "onboard-granularity",
+  concept: "poll-granularity",
+  question: "How granular should the cockpit's interrogation be?",
+  options: [
+    { id: "every-fork", label: "every-fork", description: "Poll every decision fork \u2014 nothing left to interpretation (the correctness mechanism).", findings: [] },
+    { id: "major-forks", label: "major-forks", description: "Poll architecture-shaping forks; minor ones auto-resolve to the interrogator's suggestion (recorded as delegated).", findings: [] },
+    { id: "minimal", label: "minimal", description: "Only the final spec approval is asked; every fork auto-resolves (recorded).", findings: [] }
+  ],
+  allowFreeText: false,
+  allowDelegate: false,
+  defaultOptionId: "every-fork"
+};
+var BUDGET_POLL = {
+  id: "onboard-budget",
+  concept: "run-budget",
+  question: "Cap each run's total model spend? (Breach pauses the run and asks \u2014 never silent.)",
+  options: [
+    { id: "cap10", label: "$10 per run", description: "Conservative; good first default.", findings: [] },
+    { id: "cap25", label: "$25 per run", description: "Roomier for real features.", findings: [] },
+    { id: "uncapped", label: "uncapped", description: "No ceiling \u2014 watchdog and turn limits still bound runaways.", findings: [] }
+  ],
+  allowFreeText: true,
+  // a custom dollar amount
+  allowDelegate: false,
+  defaultOptionId: "cap10"
+};
+var MODEL_BY_OPTION = { fable: "claude-fable-5", opus: "claude-opus-4" };
+var BUDGET_BY_OPTION = { cap10: 10, cap25: 25, uncapped: null };
+async function runOrchestratorOnboarding(argv, deps = {}) {
+  const env = deps.env ?? process.env;
+  if (argv.includes("--no-orchestrator")) return;
+  let config;
+  try {
+    config = loadConfig({ env });
+  } catch {
+    return;
+  }
+  if (config.orchestrator.initialized && !argv.includes("--force")) {
+    process.stdout.write("\xB7 orchestrator already onboarded (`corpocode start` is unlocked)\n");
+    return;
+  }
+  const isTTY = deps.isTTY ?? Boolean(process.stdin.isTTY);
+  if (!deps.interactor && !isTTY) {
+    process.stdout.write(
+      "\xB7 skipped orchestrator onboarding (no terminal) \u2014 run `corpocode init` interactively to unlock `corpocode start`, or use `corpocode start --dev` for local testing\n"
+    );
+    return;
+  }
+  const interactor = deps.interactor ?? createTerminalInteractor();
+  try {
+    const arbiter = await interactor.ask(ARBITER_POLL);
+    if (!arbiter) return abandoned();
+    const granularity = await interactor.ask(GRANULARITY_POLL);
+    if (!granularity) return abandoned();
+    const budget = await interactor.ask(BUDGET_POLL);
+    if (!budget) return abandoned();
+    const arbiterModel = arbiter.freeText?.trim() || MODEL_BY_OPTION[arbiter.optionId ?? ""] || "claude-fable-5";
+    const gran = granularity.optionId ?? "every-fork";
+    const customCap = budget.freeText ? Number.parseFloat(budget.freeText.replace(/[^0-9.]/g, "")) : NaN;
+    const maxRunUsd = Number.isFinite(customCap) && customCap > 0 ? customCap : BUDGET_BY_OPTION[budget.optionId ?? ""] ?? 10;
+    config.orchestrator.initialized = true;
+    config.orchestrator.interrogation.granularity = gran;
+    config.orchestrator.budget.max_run_usd = maxRunUsd;
+    config.orchestrator.roles.arbiter = { ...config.orchestrator.roles.arbiter ?? { effort: "high" }, model: arbiterModel };
+    (0, import_node_fs50.writeFileSync)(configFile(env), `${JSON.stringify(config, null, 2)}
+`);
+    process.stdout.write(
+      `orchestrator onboarded: arbiter=${arbiterModel}, granularity=${gran}, budget=${maxRunUsd === null ? "uncapped" : `$${maxRunUsd}/run`}. \`corpocode start\` is unlocked.
+`
+    );
+  } finally {
+    if (!deps.interactor) await interactor.close();
+  }
+  function abandoned() {
+    process.stdout.write("\xB7 orchestrator onboarding abandoned \u2014 nothing changed (re-run `corpocode init` any time)\n");
+  }
+}
 
 // src/prompts/scaffold.ts
-var import_node_fs44 = require("node:fs");
-var import_node_path34 = require("node:path");
+var import_node_fs51 = require("node:fs");
+var import_node_path36 = require("node:path");
 function renderScaffold(id) {
   const body = BUILTIN_PROMPTS[id];
   const meta = PROMPT_META[id];
@@ -31256,16 +33308,16 @@ function scaffoldPrompts(opts = {}) {
   const wrote = [];
   const skipped = [];
   for (const id of allPromptIds()) {
-    const path = (0, import_node_path34.join)(dir, promptRelPath(id));
-    if ((0, import_node_fs44.existsSync)(path) && !opts.force) {
+    const path = (0, import_node_path36.join)(dir, promptRelPath(id));
+    if ((0, import_node_fs51.existsSync)(path) && !opts.force) {
       skipped.push(id);
       continue;
     }
-    (0, import_node_fs44.mkdirSync)((0, import_node_path34.dirname)(path), { recursive: true });
-    (0, import_node_fs44.writeFileSync)(path, renderScaffold(id));
+    (0, import_node_fs51.mkdirSync)((0, import_node_path36.dirname)(path), { recursive: true });
+    (0, import_node_fs51.writeFileSync)(path, renderScaffold(id));
     wrote.push(id);
   }
-  (0, import_node_fs44.writeFileSync)((0, import_node_path34.join)(dir, "README.md"), renderReadme());
+  (0, import_node_fs51.writeFileSync)((0, import_node_path36.join)(dir, "README.md"), renderReadme());
   return { dir, wrote, skipped };
 }
 
@@ -31287,11 +33339,11 @@ function runPromptsCommand(argv, env = process.env) {
 }
 
 // src/cli.ts
-var VERSION3 = "0.2.4";
+var VERSION3 = "0.3.0";
 function renderHelp() {
   const width = Math.max(...COMMANDS.map((c2) => c2.usage.length));
   const lines = COMMANDS.map((c2) => `  ${c2.usage.padEnd(width)}  ${c2.summary}`);
-  return `corpocode ${VERSION3} \u2014 cheap-model caretakers for coding agents
+  return `corpocode ${VERSION3} \u2014 a swarm of cheap authors, one expensive judge, and a human in the cockpit
 
 Usage: corpocode <command> [options]
 
@@ -31334,8 +33386,12 @@ async function runCli(argv) {
     case "uninstall":
       await runUninstallCommand(rest);
       return;
+    case "start":
+      await runStartCommand(rest);
+      return;
     case "init":
       runInitCommand(rest);
+      await runOrchestratorOnboarding(rest);
       return;
     case "prompts":
       runPromptsCommand(rest);
@@ -31345,6 +33401,12 @@ async function runCli(argv) {
       return;
     case "stats":
       runStatsCommand(rest);
+      return;
+    case "why":
+      runWhyCommand(rest);
+      return;
+    case "monitor":
+      runMonitorCommand(rest);
       return;
     case "skillify":
       await runSkillifyCommand(rest);

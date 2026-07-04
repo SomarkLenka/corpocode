@@ -42,6 +42,7 @@ export interface DoctorDeps {
   memoryWritable?: () => boolean;
   plugins?: () => DiscoveredPlugin[];
   nativeGraphBuilt?: () => boolean;
+  engineOnPath?: (bin: string) => Promise<boolean>;
 }
 
 const REPAIR_INSTALL = "corpocode install --repair";
@@ -253,6 +254,40 @@ export async function runDoctor(deps: DoctorDeps = {}): Promise<DoctorCheck[]> {
       .join("; ");
     checks.push({ name: "plugins", status: "ok", detail: `${plugins.length} discovered — ${summary}` });
   }
+
+  // 10. Orchestrator onboarding — `corpocode start` refuses on release builds until `init` has
+  // collected the arbiter model, poll granularity, and budget. A warn, not a fail: the assist
+  // channel is fully usable without it.
+  if (config) {
+    checks.push(
+      config.orchestrator.initialized
+        ? { name: "orchestrator", status: "ok", detail: "onboarded (`corpocode start` is unlocked)" }
+        : {
+            name: "orchestrator",
+            status: "warn",
+            detail: "not onboarded — `corpocode start` is gated (CORPOCODE_DEV=1 bypasses for local testing)",
+            repair: "corpocode init",
+          },
+    );
+  }
+
+  // 11. Engines on PATH — the interchangeable hands the orchestrator's agents spawn through. `claude`
+  // also backs the keyless default provider, so its absence matters to both modes.
+  const engineOnPath = deps.engineOnPath ?? (async (bin: string) => (await spawnRunner(bin, ["--version"])).code === 0);
+  const engines: string[] = [];
+  for (const bin of ["claude", "codex", "opencode"]) {
+    if (await engineOnPath(bin)) engines.push(bin);
+  }
+  checks.push(
+    engines.length > 0
+      ? { name: "engines", status: "ok", detail: `on PATH: ${engines.join(", ")}` }
+      : {
+          name: "engines",
+          status: "warn",
+          detail: "no coding engine (claude/codex/opencode) on PATH — agents cannot spawn",
+          repair: "install the `claude` CLI (or point providers at a keyed API)",
+        },
+  );
 
   return checks;
 }

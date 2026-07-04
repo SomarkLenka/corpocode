@@ -4,7 +4,8 @@ import { defaultConfig } from "../../src/config/load";
 import { configSchema } from "../../src/config/schema";
 
 const allOk: DoctorDeps = {
-  loadConfig: () => defaultConfig(),
+  // Onboarded orchestrator so the healthy fixture is genuinely all-ok (initialized defaults false).
+  loadConfig: () => configSchema.parse({ orchestrator: { initialized: true } }),
   secretsState: () => "ok",
   pingProvider: async () => true,
   channels: () => ({ npm: true, plugin: false }),
@@ -15,6 +16,7 @@ const allOk: DoctorDeps = {
   memoryWritable: () => true,
   plugins: () => [],
   nativeGraphBuilt: () => true,
+  engineOnPath: async (bin) => bin === "claude",
 };
 
 // A config that deliberately selects the Python-backed adapters, to exercise the conditional checks.
@@ -23,11 +25,26 @@ const pythonConfig = () => configSchema.parse({ backends: { knowledgeGraph: "gra
 describe("runDoctor", () => {
   it("reports every check ok in a healthy native environment (no Python/daemon checks)", async () => {
     const checks = await runDoctor(allOk);
-    // config, telemetry, secrets, provider, wiring, knowledge graph (native), context store (native), memory, plugins
-    expect(checks).toHaveLength(9);
+    // config, telemetry, secrets, provider, wiring, knowledge graph (native), context store (native),
+    // memory, plugins, orchestrator, engines
+    expect(checks).toHaveLength(11);
     expect(checks.every((c) => c.status === "ok")).toBe(true);
     expect(checks.some((c) => c.name === "python toolchain")).toBe(false); // not run under native config
     expect(checks.some((c) => c.name === "knowledge graph")).toBe(true);
+  });
+
+  it("warns (never fails) when the orchestrator is not onboarded, with `corpocode init` as the repair", async () => {
+    const checks = await runDoctor({ ...allOk, loadConfig: () => defaultConfig() });
+    const orch = checks.find((c) => c.name === "orchestrator")!;
+    expect(orch.status).toBe("warn");
+    expect(orch.repair).toBe("corpocode init");
+  });
+
+  it("warns when no coding engine is on PATH, and lists the ones that are", async () => {
+    const none = await runDoctor({ ...allOk, engineOnPath: async () => false });
+    expect(none.find((c) => c.name === "engines")!.status).toBe("warn");
+    const two = await runDoctor({ ...allOk, engineOnPath: async (bin) => bin !== "codex" });
+    expect(two.find((c) => c.name === "engines")!.detail).toContain("claude, opencode");
   });
 
   it("runs the Python/daemon checks only when a Python-backed backend is selected", async () => {
