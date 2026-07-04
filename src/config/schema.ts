@@ -221,7 +221,8 @@ export const configSchema = z
         initialized: z.boolean().default(false),
         interrogation: z
           .object({
-            interface: z.enum(["terminal", "web", "auto"]).default("terminal"), // "web" lands Phase 2
+            // auto = web cockpit in an interactive session, terminal otherwise (--web/--tty force).
+            interface: z.enum(["terminal", "web", "auto"]).default("auto"),
             granularity: z.enum(["every-fork", "major-forks", "minimal"]).default("every-fork"),
             consequence_axes: z
               .array(z.string())
@@ -244,6 +245,7 @@ export const configSchema = z
         roles: z.record(roleConfigSchema).default({
           interrogate: { effort: "medium", timeout_ms: 60_000 },
           consequence: { effort: "minimal", timeout_ms: 30_000 },
+          decompose: { effort: "medium", timeout_ms: 120_000 },
           implement: { effort: "medium", max_turns: 40, timeout_ms: 600_000 },
           arbiter: { component: "arbiter", model: "claude-fable-5", effort: "high" },
           housekeeping: { effort: "minimal" },

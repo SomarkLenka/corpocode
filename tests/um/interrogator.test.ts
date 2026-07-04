@@ -68,12 +68,12 @@ describe("recordContent", () => {
     let s = initialState("r", "t");
     s = recordContent(s, "api-spec", {
       entities: [{ name: "User", description: "v1", fields: [] }, { name: "Team", description: "t1", fields: [] }],
-      taskSeeds: [{ id: "t1", title: "one", description: "d", files: [], dependsOn: [], acceptanceRefs: [] }],
+      taskSeeds: [{ id: "t1", title: "one", description: "d", files: [], dependsOn: [], acceptanceRefs: [], tags: [] }],
       constraints: ["c1", "c2"],
     }, false);
     s = recordContent(s, "api-spec", {
       entities: [{ name: "User", description: "v2 refined", fields: ["id"] }],
-      taskSeeds: [{ id: "t1", title: "one refined", description: "d2", files: [], dependsOn: [], acceptanceRefs: [] }],
+      taskSeeds: [{ id: "t1", title: "one refined", description: "d2", files: [], dependsOn: [], acceptanceRefs: [], tags: [] }],
       constraints: ["c2", "c3"],
     }, false);
     expect(s.spec.entities.map((e) => e.name)).toEqual(["User", "Team"]);

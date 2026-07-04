@@ -49,7 +49,9 @@ export const acceptanceSchema = z.object({
 });
 
 /** A seed the decompose stage grows into a full task. Seeds come out of the interrogation
- *  (the parallelization section) so the task graph is decided WITH the human, not invented after. */
+ *  (the parallelization section) so the task graph is decided WITH the human, not invented after.
+ *  modelTier/userGate carry the pcvelz/superpowers task-metadata discipline: tier routes the
+ *  implementer's capability, userGate marks a task the pilot ordered as a verification gate. */
 export const taskSeedSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -58,6 +60,9 @@ export const taskSeedSchema = z.object({
   dependsOn: z.array(z.string()).default([]),
   verifyCommand: z.string().optional(), // authored at decompose when absent; never silently dropped
   acceptanceRefs: z.array(z.string()).default([]),
+  modelTier: z.enum(["mechanical", "standard", "frontier"]).optional(),
+  userGate: z.boolean().optional(),
+  tags: z.array(z.string()).default([]),
 });
 
 export const specSchema = z.object({

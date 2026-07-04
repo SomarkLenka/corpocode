@@ -22,6 +22,11 @@ const taskEntrySchema = z
     modelTier: z.string().optional(),
     budgetUsd: z.number().optional(),
     specRefs: z.array(z.string()).default([]),
+    // pcvelz/superpowers gate metadata (task-format-reference.md) — carried, never interpreted here.
+    userGate: z.boolean().optional(),
+    tags: z.array(z.string()).default([]),
+    requiresUserSpecification: z.boolean().optional(),
+    estimatedScope: z.enum(["small", "medium", "large"]).optional(),
   })
   .strip();
 
@@ -38,6 +43,88 @@ export type TasksFile = z.infer<typeof tasksFileSchema>;
 export function parseTasksFile(raw: unknown): TasksFile | null {
   const result = tasksFileSchema.safeParse(raw);
   return result.success ? result.data : null;
+}
+
+// The pcvelz/superpowers NATIVE persistence shape (`<plan>.md.tasks.json`, writing-plans "Task
+// Persistence"): numeric ids, `subject` instead of title, `blockedBy` instead of dependsOn, and
+// all task metadata embedded as a ```json:metadata``` fence INSIDE the description (their
+// workaround for TaskGet not returning the metadata parameter). Tolerated loosely for the same
+// reason as above: this file is written by the plugin, resumed across sessions, and hand-edited.
+const nativeTaskSchema = z
+  .object({
+    id: z.union([z.number(), z.string()]),
+    subject: z.string().default(""),
+    status: z.string().default("pending"),
+    blockedBy: z.array(z.union([z.number(), z.string()])).default([]),
+    description: z.string().default(""),
+  })
+  .strip();
+
+const nativePlanSchema = z
+  .object({
+    planPath: z.string().optional(),
+    tasks: z.array(nativeTaskSchema).default([]),
+  })
+  .strip();
+
+const metadataFenceSchema = z
+  .object({
+    files: z.array(z.string()).default([]),
+    verifyCommand: z.string().optional(),
+    acceptanceCriteria: z.array(z.string()).default([]),
+    modelTier: z.string().optional(),
+    userGate: z.boolean().optional(),
+    tags: z.array(z.string()).default([]),
+    requiresUserSpecification: z.boolean().optional(),
+    estimatedScope: z.enum(["small", "medium", "large"]).optional(),
+  })
+  .strip();
+
+function normalizeStatus(status: string): "pending" | "in_progress" | "completed" {
+  return status === "in_progress" || status === "completed" ? status : "pending";
+}
+
+/** Extract the `json:metadata` fence from a native task description. A missing or malformed
+ *  fence degrades to empty metadata — the task still imports, just without routing hints. */
+function fenceMetadata(description: string): z.infer<typeof metadataFenceSchema> {
+  const empty = metadataFenceSchema.parse({});
+  const match = description.match(/```json:metadata\s*\n([\s\S]*?)```/);
+  if (!match) return empty;
+  try {
+    const parsed = metadataFenceSchema.safeParse(JSON.parse(match[1]!));
+    return parsed.success ? parsed.data : empty;
+  } catch {
+    return empty;
+  }
+}
+
+/** Parse a pcvelz/superpowers native plan file into the orchestrator's TasksFile. Null on any
+ *  failure — the caller falls back to parseTasksFile (the flat superset shape) or reports. */
+export function parseNativePlanFile(raw: unknown): TasksFile | null {
+  const result = nativePlanSchema.safeParse(raw);
+  if (!result.success || result.data.tasks.length === 0) return null;
+  const tasks = result.data.tasks.map((t) => {
+    const meta = fenceMetadata(t.description);
+    return {
+      id: String(t.id),
+      title: t.subject,
+      description: t.description,
+      files: meta.files,
+      ...(meta.verifyCommand !== undefined ? { verifyCommand: meta.verifyCommand } : {}),
+      acceptanceCriteria: meta.acceptanceCriteria,
+      dependsOn: t.blockedBy.map(String),
+      status: normalizeStatus(t.status),
+      ...(meta.modelTier !== undefined ? { modelTier: meta.modelTier } : {}),
+      specRefs: [],
+      ...(meta.userGate !== undefined ? { userGate: meta.userGate } : {}),
+      tags: meta.tags,
+      ...(meta.requiresUserSpecification !== undefined
+        ? { requiresUserSpecification: meta.requiresUserSpecification }
+        : {}),
+      ...(meta.estimatedScope !== undefined ? { estimatedScope: meta.estimatedScope } : {}),
+    };
+  });
+  return { version: 1, tasks };
 }
 
 /** Emit tasks.json from an approved spec's taskSeeds. Minimal validation for Phase 1 (the full
@@ -104,7 +191,10 @@ export function emitTasksFile(spec: Spec): { ok: true; file: TasksFile } | { ok:
     }),
     dependsOn: [...seed.dependsOn],
     status: "pending" as const,
+    ...(seed.modelTier !== undefined ? { modelTier: seed.modelTier } : {}),
     specRefs: [...seed.acceptanceRefs],
+    ...(seed.userGate !== undefined ? { userGate: seed.userGate } : {}),
+    tags: [...seed.tags],
   }));
 
   return { ok: true, file: { version: 1, tasks } };

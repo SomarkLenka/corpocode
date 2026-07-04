@@ -9,8 +9,8 @@ import {
 import { SPEC_SECTIONS } from "../../../src/um/types";
 
 describe("SUPERPOWERS_PROVENANCE", () => {
-  it("pins the upstream repo and a full commit SHA (or declares derived)", () => {
-    expect(SUPERPOWERS_PROVENANCE.repo).toContain("obra/superpowers");
+  it("pins the harvest base (the pcvelz Claude-Code-native fork) and a full commit SHA (or declares derived)", () => {
+    expect(SUPERPOWERS_PROVENANCE.repo).toContain("pcvelz/superpowers");
     if (SUPERPOWERS_PROVENANCE.derived) {
       // derived means fetching failed and the prompts were authored from the docs — no pin exists
       expect(SUPERPOWERS_PROVENANCE.commit).toBeNull();

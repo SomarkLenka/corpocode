@@ -52,12 +52,22 @@ export interface Answer {
   source: AnswerSource;
 }
 
+/** Structured cockpit events for surfaces that can render more than text (the web cockpit's
+ *  amber→green section ledger, the decision feed, phase transitions). Optional and best-effort by
+ *  design: the terminal and scripted interactors ignore it, and the cockpit never depends on it. */
+export type CockpitNote =
+  | { kind: "sections"; statuses: Record<string, "open" | "in-progress" | "complete"> }
+  | { kind: "decision"; pollId: string; concept: string; source: AnswerSource; chosen?: string }
+  | { kind: "phase"; phase: string; detail?: string };
+
 /** One-way narration to the human (section-ledger updates, phase transitions, cost notices). */
 export interface Interactor {
   /** Present a poll; resolve the answer. Never throws; never hangs forever. `null` ⇒ pause the run. */
   ask(poll: Poll): Promise<Answer | null>;
   /** Narrate one block of plain text. Best-effort; never throws. */
   say(block: string): void;
+  /** Receive a structured cockpit event. Optional; best-effort; never throws. */
+  note?(note: CockpitNote): void;
   /** Release the surface (close readline, stop the server). Idempotent; never throws. */
   close(): Promise<void>;
 }

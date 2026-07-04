@@ -162,6 +162,7 @@ export async function runCockpit(deps: CockpitDeps): Promise<CockpitOutcome> {
       stalls = 0;
       state = recordContent(state, move.section, move.payload, move.complete);
       log({ event: "cockpit_move", move: "content", section: move.section, complete: move.complete });
+      deps.interactor.note?.({ kind: "sections", statuses: { ...state.spec.sections } });
       continue;
     }
 
@@ -197,6 +198,8 @@ export async function runCockpit(deps: CockpitDeps): Promise<CockpitOutcome> {
         });
         lastAnswer = `Fork "${fork.id}" was auto-resolved to "${chosen.label}" (delegated by poll granularity).`;
         log({ event: "cockpit_poll", poll_id: fork.id, asked: false, source: "delegated", option: chosen.id });
+        deps.interactor.note?.({ kind: "decision", pollId: fork.id, concept: fork.concept, source: "delegated", chosen: chosen.label });
+        deps.interactor.note?.({ kind: "sections", statuses: { ...state.spec.sections } });
         continue;
       }
 
@@ -255,6 +258,8 @@ export async function runCockpit(deps: CockpitDeps): Promise<CockpitOutcome> {
         ? `On "${fork.question}" the pilot answered in their own words: ${answer.freeText}`
         : `On "${fork.question}" the pilot chose "${chosenLabel}".`;
       log({ event: "cockpit_poll", poll_id: poll.id, asked: true, source: answer.source, option: answer.optionId });
+      deps.interactor.note?.({ kind: "decision", pollId: poll.id, concept: fork.concept, source: answer.source, chosen: chosenLabel ?? answer.freeText });
+      deps.interactor.note?.({ kind: "sections", statuses: { ...state.spec.sections } });
       continue;
     }
 
@@ -293,6 +298,7 @@ export async function runCockpit(deps: CockpitDeps): Promise<CockpitOutcome> {
     if (answer.optionId === "approve") {
       state = { ...state, spec: { ...state.spec, approvedAt: now() } };
       log({ event: "cockpit_approved", run_id: deps.runId, polls: state.polls, decisions: state.spec.decisions.length });
+      deps.interactor.note?.({ kind: "phase", phase: "approved", detail: `${state.spec.decisions.length} decision(s)` });
       return { status: "approved", state };
     }
 
