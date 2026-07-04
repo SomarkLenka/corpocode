@@ -1,73 +1,80 @@
 # CorpoCode
 
-**A firm of cheap-model caretakers for your expensive coding agent.** The main model inside a coding
-agent (Claude Code first) is a brilliant, costly developer who should be doing exactly one thing:
-**writing code**. Deciding *what* to write, working out *how* to approach it, and cleaning up
-*afterward* should not burn its time. CorpoCode hires a set of **three (extensible) caretakers** —
-teams of small, cheap-model agents — to do all of that surrounding work, so the expensive model stays
-on the keyboard.
+**A swarm of cheap authors, one expensive judge, and a human in the cockpit.**
 
-All logic lives in TypeScript behind `corpocode hook <name>`; installed hooks are thin shims that pipe
-`stdin → corpocode hook → stdout`. The main model never calls CorpoCode — it simply finds better
-context, a cleaner repo, and fewer mistakes already in front of it. Everything CorpoCode produces
-reaches the model through one channel: a hook's `additionalContext`.
+<!-- copied from docs/PHILOSOPHY.md (MISSION block) — edit there, then mirror here -->
+CorpoCode **simulates an expensive frontier coding model** with a massive fan-out of granular,
+well-scoped cheap-model agents. The swarm does *all* the work — business requirements, technical
+specs, design, codebase navigation, bug hunting, and **the implementation itself: cheap agents
+write the code**. The expensive model never authors anything; it **verifies only** — reading a
+great deal and emitting very little, because the economics that make this work are that **input
+tokens are cheap and output tokens are expensive** (speculative decoding, scaled up to agents;
+verification cadence is a tunable knob, not a fixed rite). Coding engines — Claude Code, Codex,
+OpenCode — are **interchangeable hands** driven by a standalone CorpoCode **orchestrator**, the
+primary product; the original hook mode survives as a secondary assist channel inside a host's
+turn. The one thing never simulated and never delegated is **authorship**: intent and judgment
+stay with the human, concentrated at spec time in the **Upper-Management cockpit**, which
+pre-analyzes every decision fork with a fan-out of consequence agents, teaches before it builds,
+and slowly adapts its questions to the pilot — after which the swarm executes autonomously
+against fully specified intent.
 
-The governing idea is **not a prompt *router* but a prompt *engine***. On each hook, a caretaker
-**categorizes the moment it was invoked in, instantiates a team of independent, single-purpose
-cheap-model agents to address whatever the main model might need, and aggregates their findings into
-one tight injection** before the expensive model ever sees it. Extensive low-scope parallel passes,
-merged — never one monolithic prompt. CorpoCode is **fail-open** throughout: any error, hang, or
-missing dependency degrades to *doing nothing* — an empty response and a clean exit — never to
-disrupting the host's turn. And it **proposes, the user disposes**: durable changes (git promotions,
-config diffs, skill candidates, telemetry) stay under human control.
+## Two modes
 
-## The three caretakers
+- **Orchestrator (primary — landing now, cockpit first).** `corpocode start "<task>"` drives a
+  whole engagement: the cockpit interrogates intent into a complete spec, a swarm of cheap
+  write-capable agents implements it through headless engine sessions on CorpoCode-owned
+  branches, a single expensive **arbiter** verifies (tiny verdicts, never code), and Housekeeping
+  promotes a clean branch. Landing on *your* branch is always an explicit poll. On release
+  builds, `corpocode start` is gated behind `corpocode init` onboarding (arbiter model, poll
+  granularity, budget).
+- **Assist channel (hook mode — shipped, supported, secondary).** CorpoCode installs hooks into a
+  coding-agent platform and its caretakers guide/clean up whatever model the host runs, reaching
+  it only through a hook's `additionalContext`. This mode stays **fail-open**: any error degrades
+  to doing nothing, never to a broken turn — and its behavior is byte-identical whether or not
+  the orchestrator exists (enforced by tests).
 
-### Middle-Management — guides the developer
+The governing mechanism in both modes is the same: **a prompt *engine*, not a prompt *router***.
+Categorize the moment, instantiate a team of independent, single-purpose cheap-model agents, and
+aggregate their findings deterministically — extensive low-scope parallel passes, merged; never
+one monolithic prompt, and never one big model call.
 
-Opens every turn. It reads the transcript to understand intent, classifies the moment, and dispatches
-a team of cheap agents to handle everything *except* the coding:
+## The three caretakers, on the project lifecycle
 
-- **Review the current task** and decide each branch independently — what relevant skills to load, when
-  to delegate work to a subagent, when a moment is a design **breakpoint**, exactly what to inject into
-  context, and (designed) when to call an MCP on the side and sideload its output.
-- **Find the relevant code, files, and docs** the prompt never named — scoring the codebase by
-  structure, recalling prior decisions from memory, retrieving precise reference material — and inject
-  them. It intercepts **file reads** to add focus and surface this file's past mistakes before the model
-  touches it.
-- At a design breakpoint, **instantiate MOLAR-EDIT** (the design philosophy) by spawning one low-cost
-  reviewer per tenet — the set is configurable — and aggregate only the concerns.
-- **Dynamic model and effort selection** — classify the difficulty of the task at hand and switch the
-  model and effort to match, so an easy turn stays cheap and a hard one gets headroom.
+### Upper-Management — the cockpit, the front door *(built first)*
 
-The expensive model arrives already oriented.
+Every engagement begins here. A cheap interrogator agent drives a directed conversation over the
+seven spec areas (API/entities, capability expansion grounded in the code graph, future seams,
+parallelization, compartmentalization, scale path, reusable systems); every decision fork is
+**pre-analyzed by a fan-out of consequence agents** (one per option × axis — performance,
+maintainability, extensibility, failure modes, idiom) so the human picks from a computed tree
+instead of answering open questions. It teaches before it builds, adapts its question set to the
+pilot via a per-concept mastery model, and never silently guesses — every fork is answered,
+delegated (recorded), or defaulted (recorded). Deliverables: `spec.json` (+ derived `spec.md`),
+a decisions ledger, and a `tasks.json` executable with superpowers-equipped Claude Code today.
+There is **no strong-model executive** — the arbiter is the only expensive component in the
+entire system. superpowers' brainstorming/writing-plans content is harvested as the v0 prompts
+(vendored and version-pinned), to be absorbed by a native spine.
 
-### Housekeeping — cleans up after the developer
+### Middle-Management — owns the implementation
 
-Runs during and after the work, in parallel, so cleanup never costs the main model a token:
+In orchestrator mode it decomposes the approved spec into granular tasks — each with a
+deterministic `verifyCommand` by construction — and fans out write-capable cheap agents through
+interchangeable engines, in isolated worktrees on `corpocode/run/<id>/*` branches. In the assist
+channel it remains the per-turn guide: it reads the transcript's line of thought, classifies the
+moment, retrieves the relevant code and prior decisions, design-reviews at a breakpoint, and
+selects model/effort to match difficulty.
 
-- **Real-time documentation** straight from the real call graph — what each unit *touches*, its
-  *impacts*, *risks*, and future considerations, and its *input → transformation → output* (structure,
-  mutability, purpose). Documentation should be obvious, so Housekeeping makes it so.
-- **Full git management** — atomic per-write commits to a bisectable *trace* branch, plus a curated,
-  readable *clean* branch — taking version control off the valuable model's hands entirely.
-- **Independent verification of functionality** — it periodically reviews functions and files against
-  the MOLAR-EDIT tenets (In-flight, Logging, and Observability foremost) and can halt a violating edit.
-- **Mining problems into memory and skills** — the mistakes the model hit become file-anchored warnings
-  for next time, and recurring solutions become reusable skill candidates.
+### Housekeeping — cleans up after the swarm
 
-### Upper-Management — designs the whole application *(designed; no code yet)*
+Git hygiene (atomic per-write trace commits, promotion to a curated clean branch), real-time
+documentation from the actual call graph, memory consolidation (mistakes become file-anchored
+warnings; recurring solutions become skill candidates), and run/worktree cleanup. Many cheap
+hands make many small messes — cleanup matters more here, not less.
 
-The executive tier: expensive models commanding a peon army of cheap ones to design *entire
-applications*. It interrogates the user for complete technical, API, and architectural specs —
-expansion of current capabilities, future features, task parallelization, service compartmentalization,
-the path to scaling in production, and reusable systems built once — and records major architectural
-flaws to memory. Fully specified; scheduled after the agent substrate proves out.
+> The caretaker set is itself **extensible** — labels over a fan-out engine, not hardwired
+> processes — so a fourth caretaker is an additive seam, not a rewrite.
 
-> The caretaker set is itself **extensible** — labels over a fan-out engine, not hardwired processes —
-> so a fourth caretaker is an additive seam, not a rewrite.
-
-## Install
+## Install (assist channel)
 
 [`corpocode`](https://www.npmjs.com/package/corpocode) is a single npm package that is **both** a global
 CLI and a Claude Code plugin. Pick **one** channel — using both on the same platform fires every hook
@@ -85,11 +92,11 @@ Use the HTTPS URL above — the `owner/repo` shorthand can resolve to SSH and fa
 error. Versioned updates come via `/plugin update`, it uninstalls cleanly, and it never touches your
 `settings.json`.
 
-### npm channel (standalone CLI; also the basis for other platforms)
+### npm channel (standalone CLI; also the basis for other platforms and the orchestrator)
 
 ```shell
 npm install -g corpocode
-corpocode install --platform claude-code    # register hooks + install agent/skill
+corpocode install --platform claude-code    # register hooks + install agent/skill (assist channel)
 corpocode doctor                            # verify
 ```
 
@@ -107,6 +114,7 @@ npm install && npm run build && npm install -g .   # or `npm link` for active de
 ## Operate
 
 ```shell
+corpocode start "<task>"  # the orchestrator: cockpit → spec (swarm execution lands next)
 corpocode doctor          # ordered health checks; every red check prints its repair command
 corpocode stats           # cost per component/provider, estimated savings, error rate
 corpocode stats --json --days 7
@@ -119,15 +127,17 @@ Secrets live separately at `~/.corpocode/secrets` (chmod 600); the config refere
 Any field can be overridden by a flat `CORPOCODE_*` environment variable, e.g.
 `CORPOCODE_PROVIDERS_DEFAULT_MODEL=claude-haiku-4-5`.
 
-Each component can run on a different provider (`config.components`), so you can run Middle-Management's
-categorizer on Haiku and Housekeeping's compactor on a free local Ollama model.
+Each component can run on a different provider (`config.components`), so you can run the cockpit's
+interrogator on Haiku, the compactor on a free local Ollama model — and the **arbiter** (the one
+deliberately expensive component) on a frontier model.
 
 ## Debug
 
 - **Logs.** Every hook appends one structured JSON line to a project-local `.corpocode/logs/corpocode.ndjson`
-  in the directory the host runs in (gitignored). Inspect with `corpocode stats` (run from the same
-  directory) or read the file directly. Logging never throws into a hook and can be disabled via
-  `config.logging.enabled`.
+  in the directory the host runs in (gitignored); orchestrator runs journal into
+  `.corpocode/runs/<runId>/` through the same seam. Inspect with `corpocode stats` / `corpocode why`
+  (run from the same directory) or read the file directly. Logging never throws into a hook and can
+  be disabled via `config.logging.enabled`.
 - **Trace a failing hook.** Set `CORPOCODE_DEBUG=1`; on any fail-open path the dispatcher writes the
   error (with stack) to stderr. stderr on a 0-exit hook is shown by the host but does not break the
   turn.
@@ -146,36 +156,38 @@ accumulated memory.
 
 ## Architecture (one screen)
 
-Each caretaker is a **fan-out of low-scope cheap-model agents whose findings aggregate into one
-injection** — the retrieval team plans a checklist and runs it concurrently; the design-review and
-verifier teams run one agent per MOLAR-EDIT tenet; the compactor distills the session. That shared
-shape rests on four modular abstractions behind interfaces; consumers call the interface, never the
-adapter, so implementations swap without touching a consumer:
+Each caretaker is a **fan-out of low-scope cheap-model agents whose findings aggregate
+deterministically** — the cockpit runs one consequence agent per option×axis; the retrieval team
+plans a checklist and runs it concurrently; the design-review and verifier teams run one agent per
+MOLAR-EDIT tenet; the compactor distills the session. That shared shape rests on five modular
+abstractions behind interfaces; consumers call the interface, never the adapter, so implementations
+swap without touching a consumer:
 
 | Interface | Default implementation | Answers |
 | --- | --- | --- |
 | `Provider` | anthropic, anthropic-cli, google, openai, openrouter, ollama | "run a cheap model call" |
+| `AgentBackend` | anthropic-cli (headless `claude`); agent-engine adapter for Codex/OpenCode | "run a cheap *agent* — the interchangeable hands" |
 | `KnowledgeGraph` | native (TypeScript; graphify adapter optional) | "how is the code structured?" |
 | `ContextStore` | native (embedded store + Provider tiering; OpenViking adapter optional) | "what reference material is relevant, at what depth?" |
 | `MemoryStore` | native (no vendor) | "what have we learned and decided?" |
 
 All three knowledge backends are native TypeScript, so the only hard dependency is the cheap models
-behind `Provider`.
+behind `Provider`/`AgentBackend`.
 
-The flow per turn, by caretaker: on **`UserPromptSubmit`**, Middle-Management distills the line of
-thought, graph-scores candidate files for free, classifies the moment with a single paid call, recalls
-prior decisions, fans out the retrieval team, and runs a design-review at a breakpoint — injecting a
-`<middle-management recommendation>` block plus its retrieved context. On **`PreToolUse`** it gives the
-filter and injector teeth (deny a dangerous command, focus a file read). On **`PostToolUse`**,
-Housekeeping's verifier fans out the active tenet checks and can halt a violating edit, recording each
-write to the trace branch. On **`Stop`**, Housekeeping compacts the session into memory, promotes the
-trace branch into the clean one, and documents the touched code. Everything reaches the model only as
-hook `additionalContext`.
+**The orchestrator run** (`docs/narrative/08`): cockpit interrogation → frozen `spec.json` +
+`tasks.json` → implementation waves in isolated worktrees → tiered verification (deterministic
+`verifyCommand` → cheap tenet screen → arbiter verdict) → promotion to a clean branch → the human
+lands it. **The assist-channel turn** (`docs/narrative/00`): on `UserPromptSubmit`
+Middle-Management distills the line of thought, classifies the moment, recalls prior decisions,
+fans out the retrieval team, and injects one `<middle-management recommendation>` block; on
+`PreToolUse` the filter and injector act; on `PostToolUse` the verifier checks each edit; on `Stop`
+the compactor writes the session's lessons into memory.
 
-The **IntelligentRouter** is the agent substrate that upgrades these fan-outs from cheap *model calls*
-to true *investigating agents* — agents that open files, call MCPs, and judge each other's output, so
-the model receives a **conclusion** ("the bug is at `auth/session.ts:140`") rather than a reading list.
-It is built infrastructure-first and **ships dark** (off by default) until each behavior is proven.
+The **IntelligentRouter** is the agent substrate both modes fan out through — agents that open
+files, call MCPs, and judge each other's output, so the *verifier* receives evidence and the swarm
+receives direction rather than a reading list. It runs **live in orchestrator mode** (it is the
+execution substrate) and stays **dark in hook mode** (off by default, byte-identical with the flag
+off) until each hook-channel behavior is proven.
 
 For the full guided tour — the architecture, the per-turn flow, and the rationale subsystem by
 subsystem — read the narrative documentation in [`docs/narrative/`](docs/narrative/00-overview.md). See
