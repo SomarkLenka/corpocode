@@ -41,6 +41,19 @@ export const BUILTIN_PROMPTS = {
     "{{candidates}}",
   ].join("\n"),
 
+  // intelligence/patterns/bug-hunt.ts — one read-only agent per candidate file decides whether THIS file
+  // is implicated in the user's reported problem and cites the exact lines. The file path is delivered via
+  // the call's inputs.files; the user's problem statement via inputs.reasoning — so the prompt is stable
+  // (the same prefix for every file, which the cacheGuard later exploits) and carries no per-file text.
+  "bug-hunt": [
+    "You are hunting for the code implicated in a problem a developer is investigating. You are given ONE",
+    "candidate file (in inputs.files) and the developer's problem statement (in inputs.reasoning). Read",
+    "ONLY that file. Decide whether it is plausibly implicated in the problem, and if so cite the exact",
+    "line spans that matter and why. Be strict: set implicated=false unless you can point at specific",
+    "lines. Do not speculate about files you were not given. Respond with ONLY JSON:",
+    '{"implicated":boolean,"confidence":number 0..1,"lines":[{"start":number,"end":number,"why":string}]}.',
+  ].join(" "),
+
   // filter/classify.ts — the soft safety classifier for shell commands (the `ask` leftover).
   "filter-classify": [
     "You are a safety classifier for shell commands run inside a coding session. Decide: deny",

@@ -24080,6 +24080,18 @@ var BUILTIN_PROMPTS = {
     "Candidate files (only choose context_files_to_preload from these):",
     "{{candidates}}"
   ].join("\n"),
+  // intelligence/patterns/bug-hunt.ts — one read-only agent per candidate file decides whether THIS file
+  // is implicated in the user's reported problem and cites the exact lines. The file path is delivered via
+  // the call's inputs.files; the user's problem statement via inputs.reasoning — so the prompt is stable
+  // (the same prefix for every file, which the cacheGuard later exploits) and carries no per-file text.
+  "bug-hunt": [
+    "You are hunting for the code implicated in a problem a developer is investigating. You are given ONE",
+    "candidate file (in inputs.files) and the developer's problem statement (in inputs.reasoning). Read",
+    "ONLY that file. Decide whether it is plausibly implicated in the problem, and if so cite the exact",
+    "line spans that matter and why. Be strict: set implicated=false unless you can point at specific",
+    "lines. Do not speculate about files you were not given. Respond with ONLY JSON:",
+    '{"implicated":boolean,"confidence":number 0..1,"lines":[{"start":number,"end":number,"why":string}]}.'
+  ].join(" "),
   // filter/classify.ts — the soft safety classifier for shell commands (the `ask` leftover).
   "filter-classify": [
     "You are a safety classifier for shell commands run inside a coding session. Decide: deny",
@@ -24215,6 +24227,7 @@ var PROMPT_META = {
   retrieval: { path: "retrieval/plan.md", source: "src/retrieval/planner.ts", effect: "what the retrieval team gathers when no template matches" },
   compactor: { path: "compactor/digest.md", source: "src/compactor/worker.ts", effect: "how an older transcript slice is summarized at Stop" },
   skillgen: { path: "skillgen/distill.md", source: "src/loops/skillgen.ts", effect: "how mined memories become skill candidates" },
+  "bug-hunt": { path: "intelligence/bug-hunt.md", source: "src/intelligence/patterns/bug-hunt.ts", effect: "how each candidate file is judged implicated and which lines it cites" },
   "filter-classify": { path: "filter/classify.md", source: "src/filter/classify.ts", effect: "how an uncertain shell command is judged deny/allow/ask" },
   "filter-inject": { path: "filter/inject.md", source: "src/filter/inject.ts", effect: "how a file read is narrowed to the relevant slice" },
   "session-reader": { path: "session/reader.md", source: "src/session/reader.ts", effect: "how the line-of-thought is distilled from the transcript" },
@@ -28084,6 +28097,245 @@ async function maybeRouteHeavyCoding(envelope, ctx) {
   }
 }
 
+// src/intelligence/gather.ts
+var DEFAULT_LIMIT = 8;
+async function settled(p2, fallback, logger, source) {
+  try {
+    return await p2;
+  } catch (err) {
+    logger?.log({ event: "gather_source_degraded", source, reason: err instanceof Error ? err.message : String(err) });
+    return fallback;
+  }
+}
+async function gather(intent, deps) {
+  const limit2 = deps.limit ?? DEFAULT_LIMIT;
+  const scope = { project: deps.project, workspaceCascade: true };
+  if (intent.kind === "prompt") {
+    const [files, memories2, retrieval] = await Promise.all([
+      settled(deps.graph.scoreFiles(intent.prompt, { limit: limit2 }), [], deps.logger, "graph.scoreFiles"),
+      settled(
+        deps.memory.recall({ query: intent.prompt, kinds: ["mistake", "rule"], scope, limit: limit2 }),
+        [],
+        deps.logger,
+        "memory.recall"
+      ),
+      deps.runRetrieval ? settled(deps.runRetrieval(intent), void 0, deps.logger, "runRetrieval") : Promise.resolve(void 0)
+    ]);
+    return { files, nodes: [], neighborhoods: [], memories: memories2, retrieval };
+  }
+  const file = intent.file;
+  const node = await settled(deps.graph.getNode(file), null, deps.logger, "graph.getNode");
+  const [neighborhood, memories] = await Promise.all([
+    node ? settled(deps.graph.getNeighbors(node.id), null, deps.logger, "graph.getNeighbors") : Promise.resolve(null),
+    settled(deps.memory.recall({ file, scope, limit: limit2 }), [], deps.logger, "memory.recall")
+  ]);
+  return {
+    files: node?.path ? [{ path: node.path, score: 1, nodeId: node.id }] : [],
+    nodes: node ? [node] : [],
+    neighborhoods: neighborhood ? [neighborhood] : [],
+    memories
+  };
+}
+
+// src/intelligence/engine.ts
+var DEFAULT_FANOUT = 3;
+var keepOk = (results) => results.filter((r2) => r2.result.ok);
+async function run(plan, deps) {
+  const limiter = deps.limiter ?? globalProviderLimiter;
+  const now = deps.now ?? (() => Date.now());
+  const started = now();
+  const width = Math.max(1, plan.fanoutWidth ?? DEFAULT_FANOUT);
+  const results = await mapBounded(plan.tasks, width, async (task) => {
+    try {
+      const backend = deps.forTask(task.call.taskKind);
+      const result = await limiter.run(() => backend.invoke(task.call));
+      deps.log?.({ event: "agent_item", id: task.id, task_kind: task.call.taskKind, ok: result.ok, cost_usd: result.usage.costUsd, latency_ms: result.usage.latencyMs });
+      return { id: task.id, result };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        id: task.id,
+        result: { ok: false, usage: { inputTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: 0, model: "" }, model: { providerKey: "", model: "" }, error: { kind: "model_unavailable", message, retryable: false } }
+      };
+    }
+  });
+  const judged = (plan.judge ?? keepOk)(results);
+  const usage = {
+    costUsd: results.reduce((sum, r2) => sum + r2.result.usage.costUsd, 0),
+    latencyMs: now() - started,
+    calls: results.length,
+    succeeded: results.filter((r2) => r2.result.ok).length
+  };
+  deps.log?.({ event: "orchestrate", calls: usage.calls, succeeded: usage.succeeded, surviving: judged.length, cost_usd: usage.costUsd, latency_ms: usage.latencyMs });
+  return { ok: judged.length > 0, tasks: judged, usage };
+}
+async function mapBounded(items, cap2, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i2 = next++;
+      out[i2] = await fn(items[i2]);
+    }
+  };
+  const pool = Math.min(Math.max(1, cap2), items.length || 1);
+  await Promise.all(Array.from({ length: pool }, () => worker()));
+  return out;
+}
+
+// src/intelligence/router-router.ts
+var TRIAGE_SCHEMA = {
+  type: "object",
+  required: ["dumb", "reason"],
+  properties: {
+    dumb: { type: "boolean", description: "true ONLY if absurdly simple: handleable directly with no codebase discovery" },
+    reason: { type: "string" },
+    directAction: { type: "string", description: "if dumb, the single direct action (e.g. 'git commit', 'read one file')" }
+  }
+};
+var TRIAGE_TASK = "Decide if this coding-assistant moment is absurdly simple \u2014 directly handleable by a single agent with NO codebase discovery (e.g. a greeting, a trivial Q&A, one file read, a git add/commit). Default to dumb=false. Only dumb=true when you are confident no investigation is needed.";
+function describe(intent) {
+  switch (intent.kind) {
+    case "prompt":
+      return `User prompt: ${intent.prompt}`;
+    case "pre-write":
+      return `About to write file: ${intent.file}`;
+    case "pre-read":
+      return `About to read file: ${intent.file}`;
+    case "post-write":
+      return `Just wrote file: ${intent.file}`;
+  }
+}
+async function route(intent, deps) {
+  if (deps.enabled === false) return { route: "smart", reason: "router-router disabled" };
+  const trivial = deps.isTrivial ?? isTrivialPrompt;
+  if (intent.kind === "prompt" && trivial(intent.prompt)) {
+    return { route: "dumb", reason: "deterministically trivial prompt" };
+  }
+  let backend;
+  try {
+    backend = deps.forTask("triage");
+  } catch {
+    return { route: "smart", reason: "no triage backend \u2014 defaulting to full router" };
+  }
+  const res = await backend.invoke({
+    component: "router",
+    taskKind: "triage",
+    task: TRIAGE_TASK,
+    inputs: { reasoning: describe(intent) },
+    tools: "none",
+    effort: "minimal",
+    schema: TRIAGE_SCHEMA,
+    session: "ephemeral"
+  });
+  if (!res.ok || !res.data) return { route: "smart", reason: res.error?.message ?? "triage inconclusive" };
+  if (res.data.dumb === true) {
+    return { route: "dumb", reason: res.data.reason || "triaged simple", directAction: res.data.directAction };
+  }
+  return { route: "smart", reason: res.data.reason || "triaged non-trivial" };
+}
+
+// src/intelligence/patterns/bug-hunt.ts
+var BUG_HUNT_SCHEMA = {
+  type: "object",
+  required: ["implicated", "confidence"],
+  properties: {
+    implicated: { type: "boolean", description: "true ONLY if specific lines in this file are implicated" },
+    confidence: { type: "number", description: "0..1 confidence that this file is implicated" },
+    lines: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["start", "end"],
+        properties: {
+          start: { type: "number" },
+          end: { type: "number" },
+          why: { type: "string", description: "why this span is implicated" }
+        }
+      }
+    }
+  }
+};
+var DEFAULT_BUG_HUNT_CONFIG = { fanoutWidth: 3, confidenceFloor: 0.5, maxFiles: 6 };
+var TASK_KIND = "file-relevance";
+function bugHuntJudge(floor) {
+  return (results) => results.filter((r2) => {
+    if (!r2.result.ok) return false;
+    const finding = r2.result.data;
+    return Boolean(finding?.implicated) && (finding?.confidence ?? 0) >= floor;
+  });
+}
+function planBugHunt(intent, candidates, cfg, taskPrompt) {
+  const problem = intent.kind === "prompt" ? intent.prompt : "";
+  const priorMistakes = candidates.memories.map((m2) => m2.text).filter(Boolean).join("; ");
+  const tasks = candidates.files.slice(0, cfg.maxFiles).map((file) => ({
+    id: file.path,
+    call: {
+      component: "router",
+      taskKind: TASK_KIND,
+      task: taskPrompt,
+      inputs: {
+        files: [file.path],
+        reasoning: problem,
+        ...priorMistakes ? { decisions: priorMistakes } : {}
+      },
+      tools: "read-only",
+      effort: "minimal",
+      schema: BUG_HUNT_SCHEMA,
+      session: "ephemeral"
+    }
+  }));
+  return { tasks, fanoutWidth: cfg.fanoutWidth, judge: bugHuntJudge(cfg.confidenceFloor) };
+}
+function renderFinding(task) {
+  const finding = task.result.data;
+  const conf = (finding?.confidence ?? 0).toFixed(2);
+  const spans = (finding?.lines ?? []).map(
+    (l2) => `  - lines ${l2.start}-${l2.end}${l2.why ? `: ${l2.why}` : ""}`
+  );
+  return [`## ${task.id} (confidence ${conf})`, ...spans].join("\n");
+}
+function synthesizeBugHunt(result) {
+  if (result.tasks.length === 0) return "";
+  const header = "Files likely implicated in this problem, with cited line spans (CorpoCode pre-read these \u2014 you can skip opening them and go straight to the cited lines):";
+  const body = [header, ...result.tasks.map(renderFinding)].join("\n\n");
+  return tagged(TAGS.intelligentRouter, body);
+}
+async function runBugHunt(intent, deps) {
+  const cfg = { ...DEFAULT_BUG_HUNT_CONFIG, ...deps.cfg };
+  try {
+    const decision = await route(intent, { forTask: deps.forTask, enabled: deps.routerRouter });
+    if (decision.route === "dumb") {
+      deps.logger?.log({ event: "bug_hunt", phase: "route", route: "dumb", reason: decision.reason });
+      return "";
+    }
+    const candidates = await gather(intent, {
+      graph: deps.graph,
+      memory: deps.memory,
+      project: deps.project,
+      logger: deps.logger
+    });
+    if (candidates.files.length === 0) {
+      deps.logger?.log({ event: "bug_hunt", phase: "gather", files: 0 });
+      return "";
+    }
+    const taskPrompt = deps.prompts.resolve("bug-hunt");
+    const plan = planBugHunt(intent, candidates, cfg, taskPrompt);
+    deps.logger?.log({ event: "bug_hunt", phase: "plan", candidates: candidates.files.length, tasks: plan.tasks.length });
+    const result = await run(plan, {
+      forTask: deps.forTask,
+      now: deps.now,
+      // The engine always stamps `event` on its lines; cast bridges its structural type to LogFields.
+      log: (line) => deps.logger?.log(line)
+    });
+    deps.logger?.log({ event: "bug_hunt", phase: "synthesize", surviving: result.tasks.length, cost_usd: result.usage.costUsd });
+    return synthesizeBugHunt(result);
+  } catch (err) {
+    deps.logger?.log({ event: "bug_hunt", phase: "error", reason: err instanceof Error ? err.message : String(err) });
+    return "";
+  }
+}
+
 // src/router/handler.ts
 function buildRecommendation(decision, candidates, priorDecisions) {
   const lines = [];
@@ -28208,6 +28460,7 @@ async function handleUserPromptSubmit(envelope, ctx) {
     });
   }
   const toolbox = await pickToolboxForPrompt(envelope, ctx, stage1.candidates);
+  const bugHunt = ctx.agents ? await dispatchBugHunt(envelope, ctx) : null;
   return {
     hookEventName: "UserPromptSubmit",
     additionalContext: joinBlocks([
@@ -28215,9 +28468,29 @@ async function handleUserPromptSubmit(envelope, ctx) {
       retrieved ? { tag: TAGS.retrievedContext, content: retrieved } : null,
       review ? { tag: TAGS.designReview, content: review } : null,
       delegation ? { tag: TAGS.delegation, content: delegation.text } : null,
-      toolbox ? { tag: TAGS.toolbox, content: toolbox } : null
+      toolbox ? { tag: TAGS.toolbox, content: toolbox } : null,
+      bugHunt || null
     ])
   };
+}
+async function dispatchBugHunt(envelope, ctx) {
+  if (!ctx.agents) return null;
+  const intent = {
+    kind: "prompt",
+    prompt: envelope.prompt,
+    sessionId: envelope.session_id,
+    transcriptPath: envelope.transcript_path
+  };
+  const block = await runBugHunt(intent, {
+    forTask: ctx.agents.forTask,
+    graph: ctx.graph,
+    memory: ctx.memory,
+    project: ctx.project,
+    prompts: ctx.prompts,
+    logger: ctx.logger,
+    routerRouter: ctx.config.agents.router_router
+  });
+  return block || null;
 }
 async function pickToolboxForPrompt(envelope, ctx, candidates) {
   if (!ctx.config.toolbox.enabled) return null;
@@ -28459,8 +28732,8 @@ async function handlePreToolUse(envelope, ctx) {
   }
   const command = extractCommand(envelope.tool_name, envelope.tool_input);
   if (command === null) {
-    const route = await maybeRouteHeavyCoding(envelope, ctx);
-    return route ? { additionalContext: tagged(TAGS.toolbox, route) } : {};
+    const route2 = await maybeRouteHeavyCoding(envelope, ctx);
+    return route2 ? { additionalContext: tagged(TAGS.toolbox, route2) } : {};
   }
   const classification = classifyToolCall(envelope.tool_name, envelope.tool_input);
   if (!ctx.registry.availableFor("filter")) {
@@ -29583,7 +29856,7 @@ async function dispatchHook(hookName, rawStdin, deps = {}) {
     const makeContext = deps.makeContext ?? ((c2, b2) => buildContext(c2, { env: deps.env, repoRoot: b2.cwd, logger: deps.logger, platform, sessionId: b2.session_id }));
     const ctx = makeContext(config, base);
     const serialize = (r2) => serializeForPlatform(r2, platform);
-    const route = () => {
+    const route2 = () => {
       switch (hookName) {
         case "UserPromptSubmit":
           return runTyped(hookName, userPromptSubmitSchema, parsed, handlers.UserPromptSubmit, ctx, serialize, flow);
@@ -29611,7 +29884,7 @@ async function dispatchHook(hookName, rawStdin, deps = {}) {
         }
       }
     };
-    return await withTimeout2(route(), deps.hookTimeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS);
+    return await withTimeout2(route2(), deps.hookTimeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS);
   } catch (err) {
     try {
       logger.log({
@@ -30277,46 +30550,6 @@ async function runUninstallCommand(argv) {
 // src/commands/start.ts
 var import_node_fs40 = require("node:fs");
 
-// src/intelligence/gather.ts
-var DEFAULT_LIMIT = 8;
-async function settled(p2, fallback, logger, source) {
-  try {
-    return await p2;
-  } catch (err) {
-    logger?.log({ event: "gather_source_degraded", source, reason: err instanceof Error ? err.message : String(err) });
-    return fallback;
-  }
-}
-async function gather(intent, deps) {
-  const limit2 = deps.limit ?? DEFAULT_LIMIT;
-  const scope = { project: deps.project, workspaceCascade: true };
-  if (intent.kind === "prompt") {
-    const [files, memories2, retrieval] = await Promise.all([
-      settled(deps.graph.scoreFiles(intent.prompt, { limit: limit2 }), [], deps.logger, "graph.scoreFiles"),
-      settled(
-        deps.memory.recall({ query: intent.prompt, kinds: ["mistake", "rule"], scope, limit: limit2 }),
-        [],
-        deps.logger,
-        "memory.recall"
-      ),
-      deps.runRetrieval ? settled(deps.runRetrieval(intent), void 0, deps.logger, "runRetrieval") : Promise.resolve(void 0)
-    ]);
-    return { files, nodes: [], neighborhoods: [], memories: memories2, retrieval };
-  }
-  const file = intent.file;
-  const node = await settled(deps.graph.getNode(file), null, deps.logger, "graph.getNode");
-  const [neighborhood, memories] = await Promise.all([
-    node ? settled(deps.graph.getNeighbors(node.id), null, deps.logger, "graph.getNeighbors") : Promise.resolve(null),
-    settled(deps.memory.recall({ file, scope, limit: limit2 }), [], deps.logger, "memory.recall")
-  ]);
-  return {
-    files: node?.path ? [{ path: node.path, score: 1, nodeId: node.id }] : [],
-    nodes: node ? [node] : [],
-    neighborhoods: neighborhood ? [neighborhood] : [],
-    memories
-  };
-}
-
 // src/orchestrator/context.ts
 function buildOrchestratorAgents(config, opts) {
   return buildAgentRegistry({
@@ -30468,52 +30701,6 @@ function listRuns(cwd6, env) {
     if (rec) out.push(rec);
   }
   out.sort((a2, b2) => b2.createdAt - a2.createdAt || (a2.id < b2.id ? 1 : -1));
-  return out;
-}
-
-// src/intelligence/engine.ts
-var DEFAULT_FANOUT = 3;
-var keepOk = (results) => results.filter((r2) => r2.result.ok);
-async function run(plan, deps) {
-  const limiter = deps.limiter ?? globalProviderLimiter;
-  const now = deps.now ?? (() => Date.now());
-  const started = now();
-  const width = Math.max(1, plan.fanoutWidth ?? DEFAULT_FANOUT);
-  const results = await mapBounded(plan.tasks, width, async (task) => {
-    try {
-      const backend = deps.forTask(task.call.taskKind);
-      const result = await limiter.run(() => backend.invoke(task.call));
-      deps.log?.({ event: "agent_item", id: task.id, task_kind: task.call.taskKind, ok: result.ok, cost_usd: result.usage.costUsd, latency_ms: result.usage.latencyMs });
-      return { id: task.id, result };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return {
-        id: task.id,
-        result: { ok: false, usage: { inputTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: 0, model: "" }, model: { providerKey: "", model: "" }, error: { kind: "model_unavailable", message, retryable: false } }
-      };
-    }
-  });
-  const judged = (plan.judge ?? keepOk)(results);
-  const usage = {
-    costUsd: results.reduce((sum, r2) => sum + r2.result.usage.costUsd, 0),
-    latencyMs: now() - started,
-    calls: results.length,
-    succeeded: results.filter((r2) => r2.result.ok).length
-  };
-  deps.log?.({ event: "orchestrate", calls: usage.calls, succeeded: usage.succeeded, surviving: judged.length, cost_usd: usage.costUsd, latency_ms: usage.latencyMs });
-  return { ok: judged.length > 0, tasks: judged, usage };
-}
-async function mapBounded(items, cap2, fn) {
-  const out = new Array(items.length);
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const i2 = next++;
-      out[i2] = await fn(items[i2]);
-    }
-  };
-  const pool = Math.min(Math.max(1, cap2), items.length || 1);
-  await Promise.all(Array.from({ length: pool }, () => worker()));
   return out;
 }
 
@@ -32741,7 +32928,7 @@ function labelFor(rec) {
   if (rec.event === "inject") return "injector";
   return typeof rec.component === "string" ? rec.component : s2(rec.event);
 }
-function describe(rec) {
+function describe2(rec) {
   switch (rec.event) {
     case "router": {
       if (rec.stage2_invoked === false) return "Trivial prompt \u2014 skipped analysis (free).";
@@ -32807,7 +32994,7 @@ function describe(rec) {
   }
 }
 function explain(rec) {
-  const text = describe(rec);
+  const text = describe2(rec);
   if (text === null) return null;
   return { label: labelFor(rec), text };
 }
@@ -32863,7 +33050,7 @@ function computeWhy(lines, opts = {}) {
   const out = [];
   let otherEvents = 0;
   for (const rec of inSession) {
-    const text = describe(rec);
+    const text = describe2(rec);
     if (text) out.push(toLine(rec, text, false));
     else otherEvents += 1;
   }
@@ -32873,7 +33060,7 @@ function computeWhy(lines, opts = {}) {
       if (typeof rec.session_id === "string") continue;
       const ts = parseTs(rec.ts);
       if (Number.isNaN(ts) || ts < startedMs || ts > endedMs) continue;
-      const text = describe(rec);
+      const text = describe2(rec);
       if (!text) continue;
       out.push(toLine(rec, text, true));
       attributedSessionless += 1;
