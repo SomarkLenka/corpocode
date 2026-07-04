@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "seed-a",
+      "title": "Config schema",
+      "description": "Add the orchestrator config block",
+      "files": ["src/config/schema.ts"],
+      "verifyCommand": "npx vitest run tests/config/schema.test.ts",
+      "acceptanceCriteria": ["configSchema.parse({}) stays byte-identical"],
+      "dependsOn": [],
+      "status": "completed",
+      "modelTier": "standard",
+      "budgetUsd": 0.5,
+      "specRefs": ["ac-1"],
+      "unknownFutureField": { "ignored": true }
+    },
+    {
+      "id": "seed-b",
+      "title": "Loop wiring",
+      "description": "Consume the config block in the loop",
+      "files": ["src/um/loop.ts"],
+      "dependsOn": ["seed-a"],
+      "status": "pending",
+      "modelTier": "frontier",
+      "budgetUsd": 2,
+      "specRefs": ["ac-1", "ac-2"]
+    }
+  ]
+}
