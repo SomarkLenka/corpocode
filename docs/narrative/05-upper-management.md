@@ -95,15 +95,20 @@ the final "approve spec" poll.
 
 ## The superpowers harvest: v0 now, absorbed later
 
-The superpowers plugin's `brainstorming` and `writing-plans` skills are a proven, novice-grade
-draft of exactly this interrogation spine, so the cockpit **harvests them as v0**: their prompt
+The harvest base is **[pcvelz/superpowers](https://github.com/pcvelz/superpowers)** — the
+Claude-Code-native fork ("Superpowers Extended") — by owner decision: beyond upstream's
+`brainstorming` and `writing-plans` spine it carries the structured task-metadata discipline the
+cockpit needs (Goal/Files/AC/Verify with a `json:metadata` fence, **required** per-task
+`verifyCommand` and operational acceptance criteria, `modelTier` routing —
+mechanical/standard/frontier — and user-gate tagging). The cockpit **harvests it as v0**: prompt
 content is **vendored, version-pinned, provenance-commented** into CorpoCode's prompt registry
-(`um-interrogate-v0`, `um-decompose-v0`) — content and schema, never process. There is no
-runtime dependency on the installed plugin (agents spawn with `--bare`, which skips plugins; the
-cockpit must own the conversation). Superpowers' execution gates are **not** harvested: the
-orchestrator's own wave/verify gating supersedes them ([chapter 08](08-orchestrator.md)).
-Absorption is complete when deleting the vendored constants changes prompt text, not
-architecture.
+(`um-interrogate-v0`, `um-decompose-v0`), and the fork's native plan persistence
+(`<plan>.md.tasks.json`) is importable via `--from-plan` — content and schema, never process.
+There is no runtime dependency on the installed plugin (agents spawn with `--bare`, which skips
+plugins; the cockpit must own the conversation). Superpowers' execution gates are **not**
+harvested: the orchestrator's own wave/verify gating supersedes them
+([chapter 08](08-orchestrator.md)). Absorption is complete when deleting the vendored constants
+changes prompt text, not architecture.
 
 ## Substrate map
 

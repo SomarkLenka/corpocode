@@ -244,6 +244,7 @@ export const configSchema = z
         roles: z.record(roleConfigSchema).default({
           interrogate: { effort: "medium", timeout_ms: 60_000 },
           consequence: { effort: "minimal", timeout_ms: 30_000 },
+          decompose: { effort: "medium", timeout_ms: 120_000 },
           implement: { effort: "medium", max_turns: 40, timeout_ms: 600_000 },
           arbiter: { component: "arbiter", model: "claude-fable-5", effort: "high" },
           housekeeping: { effort: "minimal" },

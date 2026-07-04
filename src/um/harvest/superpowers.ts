@@ -16,8 +16,12 @@ export const SUPERPOWERS_PROVENANCE: {
   fetchedAt: string | null;
   derived: boolean;
 } = {
-  repo: "https://github.com/obra/superpowers",
-  commit: "d884ae04edebef577e82ff7c4e143debd0bbec99",
+  // The Claude-Code-native fork ("Superpowers Extended for Claude Code") — the harvest base by
+  // owner decision: it carries the structured task metadata (Goal/Files/AC/Verify + json:metadata
+  // fence), model tiers, and user-gate discipline that the upstream obra/superpowers deliberately
+  // keeps out of scope for cross-platform reasons.
+  repo: "https://github.com/pcvelz/superpowers",
+  commit: "2a392d4b1ec35440116477528f7ff91772cda7a3",
   fetchedAt: "2026-07-04",
   derived: false,
 };
@@ -25,14 +29,17 @@ export const SUPERPOWERS_PROVENANCE: {
 /**
  * um-interrogate-v0 — the cockpit's interrogation system prompt.
  *
- * Provenance: adapted from https://github.com/obra/superpowers
- *   skills/brainstorming/SKILL.md @ d884ae04edebef577e82ff7c4e143debd0bbec99 (fetched 2026-07-04),
+ * Provenance: adapted from https://github.com/pcvelz/superpowers (the Claude-Code-native fork)
+ *   skills/brainstorming/SKILL.md @ 2a392d4b1ec35440116477528f7ff91772cda7a3 (fetched 2026-07-04),
  *   with the section charter from docs/narrative/05-upper-management.md.
  * Harvested: the brainstorming discipline (one question at a time, multiple-choice preferred,
- *   2-4 concrete options with a recommendation, scope-decomposition-first, YAGNI, ground in the
- *   codebase before proposing). NOT harvested: the HARD-GATE / checklist / visual-companion /
- *   writing-plans-handoff process — execution gating belongs to the orchestrator (narrative/08),
- *   and the conversation is driven by the loop, not by skill invocation.
+ *   2-4 concrete options with a recommendation, approaches-before-details, scope-decomposition-
+ *   first, YAGNI, ground in the codebase before proposing, the "too simple to need a spec"
+ *   anti-pattern, operational acceptance criteria, and the spec self-review — placeholders,
+ *   contradictions, ambiguity, scope creep — before declaring done). NOT harvested: the
+ *   HARD-GATE / checklist / visual-companion / writing-plans-handoff process — execution gating
+ *   belongs to the orchestrator (narrative/08), and the conversation is driven by the loop, not
+ *   by skill invocation.
  *
  * Placeholders: {{task}} {{remainingSections}} {{grounding}} {{lastAnswer}}.
  * The MOVE PROTOCOL block below is a cross-module contract — the loop Zod-parses exactly these
@@ -67,6 +74,9 @@ THE CHARTER — seven sections; each must reach complete before the spec can be 
 HOW TO WORK
 - Ask ONE question at a time. If a topic needs more exploration, break it into several forks
   across turns rather than one compound question.
+- Approaches before details: early in the conversation, surface a fork proposing 2-3 whole
+  APPROACHES to the task (with trade-offs and your recommendation) before refining any detail —
+  detail questions about an approach the pilot will not choose are wasted polls.
 - Prefer concrete multiple-choice forks over open questions: 2-4 real options, each with a short
   label and a description carrying its trade-off. Always name your recommended option via
   "suggested" and make the recommendation defensible from the grounding.
@@ -75,11 +85,17 @@ HOW TO WORK
   "major": false — the granularity dial filters on this flag.
 - If the task spans multiple independent subsystems, surface a decomposition fork FIRST. Do not
   spend questions refining details of a project that needs splitting.
+- No task is "too simple to need a spec": a small task earns a short spec, never a skipped one —
+  simple projects are where unexamined assumptions waste the most work.
 - YAGNI ruthlessly: propose cutting unnecessary features; never widen scope the pilot did not ask for.
-- Every acceptance criterion must carry a verify method; prefer deterministic commands over
-  manual checks.
+- Acceptance criteria must be OPERATIONAL: each names an observable and a pass/fail value
+  ("HTTP 200 from /health", "setup.done file present") — never "it works" or "integration is
+  solid". Every criterion carries a verify method; prefer deterministic commands over manual checks.
 - Record only what the pilot decided or what the grounding establishes. Never invent a decision
   the pilot has not made — an unresolved fork is asked, not assumed.
+- SELF-REVIEW before {"move":"done"}: scan the accumulated spec for placeholders ("TBD",
+  "appropriate", "handle edge cases"), contradictions between sections, ambiguous criteria, and
+  scope the pilot never asked for. Fix by emitting corrective content moves, then end.
 
 RESPONSE FORMAT — respond with EXACTLY ONE JSON object per turn. No prose, no code fences,
 nothing before or after the object. Three moves exist:
@@ -103,13 +119,18 @@ A malformed response is a failed turn — emit the single JSON object and nothin
  * um-decompose-v0 — the approved-spec → task-graph prompt (consumed by Phase 2/3; vendored now so
  * the harvest is one pinned unit).
  *
- * Provenance: adapted from https://github.com/obra/superpowers
- *   skills/writing-plans/SKILL.md @ d884ae04edebef577e82ff7c4e143debd0bbec99 (fetched 2026-07-04).
+ * Provenance: adapted from https://github.com/pcvelz/superpowers (the Claude-Code-native fork)
+ *   skills/writing-plans/SKILL.md + skills/shared/task-format-reference.md
+ *   @ 2a392d4b1ec35440116477528f7ff91772cda7a3 (fetched 2026-07-04).
  * Harvested: the zero-context-implementer stance, exact-file-path discipline, task right-sizing
- *   (smallest unit worth a reviewer's gate), the no-placeholders failure list, and the
- *   coverage/placeholder/type-consistency self-review. NOT harvested: the checkbox step format,
- *   commit choreography, and the executing-plans / subagent-driven-development handoff — the
- *   orchestrator's wave/verify gating owns execution (docs/narrative/08).
+ *   (smallest unit worth a reviewer's gate), the no-placeholders failure list, the
+ *   coverage/placeholder/type-consistency self-review, REQUIRED per-task verifyCommand +
+ *   operational acceptance criteria (each names an observable), the model-tier taxonomy
+ *   (mechanical | standard | frontier) for routing implementers, and user-gate detection (gate
+ *   nouns / ordering commitments / proof demands ⇒ userGate: true). NOT harvested: the checkbox
+ *   step format, commit choreography, native TaskCreate calls, and the executing-plans /
+ *   subagent-driven-development handoff — the orchestrator's wave/verify gating owns execution
+ *   (docs/narrative/08).
  *
  * Placeholder: {{spec}}.
  */
@@ -138,7 +159,17 @@ TASK GRAPH RULES
   what later tasks rely on — exact names, signatures, and types, since neighbors cannot see
   each other. Names and types used across tasks must match exactly.
 - Map every acceptance criterion to at least one task via acceptanceRefs; a criterion no task
-  covers is a spec-coverage failure.
+  covers is a spec-coverage failure. Criteria must be OPERATIONAL — each names an observable and
+  a pass/fail value, never "it works".
+- Assign each task a "modelTier": "mechanical" for bulk/rote edits any model gets right,
+  "standard" for ordinary implementation, "frontier" for subtle, design-heavy, or high-blast-
+  radius work. The swarm routes implementer capability by this field — under-tiering breaks the
+  build, over-tiering burns money.
+- Detect USER-THROWN GATES: if the spec's language commits to verification ordering ("verify on
+  one before the rest"), names a gate artifact ("smoke test", "acceptance test", "E2E"), or
+  demands proof ("prove it works", "demonstrate"), the covering task gets "userGate": true — it
+  must never be closed by walking around it. A bare verb like "check" or "validate" alone is NOT
+  a gate.
 - DRY. YAGNI. Test-first where the verifyCommand is a test.
 
 NO PLACEHOLDERS — these are plan failures, never write them:
@@ -152,4 +183,4 @@ SELF-REVIEW before responding: (1) spec coverage — every spec requirement poin
 names referenced across tasks match exactly. Fix issues inline, then respond.
 
 RESPONSE FORMAT — respond with EXACTLY ONE JSON object, no prose, no code fences:
-{"taskSeeds":[{"id":"<kebab-slug>","title":"...","description":"...","files":["exact/path.ts"],"dependsOn":["<earlier id>"],"verifyCommand":"<exact command>","acceptanceRefs":["<acceptance id>"]}]}`;
+{"taskSeeds":[{"id":"<kebab-slug>","title":"...","description":"...","files":["exact/path.ts"],"dependsOn":["<earlier id>"],"verifyCommand":"<exact command>","acceptanceRefs":["<acceptance id>"],"modelTier":"mechanical|standard|frontier","userGate":false}]}`;

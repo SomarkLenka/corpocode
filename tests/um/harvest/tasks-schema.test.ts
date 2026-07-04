@@ -159,3 +159,39 @@ describe("emitTasksFile", () => {
     expect(result.file.tasks).toEqual([]);
   });
 });
+
+// The pcvelz/superpowers NATIVE persistence shape (numeric ids, subject/blockedBy, json:metadata
+// fence inside the description) — the shape `--from-plan` actually receives from the plugin.
+import { parseNativePlanFile } from "../../../src/um/harvest/tasks-schema";
+
+describe("parseNativePlanFile", () => {
+  it("imports the native plan shape: fence metadata extracted, ids/blockedBy stringified", () => {
+    const file = parseNativePlanFile(fixture("valid-native-plan.tasks.json"))!;
+    expect(file.tasks).toHaveLength(3);
+    const [store, toggle, docs] = file.tasks;
+    expect(store).toMatchObject({
+      id: "0",
+      title: "Task 0: Theme store",
+      status: "completed",
+      files: ["src/theme/store.ts"],
+      verifyCommand: "npm test -- theme",
+      modelTier: "mechanical",
+    });
+    expect(toggle).toMatchObject({ id: "1", dependsOn: ["0"], userGate: true, tags: ["user-gate"] });
+    expect(toggle!.acceptanceCriteria).toEqual(["toggle flips data-theme attribute"]);
+    // A task with no fence still imports — metadata degrades to empty, never rejects the plan.
+    expect(docs).toMatchObject({ id: "2", files: [], acceptanceCriteria: [] });
+    expect(docs!.verifyCommand).toBeUndefined();
+  });
+
+  it("re-parses through the superset schema (the two shapes converge on one TasksFile)", () => {
+    const file = parseNativePlanFile(fixture("valid-native-plan.tasks.json"))!;
+    expect(parseTasksFile(file)).toEqual(file);
+  });
+
+  it("returns null for the flat superset shape and for junk (callers fall back explicitly)", () => {
+    expect(parseNativePlanFile(fixture("malformed.json"))).toBeNull();
+    expect(parseNativePlanFile({ tasks: [] })).toBeNull();
+    expect(parseNativePlanFile("nope")).toBeNull();
+  });
+});
