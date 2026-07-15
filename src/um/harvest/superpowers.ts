@@ -97,7 +97,22 @@ set "complete": true only when the section needs nothing more):
 
 "section" is always exactly one of: api-spec, capability-expansion, future-plans,
 parallelization, compartmentalization, scale-path, reusable-systems.
-A malformed response is a failed turn — emit the single JSON object and nothing else.`;
+A malformed response is a failed turn — emit the single JSON object and nothing else.
+
+ACCEPTANCE-CRITERIA RULES (EARS notation):
+- Every acceptance criterion MUST be a single EARS-shaped sentence:
+  "WHEN <condition or event> THE SYSTEM SHALL <expected behavior>"
+  (variants IF / WHILE / WHERE are allowed in place of WHEN).
+- Every criterion MUST be verifiable: prefer verify.method "command" with a concrete
+  command; use "manual" only when no command can exist.
+- Criterion ids are stable and referenced by task seeds (acceptanceRefs) — never renumber.
+
+NEVER GUESS:
+- When you are uncertain about a requirement, emit a fork move and ask — that is the
+  cockpit's whole purpose.
+- Only if a fork is impossible mid-content, embed the literal marker
+  "[NEEDS CLARIFICATION: <question>]" in the text. Unresolved markers hard-block the
+  build phase, so a fork is always the better move.`;
 
 /**
  * um-decompose-v0 — the approved-spec → task-graph prompt (consumed by Phase 2/3; vendored now so
