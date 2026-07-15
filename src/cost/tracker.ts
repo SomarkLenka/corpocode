@@ -9,6 +9,16 @@ export interface CostEvent {
   provider?: string;
   model?: string;
   costUsd: number;
+  // Orchestrator attribution (Phase 2): present on swarm-phase events only.
+  runId?: string;
+  waveId?: number;
+  taskId?: string;
+  attempt?: number;
+  role?: string; // "implement" | "review" | ...
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 }
 
 export interface CostTotals {
@@ -60,6 +70,38 @@ export function aggregateCosts(events: Iterable<CostEvent>): CostTotals {
     add(totals.byComponentProviderDay, `${component}|${provider}|${day}`, cost);
   }
   return totals;
+}
+
+export interface TaskCostRollup {
+  costUsd: number;
+  attempts: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}
+
+/** Per-task rollup for run reports; ignores events without a taskId. */
+export function aggregateByTask(events: Iterable<CostEvent>): Record<string, TaskCostRollup> {
+  const out: Record<string, TaskCostRollup> = {};
+  for (const e of events) {
+    if (!e.taskId) continue;
+    const r = (out[e.taskId] ??= {
+      costUsd: 0,
+      attempts: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    });
+    r.costUsd += e.costUsd;
+    r.attempts += 1;
+    r.inputTokens += e.inputTokens ?? 0;
+    r.outputTokens += e.outputTokens ?? 0;
+    r.cacheReadTokens += e.cacheReadTokens ?? 0;
+    r.cacheWriteTokens += e.cacheWriteTokens ?? 0;
+  }
+  return out;
 }
 
 export interface CostTracker {

@@ -96,9 +96,10 @@ src/
                                       #   fan-out, poll-synth, spec-schema, mastery, harvest/*
   interact/          (planned)        # Interactor seam: terminal / scripted / web (first
                                       #   interactive surface in the codebase)
-  orchestrator/      (planned)        # run state machine, decompose, swarm waves, workspace
-                                      #   (worktrees), watchdog, budget, verify (arbiter), land,
-                                      #   context — NEVER src/cockpit/
+  orchestrator/      (Phase 2 built)  # run, budget, context, decompose, waves, workspace (worktrees),
+                                      #   swarm (leases + caps), verify-mechanical, depgate, sanitize,
+                                      #   critic, land (merge-train), report — `corpocode build` entry.
+                                      #   verify (arbiter) still Phase 3. NEVER src/cockpit/
   session/  router/  retrieval/  filter/  verifier/  review/  molar/   # hook-mode caretaker teams
   docs/  git/  compactor/  loops/  toolbox/                            # housekeeping components
   providers/                          # Provider impls: anthropic, anthropic-cli (keyless),

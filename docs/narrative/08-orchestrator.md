@@ -105,6 +105,22 @@ On release builds, all of this is gated behind `corpocode init` onboarding — t
 the arbiter model, the poll granularity, and the budget before `start` will run (local
 testing: `--dev` / `CORPOCODE_DEV=1`).
 
+## Phase 2 status — what is built
+
+The execution layer between an approved spec and integrated code is built and tested:
+`corpocode build <runId>` takes a run from `specified` through **decompose** (self-contained
+task briefs with spec context inlined), **waves** (topological, file-overlap serialized),
+**workspace** (serialized worktree lifecycle, dirty-state-aware cleanup), **swarm** (crash-safe
+leases, resample-first attempts, budget and per-attempt/per-run wall-clock caps),
+**verify-mechanical** (checkpoint → dependency gate → the task's own verify command), **land**
+(sequential merge-train into `corpocode/<runId>/integration`, conflicts recycled as ordinary
+cheap-authored tasks), and **report** (`report.json`: completed %, $/task, token split,
+wall-clock). A fail-open planning **critic** advises before dispatch, and a context-ingress
+**sanitizer** redacts secrets and strips hidden Unicode at the single choke point into every
+brief. Everything here is cheap agents plus deterministic mechanics — the arbiter (the only
+strong-model role) is Phase 3, so the `verifying` phase is a mechanical gate for now, and landing
+the integration branch onto the user's branch stays Phase 4's explicit human poll.
+
 ## Hook mode: the assist channel
 
 The original hook channel keeps running unchanged beside the orchestrator — same abstractions,
