@@ -12,5 +12,9 @@ export default defineConfig({
     environment: "node",
     clearMocks: true,
     restoreMocks: true,
+    // A few suites shell out to real `git` subprocesses; on Windows under full-suite parallel
+    // load an individual case can cross the 5s default (it passes in isolation in ~1s). Raise the
+    // ceiling so the gate is deterministic — still low enough to catch a genuine hang.
+    testTimeout: 20_000,
   },
 });
