@@ -15,6 +15,8 @@ export interface RunReport {
   costPerCompletedTaskUsd: number | null;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
   wallClockMs: number;
   perTask: Record<string, TaskCostRollup>;
   halted?: string;
@@ -44,6 +46,8 @@ export function buildRunReport(opts: BuildReportOptions): RunReport {
     costPerCompletedTaskUsd: completed > 0 ? totalCostUsd / completed : null,
     inputTokens: opts.costEvents.reduce((sum, e) => sum + (e.inputTokens ?? 0), 0),
     outputTokens: opts.costEvents.reduce((sum, e) => sum + (e.outputTokens ?? 0), 0),
+    cacheReadTokens: opts.costEvents.reduce((sum, e) => sum + (e.cacheReadTokens ?? 0), 0),
+    cacheWriteTokens: opts.costEvents.reduce((sum, e) => sum + (e.cacheWriteTokens ?? 0), 0),
     wallClockMs: opts.wallClockMs,
     perTask: aggregateByTask(opts.costEvents),
     ...(opts.halted ? { halted: opts.halted } : {}),

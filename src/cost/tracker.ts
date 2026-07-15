@@ -17,6 +17,8 @@ export interface CostEvent {
   role?: string; // "implement" | "review" | ...
   inputTokens?: number;
   outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 }
 
 export interface CostTotals {
@@ -75,6 +77,8 @@ export interface TaskCostRollup {
   attempts: number;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
 }
 
 /** Per-task rollup for run reports; ignores events without a taskId. */
@@ -82,11 +86,20 @@ export function aggregateByTask(events: Iterable<CostEvent>): Record<string, Tas
   const out: Record<string, TaskCostRollup> = {};
   for (const e of events) {
     if (!e.taskId) continue;
-    const r = (out[e.taskId] ??= { costUsd: 0, attempts: 0, inputTokens: 0, outputTokens: 0 });
+    const r = (out[e.taskId] ??= {
+      costUsd: 0,
+      attempts: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    });
     r.costUsd += e.costUsd;
     r.attempts += 1;
     r.inputTokens += e.inputTokens ?? 0;
     r.outputTokens += e.outputTokens ?? 0;
+    r.cacheReadTokens += e.cacheReadTokens ?? 0;
+    r.cacheWriteTokens += e.cacheWriteTokens ?? 0;
   }
   return out;
 }
