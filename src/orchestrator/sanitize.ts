@@ -20,7 +20,7 @@ const SECRET_RULES: SecretRule[] = [
 
 // Zero-width chars, bidi controls, word joiners, BOM — escaped, never literal, so the
 // source file itself can't smuggle them.
-const HIDDEN_UNICODE = /[​-‏‪-‮⁠-⁤﻿]/g;
+const HIDDEN_UNICODE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g;
 
 export interface SanitizeResult {
   text: string;

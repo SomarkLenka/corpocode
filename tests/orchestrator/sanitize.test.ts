@@ -25,7 +25,7 @@ describe("sanitizeIngress", () => {
   });
 
   it("strips hidden/bidi Unicode and counts it", () => {
-    const r = sanitizeIngress("safe‮evil​ text"); // RLO override + zero-width space
+    const r = sanitizeIngress("safe\u202Eevil\u200B text"); // RLO override + zero-width space
     expect(r.strippedHiddenUnicode).toBe(2);
     expect(r.text).toBe("safeevil text");
   });
