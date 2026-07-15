@@ -7,6 +7,14 @@
 import { z } from "zod";
 import type { Spec } from "../spec-schema";
 
+export const taskBriefSchema = z.object({
+  objective: z.string(),
+  outputFormat: z.string(),
+  toolGuidance: z.string(),
+  boundaries: z.string(),
+});
+export type TaskBrief = z.infer<typeof taskBriefSchema>;
+
 const taskEntrySchema = z
   .object({
     id: z.string(),
@@ -22,6 +30,8 @@ const taskEntrySchema = z
     modelTier: z.string().optional(),
     budgetUsd: z.number().optional(),
     specRefs: z.array(z.string()).default([]),
+    brief: taskBriefSchema.optional(),
+    compiledContext: z.string().optional(),
   })
   .strip();
 

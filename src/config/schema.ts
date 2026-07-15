@@ -40,6 +40,7 @@ export const componentNameSchema = z.enum([
   "toolbox",
   "um",
   "arbiter",
+  "orchestrator",
 ]);
 export type ComponentName = z.infer<typeof componentNameSchema>;
 
@@ -251,7 +252,25 @@ export const configSchema = z
         swarm: z
           .object({
             max_parallel_writers: z.number().int().positive().default(3),
-            worktrees: z.boolean().default(true), // false ⇒ single-writer serial (the Phase-3 shipping config)
+            worktrees: z.boolean().default(true), // false ⇒ serial single-writer
+            /** Fresh attempts per task before it fails (resample-first; capped: verifier-quality bounds what fan-out buys). */
+            attempts_per_task: z.number().int().positive().max(5).default(2),
+            /** Hard wall-clock cap per implement attempt (watchdog kills past it). */
+            task_wallclock_ms: z.number().int().positive().default(600_000),
+            /** Hard wall-clock cap for the whole build phase of a run. */
+            run_wallclock_ms: z.number().int().positive().default(14_400_000), // 4h
+          })
+          .default({}),
+        depgate: z
+          .object({
+            enabled: z.boolean().default(true),
+            /** Online npm-registry 200/404 check; off by default (offline-deterministic). */
+            registry_check: z.boolean().default(false),
+          })
+          .default({}),
+        sanitize: z
+          .object({
+            enabled: z.boolean().default(true),
           })
           .default({}),
         verify: z
