@@ -3,6 +3,7 @@
 import { runHook } from "./hooks/dispatch";
 import { runInstallCommand, runProvisionCommand, runUninstallCommand } from "./commands/install";
 import { runStartCommand } from "./commands/start";
+import { runBuildCommand } from "./commands/build";
 import { runDoctorCommand } from "./commands/doctor";
 import { runStatsCommand } from "./commands/stats";
 import { runWhyCommand } from "./commands/why";
@@ -64,6 +65,9 @@ export async function runCli(argv: string[]): Promise<void> {
       return;
     case "start":
       await runStartCommand(rest);
+      return;
+    case "build":
+      await runBuildCommand(rest);
       return;
     case "init":
       runInitCommand(rest);

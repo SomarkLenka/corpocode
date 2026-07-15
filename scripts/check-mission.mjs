@@ -11,6 +11,10 @@ import { join, relative } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
 const SKIP_DIRS = new Set(["node_modules", ".git", ".corpocode", "bin"]);
+// Vendored-harvest and scratch trees quote retired phrases deliberately — a plan that instructs
+// "never write X unqualified", a research report citing an old claim. They are not the product-doc
+// drift surface this lint guards (PHILOSOPHY, narrative, adr, general, CLAUDE.md stay in scope).
+const SKIP_RELPATHS = new Set(["docs/superpowers", "docs/research"]);
 
 const RULES = [
   { re: /only writes code/i, why: "the swarm writes the code; the expensive model verifies only" },
@@ -34,6 +38,7 @@ function mdFiles(dir) {
   for (const entry of readdirSync(dir)) {
     if (SKIP_DIRS.has(entry)) continue;
     const p = join(dir, entry);
+    if (SKIP_RELPATHS.has(relative(ROOT, p).replace(/\\/g, "/"))) continue;
     const st = statSync(p);
     if (st.isDirectory()) out.push(...mdFiles(p));
     else if (p.endsWith(".md")) out.push(p);

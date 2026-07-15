@@ -9,6 +9,7 @@ export interface CommandDoc {
 
 export const COMMANDS: CommandDoc[] = [
   { name: "start", usage: 'start "<task>" [--answers <file>] [--yes] [--dev] [--resume <id>] [--list] [--status <id>]', summary: "Run the orchestrator: cockpit interrogation → spec + tasks artifacts" },
+  { name: "build", usage: "build <runId> [--dry-run] [--allow-incomplete] [--dev]", summary: "Run the implementation swarm for an approved spec: decompose → waves → worktrees → verify → integrate" },
   { name: "install", usage: "install [--platform <name>] [--all] [--dry-run] [--skip-backends] [--repair]", summary: "Register hooks into a coding-agent platform" },
   { name: "provision", usage: "provision [--repair]", summary: "Install/start backends (graphify, OpenViking)" },
   { name: "uninstall", usage: "uninstall [--purge]", summary: "Remove shims and config (optionally Python tools)" },
