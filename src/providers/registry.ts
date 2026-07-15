@@ -92,10 +92,10 @@ export function buildRegistry(
   };
 
   return {
-    forComponent: (name) => providerForKey(config.components[name]),
+    forComponent: (name) => providerForKey((config.components as Record<string, string>)[name] ?? "default"),
     all: () => [...new Set(Object.values(config.components))].map(providerForKey),
     availableFor: (name) => {
-      const cfg = config.providers[config.components[name]];
+      const cfg = config.providers[(config.components as Record<string, string>)[name] ?? "default"];
       return cfg ? isProviderLoaded(cfg) : false;
     },
   };

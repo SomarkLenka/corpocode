@@ -40,6 +40,7 @@ export const componentNameSchema = z.enum([
   "toolbox",
   "um",
   "arbiter",
+  "orchestrator",
 ]);
 export type ComponentName = z.infer<typeof componentNameSchema>;
 
