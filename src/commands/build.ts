@@ -41,7 +41,14 @@ export function parseBuildFlags(argv: string[]): BuildFlags {
 
 export async function runBuildCommand(argv: string[], env: NodeJS.ProcessEnv = process.env, cwd: string = process.cwd()): Promise<void> {
   const flags = parseBuildFlags(argv);
-  const config = loadConfig({ env });
+  let config: ReturnType<typeof loadConfig>;
+  try {
+    config = loadConfig({ env });
+  } catch (e) {
+    console.error(`config invalid: ${e instanceof Error ? e.message : String(e)}`);
+    process.exitCode = 1;
+    return;
+  }
   const dev = flags.dev || env.CORPOCODE_DEV === "1";
 
   if (!config.orchestrator.initialized && !dev) {
@@ -61,20 +68,37 @@ export async function runBuildCommand(argv: string[], env: NodeJS.ProcessEnv = p
     process.exitCode = 1;
     return;
   }
+  const BUILDABLE = ["specified", "planned", "building"] as const;
+  const isBuildable = (s: string): s is (typeof BUILDABLE)[number] => (BUILDABLE as readonly string[]).includes(s);
   if (run.status === "paused") {
+    // Resume restores run.resumeStatus. Validate it BEFORE advancing: advancing then rejecting
+    // would consume the pause (resumeStatus cleared and persisted) and strand the run in a
+    // non-buildable, non-paused state it could never be resumed from.
+    if (!run.resumeStatus || !isBuildable(run.resumeStatus)) {
+      console.error(`run ${run.id} is paused from "${run.resumeStatus ?? "unknown"}" — build cannot resume it.`);
+      process.exitCode = 1;
+      return;
+    }
     run = advance(run, { type: "resume" }, Date.now());
     saveRun(run, cwd, env);
   }
-  const BUILDABLE = ["specified", "planned", "building"] as const;
-  if (!BUILDABLE.includes(run.status as (typeof BUILDABLE)[number])) {
+  if (!isBuildable(run.status)) {
     console.error(`run ${run.id} is "${run.status}" — build needs an approved spec (specified/planned) or a resumable build.`);
     process.exitCode = 1;
     return;
   }
 
-  // ---- load artifacts ----
-  const spec = JSON.parse(readFileSync(runFile(run.id, "spec.json", cwd, env), "utf8"));
-  const tasksFile = JSON.parse(readFileSync(runFile(run.id, "tasks.json", cwd, env), "utf8"));
+  // ---- load artifacts (a "specified" run may predate tasks.json; fail clean, never crash) ----
+  let spec: any;
+  let tasksFile: any;
+  try {
+    spec = JSON.parse(readFileSync(runFile(run.id, "spec.json", cwd, env), "utf8"));
+    tasksFile = JSON.parse(readFileSync(runFile(run.id, "tasks.json", cwd, env), "utf8"));
+  } catch (e) {
+    console.error(`cannot read run artifacts (spec.json / tasks.json): ${e instanceof Error ? e.message : String(e)}`);
+    process.exitCode = 1;
+    return;
+  }
 
   // ---- completeness gate (Task 2) ----
   const completeness = checkSpecCompleteness(spec);
